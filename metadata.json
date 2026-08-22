@@ -1,0 +1,6 @@
+{
+  "name": "ColorLink - Pintuco",
+  "description": "Plataforma de transformación digital inteligente para gestión de proyectos, soluciones técnicas de pintura y recubrimientos Pintuco.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
