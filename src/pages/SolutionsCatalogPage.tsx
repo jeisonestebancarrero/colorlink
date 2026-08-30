@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { SolutionCatalogItem, SolutionCategory } from '../types';
-import { SOLUTIONS_CATALOG } from '../data/mockData';
+import { useSolutionsCatalog } from '../hooks/useCatalog';
+import { CatalogError, CatalogLoading } from '../components/common/CatalogState';
 import { Button } from '../components/common/Button';
 import { Modal } from '../components/common/Modal';
 import {
@@ -25,6 +26,9 @@ interface SolutionsCatalogPageProps {
 export const SolutionsCatalogPage: React.FC<SolutionsCatalogPageProps> = ({
   onNavigate,
 }) => {
+  // FASE 4 — sistemas técnicos desde Supabase (solutions con is_kit = false).
+  const { data: SOLUTIONS_CATALOG, isLoading, error, reload } = useSolutionsCatalog();
+
   const [selectedCategory, setSelectedCategory] = useState<string>('Todas');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedSolution, setSelectedSolution] = useState<SolutionCatalogItem | null>(null);
@@ -55,6 +59,10 @@ export const SolutionsCatalogPage: React.FC<SolutionsCatalogPageProps> = ({
     }
     return true;
   });
+
+  // FASE 4 — estados de carga y error (MÓDULO 37).
+  if (isLoading) return <CatalogLoading />;
+  if (error) return <CatalogError mensaje={error} onReintentar={reload} />;
 
   return (
     <div className="space-y-6 text-left pb-16">

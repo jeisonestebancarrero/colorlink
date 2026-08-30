@@ -12,10 +12,12 @@ import {
   X,
   Building2,
   ChevronDown,
-  Layers,
   HelpCircle,
   RotateCcw,
   ShoppingBag,
+  ShoppingCart,
+  Home,
+  ClipboardList,
   Palette,
   Package,
   Calculator,
@@ -28,7 +30,8 @@ import {
   Wrench,
   CheckCircle2,
 } from 'lucide-react';
-import { PINTUCO_PRODUCTS } from '../../data/storeMockData';
+import { useProducts } from '../../hooks/useCatalog';
+import { BrandLogo } from '../common/BrandLogo';
 
 interface NavbarProps {
   onOpenMobileMenu: () => void;
@@ -41,6 +44,10 @@ export const Navbar: React.FC<NavbarProps> = ({
   onNavigate,
   currentPage,
 }) => {
+  // FASE 4 — sugerencias del buscador desde Supabase. La caché del servicio
+  // deduplica esta consulta con la de la página que esté abierta.
+  const { data: PINTUCO_PRODUCTS } = useProducts();
+
   const { user, logout, loadDemoAccount } = useAuth();
   const {
     notifications,
@@ -126,7 +133,7 @@ export const Navbar: React.FC<NavbarProps> = ({
     queryLower.includes('pintulux');
 
   const mainNavItems = [
-    { id: 'dashboard', label: 'Inicio', icon: Layers },
+    { id: 'dashboard', label: 'Inicio', icon: Home },
     {
       id: 'store',
       label: 'Comprar Pinturas',
@@ -137,6 +144,7 @@ export const Navbar: React.FC<NavbarProps> = ({
     { id: 'solutions', label: 'Soluciones por Superficie', icon: Package, badge: 'Kits' },
     { id: 'calculator', label: 'Calculadora de Pintura', icon: Calculator },
     { id: 'projects', label: 'Mis Proyectos', icon: Building2 },
+    { id: 'orders', label: 'Mis Pedidos', icon: ClipboardList },
     { id: 'stores', label: 'Puntos de Retiro', icon: Store },
   ];
 
@@ -211,28 +219,10 @@ export const Navbar: React.FC<NavbarProps> = ({
               <Menu className="w-5 h-5" />
             </button>
 
-            {/* Pintuco Official Identity */}
-            <div
-              onClick={() => onNavigate('dashboard')}
-              className="flex items-center gap-3 cursor-pointer select-none group"
-            >
-              <div className="w-10 h-10 rounded-xl bg-linear-to-br from-[#004F9F] to-[#002D5C] flex items-center justify-center text-white shadow-md group-hover:scale-105 transition-transform font-black text-xl">
-                P
-              </div>
-              <div className="flex flex-col">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-xl font-black tracking-tight text-slate-900 leading-none">
-                    COLOR<span className="text-[#004F9F]">LINK</span>
-                  </span>
-                  <span className="text-[10px] font-black uppercase tracking-wider bg-yellow-400 text-slate-950 px-1.5 py-0.5 rounded shadow-2xs">
-                    PINTUCO
-                  </span>
-                </div>
-                <span className="text-[10px] text-slate-500 font-semibold tracking-tight">
-                  Tienda Oficial & Ecosistema Digital
-                </span>
-              </div>
-            </div>
+            {/* Identidad de marca. El logotipo oficial se configura desde
+                Administración → Configuración, o se deja en
+                assets/brand/pintuco-logo.svg. */}
+            <BrandLogo onClick={() => onNavigate('dashboard')} />
           </div>
 
           {/* Center: Intelligent Omnisearch with Intent Recognition */}
@@ -435,7 +425,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               className="relative bg-[#004F9F] hover:bg-[#003875] text-white px-3.5 py-2 rounded-xl transition-all flex items-center gap-2 cursor-pointer shadow-md shadow-[#004F9F]/20 font-bold text-xs"
               aria-label="Abrir Carrito"
             >
-              <ShoppingBag className="w-4 h-4" />
+              <ShoppingCart className="w-4 h-4" />
               <span className="hidden sm:inline">Carrito</span>
               {cartCount > 0 && (
                 <span className="bg-yellow-400 text-slate-950 text-[10px] font-black px-1.5 py-0.2 rounded-full">
@@ -519,14 +509,14 @@ export const Navbar: React.FC<NavbarProps> = ({
                 className="flex items-center gap-2 p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl hover:bg-slate-100 text-slate-700 transition-colors cursor-pointer border border-slate-200"
               >
                 <div className="w-7 h-7 rounded-lg bg-[#004F9F] text-white flex items-center justify-center text-xs font-extrabold">
-                  {user?.firstName?.[0] || 'C'}
+                  {user?.firstName?.[0] || 'I'}
                 </div>
                 <div className="hidden md:flex flex-col text-left">
                   <span className="text-xs font-bold text-slate-900 leading-tight">
-                    {user?.firstName || 'Carlos'} {user?.lastName?.[0] || 'M'}.
+                    {user?.firstName || 'Invitado'} {user?.lastName?.[0] ? `${user.lastName[0]}.` : ''}
                   </span>
                   <span className="text-[10px] text-slate-500 font-medium truncate max-w-[90px]">
-                    {user?.company || 'Constructora'}
+                    {user?.company || user?.clientType || 'Cuenta personal'}
                   </span>
                 </div>
                 <ChevronDown className="w-3.5 h-3.5 text-slate-400 hidden sm:block" />
@@ -540,7 +530,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     </p>
                     <p className="text-[11px] text-slate-500">{user?.email}</p>
                     <span className="inline-block mt-1 bg-blue-100 text-[#004F9F] text-[10px] font-bold px-2 py-0.5 rounded">
-                      Cuenta {user?.clientType || 'Constructor'}
+                      Cuenta {user?.clientType || 'Invitado'}
                     </span>
                   </div>
 

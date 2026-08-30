@@ -70,6 +70,16 @@ export interface ProjectPhoto {
   size: string;
   uploadDate: string;
   isPrimary?: boolean;
+  /**
+   * FASE 5: archivo original seleccionado por el usuario, necesario para
+   * subirlo a Supabase Storage. Solo existe entre que se elige la foto y
+   * que se guarda el proyecto; las fotos ya persistidas no lo traen.
+   * Opcional para no romper ningún consumidor existente.
+   */
+  file?: File;
+  /** Ruta en el bucket, para regenerar la URL firmada cuando expire. */
+  storagePath?: string;
+  description?: string;
 }
 
 export interface TimelineStep {
@@ -330,6 +340,8 @@ export interface SolutionKit {
 export interface PintucoStore {
   id: string;
   name: string;
+  /** Foto del local si Pintuco la cargó; si no, la aplicación usa la local. */
+  imageUrl?: string | null;
   city: string;
   address: string;
   phone: string;

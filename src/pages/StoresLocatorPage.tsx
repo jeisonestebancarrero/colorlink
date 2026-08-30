@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { useCart } from '../context/CartContext';
 import { useProjects } from '../context/ProjectContext';
-import { PINTUCO_STORES } from '../data/storeMockData';
+import { usePickupStores } from '../hooks/useCatalog';
+import { CatalogError, CatalogLoading } from '../components/common/CatalogState';
 import { PintucoStore } from '../types';
 import {
   Store,
@@ -18,12 +19,16 @@ import {
   Truck,
 } from 'lucide-react';
 import { Button } from '../components/common/Button';
+import { FotoPunto } from '../components/common/FotoPunto';
 
 interface StoresLocatorPageProps {
   onNavigate: (page: string, param?: string) => void;
 }
 
 export const StoresLocatorPage: React.FC<StoresLocatorPageProps> = ({ onNavigate }) => {
+  // FASE 4 — puntos de retiro desde Supabase (tabla pickup_locations).
+  const { data: PINTUCO_STORES, isLoading, error, reload } = usePickupStores();
+
   const { selectedStore, setSelectedStore, setIsCartOpen } = useCart();
   const { showToast } = useProjects();
 
@@ -46,6 +51,10 @@ export const StoresLocatorPage: React.FC<StoresLocatorPageProps> = ({ onNavigate
     setSelectedStore(st);
     showToast(`Tienda "${st.name}" seleccionada para retiro`, 'success');
   };
+
+  // FASE 4 — estados de carga y error (MÓDULO 37).
+  if (isLoading) return <CatalogLoading />;
+  if (error) return <CatalogError mensaje={error} onReintentar={reload} />;
 
   return (
     <div className="space-y-8 pb-16">
@@ -118,13 +127,20 @@ export const StoresLocatorPage: React.FC<StoresLocatorPageProps> = ({ onNavigate
               return (
                 <div
                   key={st.id}
-                  className={`p-5 rounded-2xl border transition-all ${
+                  className={`group rounded-2xl border overflow-hidden transition-all ${
                     isSelected
                       ? 'bg-blue-50/80 border-[#004F9F] ring-2 ring-blue-600 shadow-md'
                       : 'bg-white border-slate-200 hover:border-slate-300 hover:shadow-2xs'
                   }`}
                 >
-                  <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                  <FotoPunto
+                    referencia={st.id}
+                    urlRemota={st.imageUrl}
+                    ciudad={st.city}
+                    alto="h-32"
+                  />
+
+                  <div className="p-5 flex flex-col sm:flex-row sm:items-start justify-between gap-4">
                     <div className="space-y-2">
                       <div className="flex items-center gap-2">
                         <span className="text-[10px] font-bold uppercase bg-blue-100 text-[#004F9F] px-2 py-0.5 rounded">

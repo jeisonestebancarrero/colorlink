@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useCart } from '../context/CartContext';
 import { useProjects } from '../context/ProjectContext';
-import { PINTUCO_PRODUCTS } from '../data/storeMockData';
+import { useProducts } from '../hooks/useCatalog';
+import { calculatorService, type ResultadoCalculo } from '../services/commerce';
 import { StoreProduct } from '../types';
 import {
   SlidersHorizontal,
@@ -9,6 +10,7 @@ import {
   Layers,
   Sparkles,
   ShoppingBag,
+  ShoppingCart,
   Plus,
   Minus,
   CheckCircle2,
@@ -27,6 +29,10 @@ interface PaintCalculatorPageProps {
 export const PaintCalculatorPage: React.FC<PaintCalculatorPageProps> = ({ onNavigate }) => {
   const { addToCart } = useCart();
   const { showToast } = useProjects();
+  const { data: PINTUCO_PRODUCTS } = useProducts();
+
+  // FASE 7 — resultado calculado EN EL SERVIDOR.
+  const [resultado, setResultado] = useState<ResultadoCalculo | null>(null);
 
   // Mode: 'quick' or 'detailed'
   const [calcMode, setCalcMode] = useState<'quick' | 'detailed'>('quick');
@@ -64,23 +70,45 @@ export const PaintCalculatorPage: React.FC<PaintCalculatorPageProps> = ({ onNavi
   const surfaceFactor =
     surfaceType === 'nueva' ? 1.25 : surfaceType === 'porosa' ? 1.35 : 1.0;
 
-  // Total gallons needed: (Area * coats * factor) / spreadRate
-  const baseSpreadRate = selectedProduct.spreadRateM2PerGal || 22;
-  const totalGallonsRequired = Math.max(
-    0.25,
-    Math.round(((calculatedArea * (coats / 2) * surfaceFactor) / baseSpreadRate) * 10) / 10
-  );
+  /**
+   * FASE 7 — El cálculo se hace en el servidor (MÓDULO 14).
+   *
+   * Antes convivían DOS motores incompatibles: éste y el de
+   * generatePreliminaryAnalysis. Daban resultados distintos para la misma
+   * obra, y este además caía en `spreadRateM2PerGal || 22`, que asignaba en
+   * silencio el rendimiento de una pintura a una brocha.
+   * Ahora hay un único motor, calculate_paint, que lee rendimiento y precio
+   * de la base y rechaza los productos sin rendimiento.
+   */
+  const presentacionGalon =
+    selectedProduct?.presentations.find((p) => p.label.includes('1 Galón')) ||
+    selectedProduct?.presentations[0];
 
-  // Packaging optimization: 5 gallons = 1 cuñete
+  useEffect(() => {
+    if (!presentacionGalon || calculatedArea <= 0) return;
+    let vigente = true;
+    calculatorService
+      .calculate({
+        variantId: presentacionGalon.id,
+        areaM2: calculatedArea,
+        coats,
+        surfaceFactor,
+        wastePercent: 5,
+      })
+      .then((r) => { if (vigente) setResultado(r); })
+      .catch((e) => { if (vigente) { setResultado(null); console.error('[calculadora]', e); } });
+    return () => { vigente = false; };
+  }, [presentacionGalon?.id, calculatedArea, coats, surfaceFactor]);
+
+  const baseSpreadRate = resultado?.spreadRateM2PerGal ?? selectedProduct?.spreadRateM2PerGal ?? 0;
+  const totalGallonsRequired = resultado?.gallonsRequired ?? 0;
+
   const cuñetes5Gal = Math.floor(totalGallonsRequired / 5);
   const remainingGals = Math.ceil(totalGallonsRequired % 5);
 
   const cuñetePrice =
-    selectedProduct.presentations.find((p) => p.label.includes('Cuñete'))?.priceCOP ||
-    selectedProduct.presentations[0].priceCOP * 4.5;
-  const galonPrice =
-    selectedProduct.presentations.find((p) => p.label.includes('1 Galón'))?.priceCOP ||
-    selectedProduct.presentations[0].priceCOP;
+    selectedProduct?.presentations.find((p) => p.label.includes('Cuñete'))?.priceCOP ?? 0;
+  const galonPrice = presentacionGalon?.priceCOP ?? 0;
 
   const estimatedTotalCOP = cuñetes5Gal * cuñetePrice + remainingGals * galonPrice;
 
@@ -91,6 +119,14 @@ export const PaintCalculatorPage: React.FC<PaintCalculatorPageProps> = ({ onNavi
       maximumFractionDigits: 0,
     }).format(num);
   };
+
+  if (!selectedProduct) {
+    return (
+      <div className="flex items-center justify-center py-24">
+        <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   const handleAddToCart = () => {
     if (cuñetes5Gal > 0) {
@@ -419,7 +455,7 @@ export const PaintCalculatorPage: React.FC<PaintCalculatorPageProps> = ({ onNavi
                 variant="primary"
                 className="w-full bg-yellow-400 hover:bg-yellow-300 text-slate-950 text-xs font-extrabold py-3 shadow-md flex items-center justify-center gap-2 cursor-pointer"
               >
-                <ShoppingBag className="w-4 h-4" />
+                <ShoppingCart className="w-4 h-4" />
                 <span>Agregar Materiales al Carrito</span>
               </Button>
 

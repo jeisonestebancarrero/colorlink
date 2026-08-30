@@ -276,14 +276,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <div className="p-3 border-t border-blue-900/60 bg-[#00172e] flex items-center justify-between">
           <div className="flex items-center gap-2 min-w-0">
             <div className="w-7 h-7 rounded-lg bg-[#004F9F] text-white flex items-center justify-center font-bold text-xs shrink-0">
-              {user?.firstName?.charAt(0) || 'C'}
+              {user?.firstName?.charAt(0) || 'I'}
             </div>
             <div className="min-w-0">
               <p className="text-xs font-bold text-white truncate">
                 {user?.firstName} {user?.lastName}
               </p>
               <p className="text-[10px] text-blue-300 truncate">
-                {user?.company || 'Cliente Pintuco'}
+                {user?.company || user?.clientType || 'Cuenta personal'}
               </p>
             </div>
           </div>

@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { useCart } from '../../context/CartContext';
-import { PINTUCO_STORES } from '../../data/storeMockData';
+import { useAuth } from '../../context/AuthContext';
+import { usePickupStores } from '../../hooks/useCatalog';
 import {
   X,
-  ShoppingBag,
+  ShoppingCart,
   Trash2,
   Plus,
   Minus,
@@ -22,8 +23,14 @@ import {
   ChevronDown,
 } from 'lucide-react';
 import { Button } from '../common/Button';
+import { PagoModal } from './PagoModal';
+import { CotizacionFormal } from './CotizacionFormal';
 
 export const CartDrawer: React.FC = () => {
+  // FASE 4 — puntos de retiro desde Supabase. La lógica del carrito y del
+  // pedido sigue en CartContext hasta las FASES 8 y 9.
+  const { data: PINTUCO_STORES } = usePickupStores();
+
   const {
     cartItems,
     cartCount,
@@ -49,7 +56,11 @@ export const CartDrawer: React.FC = () => {
     setIsCheckoutSuccessOpen,
     lastOrderNumber,
     completeCheckout,
+    pedidoPorPagar,
+    ultimoPedidoPagado,
+    cerrarPago,
   } = useCart();
+  const { user } = useAuth();
 
   const [isGeneratingQuote, setIsGeneratingQuote] = useState(false);
   const [showStoreDropdown, setShowStoreDropdown] = useState(false);
@@ -62,18 +73,37 @@ export const CartDrawer: React.FC = () => {
     }).format(num);
   };
 
-  const handleDownloadQuote = () => {
-    setIsGeneratingQuote(true);
-    setTimeout(() => {
-      setIsGeneratingQuote(false);
-      window.print();
-    }, 600);
-  };
+  // Antes esto llamaba a window.print() sobre la tienda entera y salía la
+  // barra de navegación y el catálogo. Ahora abre un documento de cotización
+  // de verdad, con emisor, NIT, IVA discriminado, vigencia y condiciones.
+  const handleDownloadQuote = () => setIsGeneratingQuote(true);
 
-  if (!isCartOpen && !isCheckoutSuccessOpen) return null;
+  if (!isCartOpen && !isCheckoutSuccessOpen && !pedidoPorPagar) return null;
 
   return (
     <>
+      {isGeneratingQuote && (
+        <CotizacionFormal
+          items={cartItems}
+          subtotal={subtotalCOP}
+          descuento={discountCOP}
+          total={totalCOP}
+          onCerrar={() => setIsGeneratingQuote(false)}
+        />
+      )}
+
+      {/* El pago se abre apenas el pedido queda creado: sin cobro el pedido no
+          se alista, así que confirmarlo sin pagar no significaría nada. */}
+      {pedidoPorPagar && (
+        <PagoModal
+          orderId={pedidoPorPagar.id}
+          orderNumber={pedidoPorPagar.numero}
+          total={pedidoPorPagar.total}
+          onListo={(pagado) => cerrarPago(pagado)}
+          onCerrar={() => cerrarPago(false)}
+        />
+      )}
+
       {/* Cart Drawer Backdrop */}
       {isCartOpen && (
         <div className="fixed inset-0 z-50 overflow-hidden bg-slate-900/60 backdrop-blur-xs transition-opacity animate-in fade-in">
@@ -85,7 +115,7 @@ export const CartDrawer: React.FC = () => {
               <div className="px-5 py-4 bg-[#004F9F] text-white flex items-center justify-between shadow-xs">
                 <div className="flex items-center gap-2.5">
                   <div className="w-9 h-9 rounded-lg bg-white/15 flex items-center justify-center">
-                    <ShoppingBag className="w-5 h-5 text-white" />
+                    <ShoppingCart className="w-5 h-5 text-white" />
                   </div>
                   <div>
                     <h2 className="text-base font-bold tracking-tight">
@@ -110,7 +140,7 @@ export const CartDrawer: React.FC = () => {
                 {cartItems.length === 0 ? (
                   <div className="py-16 text-center space-y-4">
                     <div className="w-16 h-16 bg-blue-50 text-[#004F9F] rounded-full flex items-center justify-center mx-auto">
-                      <ShoppingBag className="w-8 h-8 stroke-[1.5]" />
+                      <ShoppingCart className="w-8 h-8 stroke-[1.5]" />
                     </div>
                     <div className="space-y-1">
                       <p className="text-base font-bold text-slate-800">
@@ -385,11 +415,10 @@ export const CartDrawer: React.FC = () => {
                     <Button
                       onClick={handleDownloadQuote}
                       variant="outline"
-                      disabled={isGeneratingQuote}
                       className="text-xs font-bold border-slate-300 text-slate-700 flex items-center justify-center gap-1.5"
                     >
                       <Printer className="w-3.5 h-3.5 text-slate-500" />
-                      <span>{isGeneratingQuote ? 'Preparando...' : 'Cotización Formal'}</span>
+                      <span>Cotización formal</span>
                     </Button>
                     <Button
                       onClick={completeCheckout}
@@ -411,19 +440,48 @@ export const CartDrawer: React.FC = () => {
       {isCheckoutSuccessOpen && (
         <div className="fixed inset-0 z-60 overflow-y-auto bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 text-center space-y-4 animate-in zoom-in-95 duration-200">
-            <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto shadow-inner">
-              <CheckCircle2 className="w-10 h-10" />
+            {/* El estado del pedido depende del cobro, no de haber llegado a
+                esta pantalla: cerrar la ventana de pago dejaba antes un
+                "registrada con éxito" sobre un pedido que nadie pagó. */}
+            <div
+              className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto shadow-inner ${
+                ultimoPedidoPagado
+                  ? 'bg-emerald-100 text-emerald-600'
+                  : 'bg-amber-100 text-amber-600'
+              }`}
+            >
+              {ultimoPedidoPagado ? (
+                <CheckCircle2 className="w-10 h-10" />
+              ) : (
+                <Clock className="w-10 h-10" />
+              )}
             </div>
 
             <div className="space-y-1">
-              <span className="text-xs font-bold uppercase tracking-wider text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
-                ¡Orden Registrada con Éxito!
+              <span
+                className={`text-xs font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full border ${
+                  ultimoPedidoPagado
+                    ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
+                    : 'text-amber-800 bg-amber-50 border-amber-200'
+                }`}
+              >
+                {ultimoPedidoPagado ? '¡Pedido confirmado!' : 'Pendiente de pago'}
               </span>
               <h3 className="text-xl font-extrabold text-slate-900">
                 Orden #{lastOrderNumber}
               </h3>
-              <p className="text-xs text-slate-600">
-                Hemos notificado a la tienda <strong>{selectedStore.name}</strong> y a tu asesor técnico Pintuco asignado.
+              <p className="text-xs text-slate-600 leading-relaxed">
+                {ultimoPedidoPagado ? (
+                  <>
+                    Notificamos a <strong>{selectedStore.name}</strong> para que empiece el
+                    alistamiento. Te avisamos por correo en cada paso.
+                  </>
+                ) : (
+                  <>
+                    Tu pedido quedó guardado, pero <strong>no se alista hasta que lo pagues</strong>.
+                    Puedes completar el pago cuando quieras desde <strong>Mis Pedidos</strong>.
+                  </>
+                )}
               </p>
             </div>
 
@@ -431,7 +489,10 @@ export const CartDrawer: React.FC = () => {
             <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 text-left space-y-2 text-xs">
               <div className="flex justify-between">
                 <span className="text-slate-500">Cliente:</span>
-                <strong className="text-slate-800">Carlos Mendoza (Constructora Horizonte)</strong>
+                <strong className="text-slate-800">
+                  {`${user?.firstName ?? ''} ${user?.lastName ?? ''}`.trim() || 'Cliente'}
+                  {user?.company ? ` (${user.company})` : ''}
+                </strong>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-500">Modalidad:</span>

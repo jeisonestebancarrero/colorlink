@@ -12,6 +12,7 @@ import {
   ChevronRight,
   Play,
   ShoppingBag,
+  ShoppingCart,
   Palette,
   Package,
   Calculator,
@@ -27,17 +28,22 @@ import {
 import { Button } from '../components/common/Button';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
-import {
-  PINTUCO_PRODUCTS,
-  PINTUCO_SOLUTION_KITS,
-  PINTUCO_COLOR_PALETTES,
-} from '../data/storeMockData';
+import { useColorPalette, useProducts, useSolutionKits } from '../hooks/useCatalog';
+import logoPintuco from '../../assets/brand/pintuco-logo.jpeg';
 
 interface LandingPageProps {
   onNavigate: (page: string, param?: string) => void;
 }
 
 export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
+  // FASE 4 — catálogo desde Supabase.
+  // Sin guarda de carga: la landing es una página de marketing con secciones
+  // propias; mientras llegan los datos las rejillas se pintan vacías y se
+  // rellenan solas. Bloquear la página entera sería un cambio de experiencia.
+  const { data: PINTUCO_PRODUCTS } = useProducts();
+  const { data: PINTUCO_SOLUTION_KITS } = useSolutionKits();
+  const { data: PINTUCO_COLOR_PALETTES } = useColorPalette();
+
   const { loadDemoAccount } = useAuth();
   const { addToCart, selectedStore } = useCart();
   const [heroSearch, setHeroSearch] = useState('');
@@ -148,8 +154,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
             onClick={() => onNavigate('landing')}
             className="flex items-center gap-3 cursor-pointer select-none group"
           >
-            <div className="w-10 h-10 rounded-xl bg-linear-to-br from-[#004F9F] to-[#002D5C] flex items-center justify-center text-white font-black text-xl shadow-md group-hover:scale-105 transition-transform">
-              P
+            {/* Logotipo oficial. Su fondo azul propio se enmarca en el mismo
+                azul para que no quede un recorte flotando sobre el blanco. */}
+            <div className="w-10 h-10 rounded-xl bg-[#002D5C] flex items-center justify-center overflow-hidden shadow-md group-hover:scale-105 transition-transform shrink-0">
+              <img src={logoPintuco} alt="Pintuco" className="w-full h-full object-contain p-0.5" />
             </div>
             <div>
               <div className="flex items-center gap-1.5">
@@ -562,7 +570,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
                         }}
                         className="bg-[#004F9F] hover:bg-[#003875] text-white px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
                       >
-                        <ShoppingBag className="w-3.5 h-3.5" />
+                        <ShoppingCart className="w-3.5 h-3.5" />
                         <span>Comprar</span>
                       </button>
                     </div>

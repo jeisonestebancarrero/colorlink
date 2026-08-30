@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { useCart } from '../context/CartContext';
 import { useProjects } from '../context/ProjectContext';
-import { PINTUCO_COLOR_PALETTES, PINTUCO_PRODUCTS } from '../data/storeMockData';
+import { useColorPalette, useProducts } from '../hooks/useCatalog';
+import { CatalogError, CatalogLoading } from '../components/common/CatalogState';
+import { SimuladorAmbiente } from '../components/common/SimuladorAmbiente';
 import { ColorSwatch } from '../types';
 import {
   Palette,
@@ -9,6 +11,7 @@ import {
   Check,
   Sparkles,
   ShoppingBag,
+  ShoppingCart,
   Home,
   Building,
   Layers,
@@ -26,12 +29,34 @@ interface ColorVisualizerPageProps {
 }
 
 export const ColorVisualizerPage: React.FC<ColorVisualizerPageProps> = ({ onNavigate }) => {
+  // FASE 4 — carta de color y productos desde Supabase.
+  const { data: PINTUCO_COLOR_PALETTES, isLoading: cargandoColores, error: errorColores, reload } =
+    useColorPalette();
+  const { data: PINTUCO_PRODUCTS, isLoading: cargandoProductos } = useProducts();
+  const isLoading = cargandoColores || cargandoProductos;
+  const error = errorColores;
+
   const { addToCart } = useCart();
   const { showToast, activeProject } = useProjects();
 
   const [selectedFamily, setSelectedFamily] = useState<string>('Blancos & Neutros');
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const [selectedColor, setSelectedColor] = useState<ColorSwatch>(PINTUCO_COLOR_PALETTES[1]); // Blanco Nieve
+  /**
+   * CORRECCIÓN: el estado inicial no puede leer del catálogo.
+   *
+   * El inicializador de useState corre UNA sola vez, en el primer render,
+   * cuando la carta de color todavía está vacía porque llega por red. El
+   * valor quedaba en `undefined` para siempre y la página se caía en blanco
+   * al pintar `selectedColor.hex`.
+   *
+   * Ahora el estado guarda solo la elección explícita del usuario y el color
+   * mostrado se deriva en cada render, con respaldo al primer color de la
+   * carta mientras no haya elegido ninguno.
+   */
+  const [colorElegido, setColorElegido] = useState<ColorSwatch | null>(null);
+  const selectedColor =
+    colorElegido ?? PINTUCO_COLOR_PALETTES[1] ?? PINTUCO_COLOR_PALETTES[0];
+  const setSelectedColor = setColorElegido;
   const [selectedRoom, setSelectedRoom] = useState<'facade' | 'living' | 'bedroom' | 'office'>('facade');
   const [copiedCode, setCopiedCode] = useState<boolean>(false);
 
@@ -74,33 +99,43 @@ export const ColorVisualizerPage: React.FC<ColorVisualizerPageProps> = ({ onNavi
       id: 'facade',
       name: 'Fachada Exterior',
       subtitle: 'Concreto y revoque a la intemperie (Koraza 5 Años)',
-      baseImage: 'https://images.unsplash.com/photo-1590381105924-c72589b9ef3f?auto=format&fit=crop&q=80&w=1000',
       icon: Building,
     },
     {
       id: 'living',
       name: 'Sala & Muro Focal',
       subtitle: 'Interior luz natural (Viniltex Avanzada)',
-      baseImage: 'https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?auto=format&fit=crop&q=80&w=1000',
       icon: Home,
     },
     {
       id: 'bedroom',
       name: 'Habitación Principal',
       subtitle: 'Ambiente de descanso y calidez',
-      baseImage: 'https://images.unsplash.com/photo-1595526114035-0d45ed16cfbf?auto=format&fit=crop&q=80&w=1000',
       icon: Layers,
     },
     {
       id: 'office',
       name: 'Oficina / Comercial',
       subtitle: 'Espacios de trabajo modernos',
-      baseImage: 'https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&q=80&w=1000',
       icon: Palette,
     },
   ];
 
   const currentRoomObj = roomEnvironments.find((r) => r.id === selectedRoom) || roomEnvironments[0];
+
+  // FASE 4 — estados de carga y error (MÓDULO 37).
+  if (isLoading) return <CatalogLoading />;
+  if (error) return <CatalogError mensaje={error} onReintentar={reload} />;
+  // Sin colores no hay nada que visualizar: se evita el render en vez de
+  // dejar que reviente al leer una propiedad de undefined.
+  if (!selectedColor) {
+    return (
+      <CatalogError
+        mensaje="La carta de color no está disponible en este momento."
+        onReintentar={reload}
+      />
+    );
+  }
 
   return (
     <div className="space-y-8 pb-16">
@@ -171,26 +206,10 @@ export const ColorVisualizerPage: React.FC<ColorVisualizerPageProps> = ({ onNavi
 
             {/* Room Canvas Simulation */}
             <div className="relative h-80 sm:h-96 rounded-xl overflow-hidden border border-slate-200 shadow-inner group">
-              {/* Background Photo */}
-              <img
-                src={currentRoomObj.baseImage}
-                alt={currentRoomObj.name}
-                className="w-full h-full object-cover"
-              />
-
-              {/* Dynamic Color Tint Blend Overlay on wall */}
-              <div
-                className="absolute inset-0 transition-all duration-500 pointer-events-none mix-blend-multiply opacity-75"
-                style={{
-                  backgroundColor: selectedColor.hex,
-                }}
-              />
-              <div
-                className="absolute inset-0 transition-all duration-500 pointer-events-none mix-blend-color opacity-50"
-                style={{
-                  backgroundColor: selectedColor.hex,
-                }}
-              />
+              {/* La escena se dibuja en SVG: así el color entra solo en el
+                  muro y no vira la fotografía entera, que era lo que pasaba
+                  al teñir con mix-blend sobre una foto de archivo. */}
+              <SimuladorAmbiente ambiente={currentRoomObj.id} color={selectedColor.hex} />
 
               {/* Ambient Info Floating Badge */}
               <div className="absolute top-4 left-4 bg-slate-900/80 backdrop-blur-md text-white px-3 py-2 rounded-xl shadow-lg border border-white/15 flex items-center gap-3">
@@ -246,7 +265,7 @@ export const ColorVisualizerPage: React.FC<ColorVisualizerPageProps> = ({ onNavi
                   variant="primary"
                   className="bg-[#004F9F] text-xs font-bold flex-1 sm:flex-initial flex items-center justify-center gap-1.5 shadow-xs"
                 >
-                  <ShoppingBag className="w-3.5 h-3.5" />
+                  <ShoppingCart className="w-3.5 h-3.5" />
                   <span>Comprar Pintura</span>
                 </Button>
               </div>

@@ -2,11 +2,12 @@ import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useProjects } from '../context/ProjectContext';
 import { useCart } from '../context/CartContext';
-import { PINTUCO_PRODUCTS, PINTUCO_SOLUTION_KITS, PINTUCO_COLOR_PALETTES } from '../data/storeMockData';
+import { useColorPalette, useProducts, useSolutionKits } from '../hooks/useCatalog';
 import { StatusBadge } from '../components/common/Badge';
 import { Button } from '../components/common/Button';
 import {
   ShoppingBag,
+  ShoppingCart,
   Palette,
   Package,
   Calculator,
@@ -32,17 +33,21 @@ interface DashboardPageProps {
 }
 
 export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
+  // FASE 4 — bloques de catálogo del panel desde Supabase. Los proyectos
+  // siguen viniendo de ProjectContext hasta la FASE 5.
+  const { data: PINTUCO_PRODUCTS } = useProducts();
+  const { data: PINTUCO_SOLUTION_KITS } = useSolutionKits();
+  const { data: PINTUCO_COLOR_PALETTES } = useColorPalette();
+
   const { user } = useAuth();
   const { projects, activeProject, setActiveProjectId } = useProjects();
   const { addToCart, setIsCartOpen } = useCart();
 
   const [selectedProblemTab, setSelectedProblemTab] = useState<string>('fachada');
 
-  // Priority active project (Constructora Horizonte 85 m2)
-  const currentProject =
-    activeProject ||
-    projects.find((p) => p.id === 'proj-horiz-001') ||
-    projects[0];
+  // Proyecto activo. FASE 5: se retiró el fallback al id de dato mock
+  // 'proj-horiz-001', que con proyectos reales nunca coincide.
+  const currentProject = activeProject || projects[0];
 
   const formatCOP = (num: number) => {
     return new Intl.NumberFormat('es-CO', {
@@ -475,7 +480,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
                       className="bg-[#004F9F] hover:bg-[#003B77] text-white p-2 rounded-lg transition-colors cursor-pointer shadow-xs"
                       title="Agregar al carrito"
                     >
-                      <ShoppingBag className="w-4 h-4" />
+                      <ShoppingCart className="w-4 h-4" />
                     </button>
                   </div>
                 </div>

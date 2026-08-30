@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
 import { useCart } from '../context/CartContext';
 import { useProjects } from '../context/ProjectContext';
-import { PINTUCO_SOLUTION_KITS } from '../data/storeMockData';
+import { useSolutionKits } from '../hooks/useCatalog';
+import { CatalogError, CatalogLoading } from '../components/common/CatalogState';
 import { SolutionKit } from '../types';
 import {
   Package,
   ShieldCheck,
   Sparkles,
   ShoppingBag,
+  ShoppingCart,
   CheckCircle2,
   AlertCircle,
   Layers,
@@ -26,10 +28,22 @@ interface SolutionKitsPageProps {
 }
 
 export const SolutionKitsPage: React.FC<SolutionKitsPageProps> = ({ onNavigate }) => {
+  // FASE 4 — kits y sus pasos desde Supabase. El precio de cada paso se lee
+  // de la variante real del producto, no de una copia guardada en el kit.
+  const { data: PINTUCO_SOLUTION_KITS, isLoading, error, reload } = useSolutionKits();
+
   const { addKitToCart } = useCart();
   const { activeProject, setActiveProjectId, showToast } = useProjects();
 
-  const [selectedKitId, setSelectedKitId] = useState<string>(PINTUCO_SOLUTION_KITS[0].id);
+  /**
+   * CORRECCIÓN: mismo problema que en el visualizador de color, pero peor.
+   * `PINTUCO_SOLUTION_KITS[0].id` se evaluaba en el primer render, cuando el
+   * array aún está vacío, y lanzaba al leer `.id` de undefined: la página no
+   * llegaba a pintarse nunca.
+   */
+  const [kitElegidoId, setKitElegidoId] = useState<string | null>(null);
+  const selectedKitId = kitElegidoId ?? PINTUCO_SOLUTION_KITS[0]?.id ?? '';
+  const setSelectedKitId = setKitElegidoId;
   const [areaM2, setAreaM2] = useState<number>(85); // Default to Horizonte 85 m2
 
   const activeKit =
@@ -37,12 +51,20 @@ export const SolutionKitsPage: React.FC<SolutionKitsPageProps> = ({ onNavigate }
 
   const multiplier = Math.max(0.5, Math.round((areaM2 / 85) * 10) / 10);
 
-  const calculateKitSubtotal = (kit: SolutionKit) => {
+  /**
+   * Estos cálculos se ejecutan en CADA render, incluido el primero, cuando
+   * el catálogo todavía viene en camino y `activeKit` es undefined. La
+   * guarda de carga está más abajo, junto al return, así que no los protege:
+   * por eso toleran explícitamente la ausencia de kit en lugar de confiar
+   * en que nunca ocurra.
+   */
+  const calculateKitSubtotal = (kit?: SolutionKit) => {
+    if (!kit) return 0;
     return kit.steps.reduce((sum, step) => sum + step.unitPriceCOP * step.quantityFor85m2 * multiplier, 0);
   };
 
   const kitSubtotal = calculateKitSubtotal(activeKit);
-  const kitDiscount = Math.round(kitSubtotal * (activeKit.discountPercent / 100));
+  const kitDiscount = activeKit ? Math.round(kitSubtotal * (activeKit.discountPercent / 100)) : 0;
   const kitTotal = kitSubtotal - kitDiscount;
 
   const formatCOP = (num: number) => {
@@ -54,6 +76,7 @@ export const SolutionKitsPage: React.FC<SolutionKitsPageProps> = ({ onNavigate }
   };
 
   const handleAddFullKitToCart = () => {
+    if (!activeKit) return;
     addKitToCart(activeKit, multiplier);
     showToast(`¡${activeKit.name} agregado al carrito con descuento de paquete!`, 'success');
   };
@@ -66,6 +89,18 @@ export const SolutionKitsPage: React.FC<SolutionKitsPageProps> = ({ onNavigate }
       onNavigate('create-project');
     }
   };
+
+  // FASE 4 — estados de carga y error (MÓDULO 37).
+  if (isLoading) return <CatalogLoading />;
+  if (error) return <CatalogError mensaje={error} onReintentar={reload} />;
+  if (PINTUCO_SOLUTION_KITS.length === 0 || !activeKit) {
+    return (
+      <CatalogError
+        mensaje="No hay kits de solución disponibles en este momento."
+        onReintentar={reload}
+      />
+    );
+  }
 
   return (
     <div className="space-y-8 pb-16">
@@ -283,7 +318,7 @@ export const SolutionKitsPage: React.FC<SolutionKitsPageProps> = ({ onNavigate }
               variant="primary"
               className="bg-yellow-400 hover:bg-yellow-300 text-slate-950 text-xs font-extrabold px-6 py-2.5 shadow-md flex items-center justify-center gap-2 cursor-pointer flex-1 md:flex-initial"
             >
-              <ShoppingBag className="w-4 h-4" />
+              <ShoppingCart className="w-4 h-4" />
               <span>Comprar Kit Completo (-{activeKit.discountPercent}%)</span>
             </Button>
           </div>

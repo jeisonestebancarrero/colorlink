@@ -1,43 +1,73 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { authService } from '../services/api';
 import { Input } from '../components/common/Input';
 import { Button } from '../components/common/Button';
-import { Modal } from '../components/common/Modal';
+import { BrandLogo } from '../components/common/BrandLogo';
+import { GoogleButton, SeparadorAcceso } from '../components/common/GoogleButton';
+import { RecuperarPasswordModal } from '../components/common/RecuperarPasswordModal';
 import {
-  Layers,
   Mail,
   Lock,
+  ArrowLeft,
   ArrowRight,
-  Sparkles,
-  ShieldCheck,
-  Building2,
-  CheckCircle2,
+  PackageCheck,
+  Palette,
+  Calculator,
 } from 'lucide-react';
 
 interface LoginPageProps {
   onNavigate: (page: string, param?: string) => void;
 }
 
-export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
-  const { login, loadDemoAccount, isLoading } = useAuth();
+/** Lo que la cuenta habilita. Es el motivo real para iniciar sesión. */
+const VENTAJAS = [
+  {
+    icono: PackageCheck,
+    titulo: 'Tus pedidos y su rastreo',
+    texto: 'Sigue cada despacho en el mapa y guarda tus facturas en un solo lugar.',
+  },
+  {
+    icono: Palette,
+    titulo: 'Tus colores guardados',
+    texto: 'Las paletas que simulaste quedan asociadas a cada proyecto.',
+  },
+  {
+    icono: Calculator,
+    titulo: 'Cálculos por obra',
+    texto: 'Galones y rendimiento por metraje, con acompañamiento técnico de Pintuco.',
+  },
+];
 
-  const [email, setEmail] = useState('carlos.mendoza@constructorahorizonte.com');
-  const [password, setPassword] = useState('pintuco2025*');
+export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
+  const { login, loginWithGoogle, isSubmitting } = useAuth();
+
+  // Los campos van vacíos. Traían las credenciales de la cuenta demo escritas,
+  // lo que en un sistema que va a producción es entregar una contraseña real
+  // a cualquiera que abra la pantalla de ingreso.
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(true);
   const [error, setError] = useState('');
-  const [showForgotModal, setShowForgotModal] = useState(false);
-  const [forgotEmail, setForgotEmail] = useState('');
-  const [forgotSent, setForgotSent] = useState(false);
+  const [recuperando, setRecuperando] = useState(false);
+  // Un botón que lleva a una página de error no debería estar en pantalla.
+  const [conGoogle, setConGoogle] = useState(false);
+
+  useEffect(() => {
+    authService
+      .proveedoresHabilitados()
+      .then((p) => setConGoogle(p.google === true))
+      .catch(() => setConGoogle(false));
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
     if (!email.trim()) {
-      setError('Por favor ingresa tu correo electrónico corporativo');
+      setError('Por favor ingresa tu correo electrónico');
       return;
     }
-
     if (!password.trim()) {
       setError('Por favor ingresa tu contraseña');
       return;
@@ -47,71 +77,123 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
       await login(email, password);
       onNavigate('dashboard');
     } catch (err) {
-      setError('Credenciales inválidas. Por favor verifica tus datos.');
+      setError(
+        err instanceof Error ? err.message : 'Credenciales inválidas. Por favor verifica tus datos.',
+      );
     }
   };
 
-  const handleDemoLogin = async () => {
-    await loadDemoAccount();
-    onNavigate('dashboard');
-  };
-
-  const handleForgotSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (forgotEmail.trim()) {
-      setForgotSent(true);
-      setTimeout(() => {
-        setForgotSent(false);
-        setShowForgotModal(false);
-      }, 3000);
+  const handleGoogleLogin = async () => {
+    setError('');
+    try {
+      await loginWithGoogle();
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : 'No fue posible continuar con Google. Inténtalo de nuevo.',
+      );
     }
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
-      {/* Brand Top */}
-      <div className="sm:mx-auto sm:w-full sm:max-w-md text-center">
+    <div className="min-h-screen bg-slate-50 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,560px)]">
+      {/* ── Panel de marca ────────────────────────────────────────────────
+          Antes el ingreso era una tarjeta blanca sobre fondo gris: correcta
+          pero sin identidad. Este panel usa el azul Pintuco y dice para qué
+          sirve la cuenta, que es lo que decide a alguien a iniciar sesión. */}
+      <aside className="relative hidden lg:flex flex-col justify-between overflow-hidden bg-[#00306B] p-12 xl:p-16">
         <div
-          onClick={() => onNavigate('landing')}
-          className="inline-flex items-center gap-3 cursor-pointer mb-3 select-none"
-        >
-          <div className="w-11 h-11 rounded-xl bg-[#004F9F] flex items-center justify-center text-white shadow-md">
-            <Layers className="w-7 h-7" />
-          </div>
-          <div className="text-left">
-            <span className="text-2xl font-extrabold text-slate-900 tracking-tight">
-              COLOR<span className="text-[#004F9F]">LINK</span>
-            </span>
-            <span className="text-xs text-slate-500 block font-medium">
-              Transformación Digital en Pintuco
-            </span>
-          </div>
+          aria-hidden
+          className="absolute inset-0 bg-[radial-gradient(circle_at_18%_12%,rgba(0,110,210,0.55),transparent_58%),radial-gradient(circle_at_85%_88%,rgba(255,184,28,0.20),transparent_55%)]"
+        />
+        {/* Marca de agua del isotipo, muy atenuada. */}
+        <div
+          aria-hidden
+          className="absolute -bottom-24 -right-24 w-[420px] h-[420px] rounded-full border-[36px] border-white/[0.035]"
+        />
+
+        <div className="relative">
+          <BrandLogo onClick={() => onNavigate('landing')} claro />
         </div>
 
-        <h2 className="text-xl font-bold text-slate-900 tracking-tight">
-          Ingreso a la Plataforma B2B
-        </h2>
-        <p className="text-xs text-slate-500 mt-1">
-          Gestiona tus proyectos de pintura y soluciones técnicas Pintuco
-        </p>
-      </div>
+        <div className="relative max-w-md">
+          <h1 className="text-4xl xl:text-[2.75rem] font-extrabold text-white leading-[1.1] tracking-tight">
+            Tu obra, tus colores y tus pedidos{' '}
+            <span className="text-[#FFB81C]">en un solo lugar.</span>
+          </h1>
+          <p className="text-sm text-blue-100/80 mt-4 leading-relaxed">
+            El ecosistema digital oficial de Pintuco para clientes, constructoras y
+            profesionales en Colombia.
+          </p>
 
-      {/* Login Box */}
-      <div className="mt-6 sm:mx-auto sm:w-full sm:max-w-md px-4">
-        <div className="bg-white py-8 px-6 sm:px-10 rounded-2xl shadow-xl border border-slate-200 text-left space-y-6">
+          <ul className="mt-10 space-y-5">
+            {VENTAJAS.map(({ icono: Icono, titulo, texto }) => (
+              <li key={titulo} className="flex gap-4">
+                <span className="shrink-0 w-10 h-10 rounded-xl bg-white/10 border border-white/15 flex items-center justify-center text-[#FFB81C]">
+                  <Icono className="w-5 h-5" />
+                </span>
+                <span>
+                  <span className="block text-sm font-bold text-white">{titulo}</span>
+                  <span className="block text-xs text-blue-100/70 mt-0.5 leading-relaxed">
+                    {texto}
+                  </span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        {/* Franja de color: es una marca de pinturas, se nota. */}
+        <div className="relative flex items-center gap-3">
+          <div className="flex rounded-full overflow-hidden shadow-lg shadow-black/20">
+            {['#004F9F', '#FFB81C', '#C8102E', '#00843D', '#5B2C8D'].map((c) => (
+              <span key={c} className="w-11 h-2.5" style={{ backgroundColor: c }} />
+            ))}
+          </div>
+          <span className="text-[11px] font-semibold text-blue-100/60 tracking-wide">
+            Más de 2.000 colores certificados
+          </span>
+        </div>
+      </aside>
+
+      {/* ── Formulario ───────────────────────────────────────────────────── */}
+      <main className="flex flex-col justify-center px-5 py-10 sm:px-10 lg:px-12 xl:px-16">
+        <div className="w-full max-w-md mx-auto">
+          {/* En móvil el panel de marca no se muestra: el logo va aquí. */}
+          <div className="lg:hidden flex justify-center mb-6">
+            <BrandLogo onClick={() => onNavigate('landing')} />
+          </div>
+
+          <button
+            type="button"
+            onClick={() => onNavigate('store')}
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-[#004F9F] transition-colors mb-6"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            Volver a la tienda sin iniciar sesión
+          </button>
+
+          <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight">Iniciar sesión</h2>
+          <p className="text-sm text-slate-500 mt-1.5">
+            Entra con el correo con el que te registraste.
+          </p>
+
           {error && (
-            <div className="p-3.5 bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-lg font-medium">
+            <div
+              role="alert"
+              className="mt-5 p-3.5 bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-lg font-medium"
+            >
               {error}
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4 mt-6">
             <Input
-              label="Correo electrónico corporativo"
+              label="Correo electrónico"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="tu.nombre@empresa.com"
+              placeholder="tu.nombre@correo.com"
+              autoComplete="email"
               required
               leftIcon={<Mail className="w-4 h-4" />}
             />
@@ -122,6 +204,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
+              autoComplete="current-password"
               required
               leftIcon={<Lock className="w-4 h-4" />}
             />
@@ -139,7 +222,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
 
               <button
                 type="button"
-                onClick={() => setShowForgotModal(true)}
+                onClick={() => setRecuperando(true)}
                 className="text-xs font-semibold text-[#004F9F] hover:underline"
               >
                 ¿Olvidaste tu contraseña?
@@ -150,7 +233,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
               type="submit"
               variant="pintuco"
               size="lg"
-              isLoading={isLoading}
+              isLoading={isSubmitting}
               className="w-full text-sm font-bold shadow-md shadow-[#004F9F]/20"
               rightIcon={<ArrowRight className="w-4 h-4" />}
             >
@@ -158,29 +241,18 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
             </Button>
           </form>
 
-          {/* Quick Demo Shortcut */}
-          <div className="pt-2 border-t border-slate-100">
-            <div className="bg-blue-50/70 border border-blue-100 rounded-xl p-3.5 space-y-2">
-              <div className="flex items-center gap-1.5 text-xs font-bold text-blue-900">
-                <Sparkles className="w-3.5 h-3.5 text-blue-600" />
-                <span>Modo Demostración Rápida</span>
+          {conGoogle && (
+            <>
+              <div className="mt-6">
+                <SeparadorAcceso />
               </div>
-              <p className="text-[11px] text-blue-700 leading-snug">
-                Accede directamente como <strong>Constructora Horizonte</strong> con el caso de fachada precargado para tu presentación.
-              </p>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={handleDemoLogin}
-                className="w-full bg-white text-[#004F9F] border-blue-200 hover:bg-blue-50 text-xs font-semibold"
-              >
-                Ingresar con Cuenta Demo Pintuco
-              </Button>
-            </div>
-          </div>
+              <div className="mt-4">
+                <GoogleButton onClick={handleGoogleLogin} disabled={isSubmitting} />
+              </div>
+            </>
+          )}
 
-          <div className="text-center pt-2 text-xs text-slate-600">
+          <p className="text-center mt-7 text-xs text-slate-600">
             ¿No tienes una cuenta aún?{' '}
             <button
               onClick={() => onNavigate('register')}
@@ -188,52 +260,16 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
             >
               Crear cuenta de cliente
             </button>
-          </div>
+          </p>
         </div>
-      </div>
+      </main>
 
-      {/* Forgot Password Modal */}
-      <Modal
-        isOpen={showForgotModal}
-        onClose={() => setShowForgotModal(false)}
-        title="Recuperar Contraseña"
-        subtitle="Ingresa tu correo para recibir instrucciones de recuperación"
-        maxWidth="md"
-      >
-        {forgotSent ? (
-          <div className="text-center py-4 space-y-2">
-            <CheckCircle2 className="w-10 h-10 text-emerald-500 mx-auto" />
-            <h4 className="text-sm font-bold text-slate-900">Correo enviado</h4>
-            <p className="text-xs text-slate-500">
-              Hemos enviado un enlace de restablecimiento a <strong>{forgotEmail}</strong>.
-            </p>
-          </div>
-        ) : (
-          <form onSubmit={handleForgotSubmit} className="space-y-4 text-left">
-            <Input
-              label="Correo electrónico registrado"
-              type="email"
-              value={forgotEmail}
-              onChange={(e) => setForgotEmail(e.target.value)}
-              placeholder="tu.correo@empresa.com"
-              required
-              leftIcon={<Mail className="w-4 h-4" />}
-            />
-            <div className="flex justify-end gap-2 pt-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setShowForgotModal(false)}
-              >
-                Cancelar
-              </Button>
-              <Button type="submit" variant="pintuco">
-                Enviar instrucciones
-              </Button>
-            </div>
-          </form>
-        )}
-      </Modal>
+      <RecuperarPasswordModal
+        abierto={recuperando}
+        onClose={() => setRecuperando(false)}
+        correoInicial={email}
+        contexto="cliente"
+      />
     </div>
   );
 };

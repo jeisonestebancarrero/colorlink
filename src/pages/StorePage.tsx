@@ -1,6 +1,7 @@
-import React, { useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useCart } from '../context/CartContext';
-import { PINTUCO_PRODUCTS } from '../data/storeMockData';
+import { useProducts, useProductCategories } from '../hooks/useCatalog';
+import { CatalogError, CatalogLoading } from '../components/common/CatalogState';
 import { StoreProduct } from '../types';
 import {
   Search,
@@ -8,6 +9,7 @@ import {
   Star,
   ShieldCheck,
   ShoppingBag,
+  ShoppingCart,
   Layers,
   Sparkles,
   Droplets,
@@ -23,16 +25,59 @@ import {
 } from 'lucide-react';
 import { Button } from '../components/common/Button';
 
+/**
+ * Categorías de respaldo, solo para el instante en que la consulta todavía no
+ * ha respondido o falló. Las de verdad vienen de la base: cuando estaban
+ * escritas aquí, una categoría creada en el portal interno no llegaba nunca a
+ * la tienda.
+ */
+const CATEGORIAS_RESPALDO = ['Todos'];
+
 interface StorePageProps {
   onNavigate: (page: string, param?: string) => void;
   initialCategory?: string;
+  /**
+   * Término que llega desde el buscador del Navbar.
+   *
+   * BUG CORREGIDO: App.tsx siempre ha pasado `initialSearch`, pero esta
+   * interfaz solo declaraba `initialCategory`, así que buscar desde la barra
+   * superior navegaba a la tienda sin filtrar nada. TypeScript no lo detectó
+   * porque la configuración actual no valida props sobrantes en JSX.
+   *
+   * El Navbar usa este mismo parámetro para dos intenciones: enviar un
+   * término libre ("Koraza") o una categoría completa ("Esmaltes & Metales"),
+   * por eso abajo se distingue entre ambas.
+   */
+  initialSearch?: string;
 }
 
-export const StorePage: React.FC<StorePageProps> = ({ onNavigate, initialCategory }) => {
+export const StorePage: React.FC<StorePageProps> = ({ onNavigate, initialCategory, initialSearch }) => {
+  // FASE 4 — los productos vienen de Supabase.
+  // Se conserva el identificador PINTUCO_PRODUCTS a propósito: así ninguna
+  // de sus referencias en el JSX de esta página necesita cambiar.
+  const { data: PINTUCO_PRODUCTS, isLoading, error, reload } = useProducts();
+
   const { addToCart, setIsCartOpen } = useCart();
 
+  const { data: categoriasBD } = useProductCategories();
+
+  const categories = useMemo(
+    () => (categoriasBD.length ? ['Todos', ...categoriasBD] : CATEGORIAS_RESPALDO),
+    [categoriasBD],
+  );
+
   const [selectedCategory, setSelectedCategory] = useState<string>(initialCategory || 'Todos');
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState(initialSearch ?? '');
+
+  // El Navbar usa `initialSearch` para dos intenciones: un término libre
+  // ("Koraza") o una categoría completa ("Esmaltes & Metales"). Cuál de las dos
+  // es solo se sabe cuando las categorías llegan de la base, así que la
+  // reclasificación ocurre aquí y no en el estado inicial.
+  useEffect(() => {
+    if (!initialSearch || !categoriasBD.includes(initialSearch)) return;
+    setSelectedCategory(initialSearch);
+    setSearchQuery('');
+  }, [initialSearch, categoriasBD]);
   const [selectedFinish, setSelectedFinish] = useState<string>('Todos');
   const [selectedEnvironment, setSelectedEnvironment] = useState<string>('Todos');
   const [selectedProductDetail, setSelectedProductDetail] = useState<StoreProduct | null>(null);
@@ -41,17 +86,6 @@ export const StorePage: React.FC<StorePageProps> = ({ onNavigate, initialCategor
   const [modalPresentation, setModalPresentation] = useState<string>('');
   const [modalColor, setModalColor] = useState<{ name: string; hex: string; code: string } | null>(null);
   const [modalQuantity, setModalQuantity] = useState<number>(1);
-
-  const categories = [
-    'Todos',
-    'Fachadas & Exteriores',
-    'Vinilos & Interiores',
-    'Impermeabilizantes',
-    'Esmaltes & Metales',
-    'Maderas & Barnices',
-    'Industriales & Epóxicos',
-    'Herramientas & Complementos',
-  ];
 
   const filteredProducts = useMemo(() => {
     return PINTUCO_PRODUCTS.filter((prod) => {
@@ -69,7 +103,11 @@ export const StorePage: React.FC<StorePageProps> = ({ onNavigate, initialCategor
 
       return matchCategory && matchQuery && matchFinish && matchEnv;
     });
-  }, [selectedCategory, searchQuery, selectedFinish, selectedEnvironment]);
+    // PINTUCO_PRODUCTS va en las dependencias: sin él, el filtro se calculaba
+    // una sola vez con la lista todavía vacía —los productos llegan después,
+    // en una consulta— y la tienda decía "no se encontraron productos" hasta
+    // que el usuario tocaba un filtro y forzaba el recálculo.
+  }, [PINTUCO_PRODUCTS, selectedCategory, searchQuery, selectedFinish, selectedEnvironment]);
 
   const handleOpenProductDetail = (product: StoreProduct) => {
     setSelectedProductDetail(product);
@@ -97,6 +135,10 @@ export const StorePage: React.FC<StorePageProps> = ({ onNavigate, initialCategor
       maximumFractionDigits: 0,
     }).format(num);
   };
+
+  // FASE 4 — estados de carga y error (MÓDULO 37).
+  if (isLoading) return <CatalogLoading />;
+  if (error) return <CatalogError mensaje={error} onReintentar={reload} />;
 
   return (
     <div className="space-y-8 pb-16">
@@ -283,7 +325,7 @@ export const StorePage: React.FC<StorePageProps> = ({ onNavigate, initialCategor
                     className="bg-[#004F9F] hover:bg-[#003B77] text-white p-2 rounded-lg transition-colors cursor-pointer shadow-xs"
                     title="Ver detalle y comprar"
                   >
-                    <ShoppingBag className="w-4 h-4" />
+                    <ShoppingCart className="w-4 h-4" />
                   </button>
                 </div>
               </div>
@@ -453,7 +495,7 @@ export const StorePage: React.FC<StorePageProps> = ({ onNavigate, initialCategor
                       variant="primary"
                       className="flex-1 bg-[#004F9F] hover:bg-[#003B77] text-white text-xs font-bold py-2.5 shadow-md flex items-center justify-center gap-2 cursor-pointer"
                     >
-                      <ShoppingBag className="w-4 h-4" />
+                      <ShoppingCart className="w-4 h-4" />
                       <span>Agregar al Carrito</span>
                     </Button>
                   </div>

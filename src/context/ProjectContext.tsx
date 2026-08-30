@@ -9,8 +9,7 @@ import {
   projectService,
   notificationService,
 } from '../services/api';
-import { INITIAL_PROJECTS, INITIAL_NOTIFICATIONS } from '../data/mockData';
-import { setStoredProjects, setStoredNotifications } from '../services/storage';
+import { useAuth } from './AuthContext';
 
 interface ToastState {
   message: string;
@@ -52,10 +51,15 @@ interface ProjectContextType {
 const ProjectContext = createContext<ProjectContextType | undefined>(undefined);
 
 export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { isAuthenticated } = useAuth();
   const [projects, setProjects] = useState<Project[]>([]);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [activeProjectId, setActiveProjectId] = useState<string | null>('proj-horiz-001');
+  // FASE 5 — riesgo R8 resuelto.
+  // Antes arrancaba con 'proj-horiz-001', el id de un proyecto del archivo
+  // mock. Con proyectos reales ese id no existe y el valor solo servía para
+  // confundir: `activeProject` ya cae en el primer proyecto del usuario.
+  const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
   const [toast, setToast] = useState<ToastState>({
     message: '',
     type: 'info',
@@ -73,7 +77,19 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setToast((prev) => ({ ...prev, visible: false }));
   }, []);
 
+  /**
+   * Proyectos y notificaciones son datos privados: sin sesión, las políticas
+   * RLS los deniegan. Antes se pedían igualmente al cargar cualquier página,
+   * y un visitante anónimo veía errores en consola al entrar a la tienda.
+   */
   const loadInitialData = useCallback(async () => {
+    if (!isAuthenticated) {
+      setProjects([]);
+      setNotifications([]);
+      setIsLoading(false);
+      return;
+    }
+
     setIsLoading(true);
     try {
       const [fetchedProjects, fetchedNotifs] = await Promise.all([
@@ -87,7 +103,7 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [isAuthenticated]);
 
   useEffect(() => {
     loadInitialData();
@@ -145,12 +161,18 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
     showToast('Todas las notificaciones marcadas como leídas', 'info');
   };
 
+  /**
+   * FASE 5 — Los proyectos ya viven en Supabase, así que restablecerlos
+   * sobrescribiendo localStorage dejó de tener efecto: hacerlo habría dejado
+   * un botón que aparenta funcionar sin hacer nada.
+   *
+   * Ahora recarga proyectos y notificaciones desde la base. Nunca borra
+   * datos reales del usuario.
+   */
   const resetDemoData = async () => {
-    setStoredProjects(INITIAL_PROJECTS);
-    setStoredNotifications(INITIAL_NOTIFICATIONS);
-    setProjects(INITIAL_PROJECTS);
-    setNotifications(INITIAL_NOTIFICATIONS);
-    setActiveProjectId('proj-horiz-001');
+    setActiveProjectId(null);
+    await refreshProjects();
+    setNotifications(await notificationService.getNotifications());
     showToast('Datos de demostración restablecidos', 'info');
   };
 

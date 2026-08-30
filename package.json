@@ -8,28 +8,44 @@
     "build": "vite build",
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "db:start": "supabase start",
+    "db:stop": "supabase stop",
+    "db:reset": "supabase db reset",
+    "db:status": "supabase status",
+    "db:seed:catalog": "tsx supabase/scripts/generate-catalog-seed.ts",
+    "dev:admin": "vite --config vite.admin.config.ts --port=3001 --host=0.0.0.0",
+    "build:admin": "vite build --config vite.admin.config.ts"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
+    "@supabase/supabase-js": "^2.112.4",
     "@tailwindcss/vite": "^4.1.14",
     "@vitejs/plugin-react": "^5.0.4",
+    "dotenv": "^17.2.3",
+    "express": "^4.21.2",
+    "leaflet": "^1.9.4",
     "lucide-react": "^0.546.0",
+    "motion": "^12.23.24",
     "react": "^19.0.1",
     "react-dom": "^19.0.1",
     "vite": "^6.2.3",
-    "express": "^4.21.2",
-    "dotenv": "^17.2.3",
-    "motion": "^12.23.24"
+    "zod": "^4.5.2"
   },
   "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/leaflet": "^1.9.22",
     "@types/node": "^22.14.0",
+    "@vitest/coverage-v8": "^4.1.11",
     "autoprefixer": "^10.4.21",
     "esbuild": "^0.25.0",
     "tailwindcss": "^4.1.14",
     "tsx": "^4.21.0",
     "typescript": "~5.8.2",
     "vite": "^6.2.3",
-    "@types/express": "^4.17.21"
+    "vitest": "^4.1.11"
   }
 }

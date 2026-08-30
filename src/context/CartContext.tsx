@@ -1,6 +1,9 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { CartItem, PintucoStore, SolutionKit, StoreProduct } from '../types';
-import { PINTUCO_STORES } from '../data/storeMockData';
+import { cartService, orderService } from '../services/commerce';
+import { storeService } from '../services/catalog';
+import { pagoService } from '../services/pagos';
+import { useAuth } from './AuthContext';
 
 interface CartContextType {
   cartItems: CartItem[];
@@ -10,11 +13,11 @@ interface CartContextType {
   totalCOP: number;
   isCartOpen: boolean;
   setIsCartOpen: (open: boolean) => void;
-  addToCart: (product: StoreProduct, presentationLabel?: string, colorName?: string, colorHex?: string, qty?: number) => void;
-  addKitToCart: (kit: SolutionKit, multiplier?: number) => void;
-  updateQuantity: (itemId: string, delta: number) => void;
-  removeFromCart: (itemId: string) => void;
-  clearCart: () => void;
+  addToCart: (product: StoreProduct, presentationLabel?: string, colorName?: string, colorHex?: string, qty?: number) => Promise<void>;
+  addKitToCart: (kit: SolutionKit, multiplier?: number) => Promise<void>;
+  updateQuantity: (itemId: string, delta: number) => Promise<void>;
+  removeFromCart: (itemId: string) => Promise<void>;
+  clearCart: () => Promise<void>;
   // Delivery & Pickup Options
   deliveryMethod: 'pickup' | 'delivery';
   setDeliveryMethod: (method: 'pickup' | 'delivery') => void;
@@ -29,68 +32,41 @@ interface CartContextType {
   isCheckoutSuccessOpen: boolean;
   setIsCheckoutSuccessOpen: (open: boolean) => void;
   lastOrderNumber: string | null;
+  checkoutError: string | null;
+  stores: PintucoStore[];
   completeCheckout: () => void;
+  /** Pedido recién creado que todavía no se ha cobrado. */
+  pedidoPorPagar: { id: string; numero: string; total: number } | null;
+  /** true solo si el cobro se resolvió (pagado o a crédito aprobado). */
+  ultimoPedidoPagado: boolean;
+  cerrarPago: (pagado: boolean) => void;
 }
 
-const CART_STORAGE_KEY = 'pintuco_colorlink_cart_v1';
-
-const INITIAL_CART_ITEMS: CartItem[] = [
-  {
-    id: 'cart-init-1',
-    productId: 'prod-koraza-5',
-    productName: 'Koraza 5 Años Protección Total',
-    category: 'Fachadas & Exteriores',
-    presentation: 'Cuñete 5 Galones (18.9 L)',
-    colorName: 'Blanco Nieve',
-    colorCode: 'PNT-101',
-    colorHex: '#F8FAFC',
-    unitPrice: 629900,
-    quantity: 1,
-    image: 'https://images.unsplash.com/photo-1589939705384-5185137a7f0f?auto=format&fit=crop&q=80&w=400',
-    isKitItem: true,
-    kitName: 'Kit Fachada 5 Años Horizonte',
-  },
-  {
-    id: 'cart-init-2',
-    productId: 'prod-sellador-antialcalino',
-    productName: 'Sellador Antialcalino Base Agua',
-    category: 'Fachadas & Exteriores',
-    presentation: '1 Galón (3.785 L)',
-    unitPrice: 89900,
-    quantity: 3,
-    image: 'https://images.unsplash.com/photo-1513694203232-719a280e022f?auto=format&fit=crop&q=80&w=400',
-    isKitItem: true,
-    kitName: 'Kit Fachada 5 Años Horizonte',
-  },
-  {
-    id: 'cart-init-3',
-    productId: 'prod-masilla-elastomerica',
-    productName: 'Masilla Elastomérica Grietas & Fisuras',
-    category: 'Fachadas & Exteriores',
-    presentation: '1 Galón (4.5 Kg)',
-    unitPrice: 68900,
-    quantity: 1,
-    image: 'https://images.unsplash.com/photo-1504307651254-35680f356dfd?auto=format&fit=crop&q=80&w=400',
-    isKitItem: true,
-    kitName: 'Kit Fachada 5 Años Horizonte',
-  },
-];
-
+/**
+ * FASE 8 — El carrito vive en Supabase.
+ *
+ * Antes se guardaba en localStorage con los precios dentro, de modo que
+ * cualquiera podía editarlos desde la consola del navegador. Ahora el
+ * servidor guarda solo qué variante y qué cantidad; el precio se lee del
+ * catálogo y se congela al confirmar el pedido (MÓDULO 52/60).
+ *
+ * Se eliminó también el carrito precargado con tres productos: sembrar la
+ * compra de un usuario real no tiene sentido fuera de una demo.
+ */
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
 export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [cartItems, setCartItems] = useState<CartItem[]>(() => {
-    try {
-      const stored = localStorage.getItem(CART_STORAGE_KEY);
-      return stored ? JSON.parse(stored) : INITIAL_CART_ITEMS;
-    } catch {
-      return INITIAL_CART_ITEMS;
-    }
-  });
+  const { isAuthenticated } = useAuth();
+  const [cartItems, setCartItems] = useState<CartItem[]>([]);
+  const [stores, setStores] = useState<PintucoStore[]>([]);
 
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [deliveryMethod, setDeliveryMethod] = useState<'pickup' | 'delivery'>('pickup');
-  const [selectedStore, setSelectedStore] = useState<PintucoStore>(PINTUCO_STORES[0]);
+  const [selectedStore, setSelectedStore] = useState<PintucoStore>({
+    id: '', name: 'Selecciona un punto de retiro', city: '', address: '',
+    phone: '', hours: '', hasColorStudio: false, hasTechAdvisor: false,
+    hasExpressPickup: false, stockReadinessHours: 24,
+  });
   const [pickupDate, setPickupDate] = useState<string>(() => {
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
@@ -100,118 +76,86 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [deliveryCity, setDeliveryCity] = useState('Medellín');
   const [isCheckoutSuccessOpen, setIsCheckoutSuccessOpen] = useState(false);
   const [lastOrderNumber, setLastOrderNumber] = useState<string | null>(null);
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
+  const [pedidoPorPagar, setPedidoPorPagar] = useState<
+    { id: string; numero: string; total: number } | null
+  >(null);
+  const [ultimoPedidoPagado, setUltimoPedidoPagado] = useState(false);
 
+  // Puntos de retiro reales (tabla pickup_locations).
   useEffect(() => {
-    try {
-      localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cartItems));
-    } catch (e) {
-      console.warn('Could not save cart', e);
+    storeService
+      .getStores()
+      .then((lista) => {
+        setStores(lista);
+        if (lista.length > 0) setSelectedStore((actual) => (actual.id ? actual : lista[0]));
+      })
+      .catch((e) => console.error('[cart] no se pudieron cargar los puntos de retiro', e));
+  }, []);
+
+  // El carrito se carga al iniciar sesión y se vacía al cerrarla.
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setCartItems([]);
+      return;
     }
-  }, [cartItems]);
+    cartService
+      .getItems()
+      .then(setCartItems)
+      .catch((e) => console.error('[cart] no se pudo cargar el carrito', e));
+  }, [isAuthenticated]);
 
   const addToCart = useCallback(
-    (
+    async (
       product: StoreProduct,
       presentationLabel?: string,
       colorName?: string,
-      colorHex?: string,
+      _colorHex?: string,
       qty = 1
     ) => {
-      const pres =
-        product.presentations.find((p) => p.label === presentationLabel) ||
-        product.presentations[0];
-
-      const chosenColor = colorName
-        ? {
-            name: colorName,
-            hex: colorHex || '#F8FAFC',
-            code: product.availableColors?.find((c) => c.name === colorName)?.code || 'PNT-COL',
-          }
-        : product.availableColors?.[0];
-
-      const itemId = `${product.id}-${pres.label}-${chosenColor?.name || 'std'}`;
-
-      setCartItems((prev) => {
-        const existingIndex = prev.findIndex((i) => i.id === itemId);
-        if (existingIndex > -1) {
-          const next = [...prev];
-          next[existingIndex].quantity += qty;
-          return next;
-        }
-        return [
-          ...prev,
-          {
-            id: itemId,
-            productId: product.id,
-            productName: product.name,
-            category: product.category,
-            presentation: pres.label,
-            colorName: chosenColor?.name,
-            colorCode: chosenColor?.code,
-            colorHex: chosenColor?.hex,
-            unitPrice: pres.priceCOP,
-            quantity: qty,
-            image: product.image,
-          },
-        ];
-      });
-      setIsCartOpen(true);
+      try {
+        setCartItems(await cartService.addProduct(product, presentationLabel, colorName, qty));
+        setIsCartOpen(true);
+      } catch (e) {
+        console.error('[cart] addToCart', e);
+      }
     },
     []
   );
 
-  const addKitToCart = useCallback((kit: SolutionKit, multiplier = 1) => {
-    const newItems: CartItem[] = kit.steps.map((step) => {
-      return {
-        id: `kit-${kit.id}-${step.productId}-${step.presentation}`,
-        productId: step.productId,
-        productName: step.productName,
-        category: kit.category,
-        presentation: step.presentation,
-        unitPrice: Math.round(step.unitPriceCOP * (1 - kit.discountPercent / 100)),
-        quantity: step.quantityFor85m2 * multiplier,
-        image: step.image,
-        isKitItem: true,
-        kitName: kit.name,
-      };
-    });
-
-    setCartItems((prev) => {
-      // Merge or add
-      const updated = [...prev];
-      newItems.forEach((item) => {
-        const idx = updated.findIndex((i) => i.id === item.id);
-        if (idx > -1) {
-          updated[idx].quantity += item.quantity;
-        } else {
-          updated.push(item);
-        }
-      });
-      return updated;
-    });
-    setIsCartOpen(true);
+  const addKitToCart = useCallback(async (kit: SolutionKit, multiplier = 1) => {
+    try {
+      setCartItems(await cartService.addKit(kit, multiplier));
+      setIsCartOpen(true);
+    } catch (e) {
+      console.error('[cart] addKitToCart', e);
+    }
   }, []);
 
-  const updateQuantity = useCallback((itemId: string, delta: number) => {
-    setCartItems((prev) =>
-      prev
-        .map((item) => {
-          if (item.id === itemId) {
-            const nextQty = item.quantity + delta;
-            return nextQty > 0 ? { ...item, quantity: nextQty } : null;
-          }
-          return item;
-        })
-        .filter(Boolean) as CartItem[]
-    );
+  const updateQuantity = useCallback(async (itemId: string, delta: number) => {
+    const actual = cartItems.find((i) => i.id === itemId);
+    if (!actual) return;
+    try {
+      setCartItems(await cartService.updateQuantity(itemId, actual.quantity + delta));
+    } catch (e) {
+      console.error('[cart] updateQuantity', e);
+    }
+  }, [cartItems]);
+
+  const removeFromCart = useCallback(async (itemId: string) => {
+    try {
+      setCartItems(await cartService.removeItem(itemId));
+    } catch (e) {
+      console.error('[cart] removeFromCart', e);
+    }
   }, []);
 
-  const removeFromCart = useCallback((itemId: string) => {
-    setCartItems((prev) => prev.filter((i) => i.id !== itemId));
-  }, []);
-
-  const clearCart = useCallback(() => {
-    setCartItems([]);
+  const clearCart = useCallback(async () => {
+    try {
+      setCartItems(await cartService.clear());
+    } catch (e) {
+      console.error('[cart] clearCart', e);
+    }
   }, []);
 
   const cartCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
@@ -219,13 +163,40 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const discountCOP = cartItems.some((i) => i.isKitItem) ? Math.round(subtotalCOP * 0.08) : 0;
   const totalCOP = Math.max(0, subtotalCOP - discountCOP);
 
-  const completeCheckout = useCallback(() => {
-    const orderNum = `ORD-PNT-${Math.floor(100000 + Math.random() * 900000)}`;
-    setLastOrderNumber(orderNum);
-    setIsCartOpen(false);
-    setIsCheckoutSuccessOpen(true);
-    setCartItems([]);
-  }, []);
+  /**
+   * FASE 9 — Checkout real.
+   *
+   * Antes generaba un número de pedido con Math.random(), vaciaba el carrito
+   * y no guardaba nada: no existía ningún pedido. Ahora llama a
+   * create_order_from_cart, que valida disponibilidad, calcula subtotal,
+   * descuento, envío y total en el servidor, crea el pago y el envío, emite
+   * la notificación y cierra el carrito, todo en una transacción.
+   */
+  const completeCheckout = useCallback(async () => {
+    try {
+      const pedido = await orderService.createFromCart({
+        deliveryMethod,
+        pickupLocationExternalRef: deliveryMethod === 'pickup' ? selectedStore.id : undefined,
+        shippingAddress: deliveryMethod === 'delivery' ? deliveryAddress : undefined,
+        shippingCity: deliveryMethod === 'delivery' ? deliveryCity : undefined,
+      });
+      setLastOrderNumber(pedido.orderNumber);
+      setCartItems([]);
+      setIsCartOpen(false);
+      // El pedido está creado pero todavía no es una venta: falta el cobro.
+      // Por eso se abre el pago y no la confirmación, que antes daba a
+      // entender que la compra ya estaba hecha.
+      setUltimoPedidoPagado(false);
+      setPedidoPorPagar({
+        id: pedido.id,
+        numero: pedido.orderNumber,
+        total: pedido.totalCOP,
+      });
+    } catch (e) {
+      console.error('[cart] completeCheckout', e);
+      setCheckoutError(e instanceof Error ? e.message : 'No fue posible crear el pedido.');
+    }
+  }, [deliveryMethod, selectedStore, deliveryAddress, deliveryCity]);
 
   return (
     <CartContext.Provider
@@ -255,7 +226,41 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isCheckoutSuccessOpen,
         setIsCheckoutSuccessOpen,
         lastOrderNumber,
+        checkoutError,
+        stores,
         completeCheckout,
+        pedidoPorPagar,
+        ultimoPedidoPagado,
+        // Cerrar la ventana de pago NO es haber pagado. Antes se mostraba
+        // "orden registrada con éxito" aunque el cliente hubiera salido sin
+        // pagar, y el pedido quedaba varado sin que nadie lo supiera.
+        cerrarPago: (pagado: boolean) => {
+          setUltimoPedidoPagado(pagado);
+          const pedido = pedidoPorPagar;
+          setPedidoPorPagar(null);
+
+          if (pagado) {
+            setIsCheckoutSuccessOpen(true);
+            return;
+          }
+
+          // Sin pago no hay venta: el pedido se cancela y sus productos
+          // vuelven al carrito. Dejarlo a medias le quitaba el carrito al
+          // cliente y dejaba un pedido fantasma en la bandeja de la tienda.
+          if (pedido) {
+            void pagoService
+              .devolverAlCarrito(pedido.id)
+              .catch((e) => console.error('[cart] devolverAlCarrito', e))
+              .finally(async () => {
+                try {
+                  setCartItems(await cartService.getItems());
+                } catch (e) {
+                  console.error('[cart] no se pudo recargar el carrito', e);
+                }
+                setIsCartOpen(true);
+              });
+          }
+        },
       }}
     >
       {children}

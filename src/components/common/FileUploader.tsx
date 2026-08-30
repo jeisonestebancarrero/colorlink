@@ -46,6 +46,12 @@ export const FileUploader: React.FC<FileUploaderProps> = ({ photos, onChange }) 
         size: `${sizeMb} MB`,
         uploadDate: 'Hoy',
         isPrimary: photos.length === 0 && idx === 0,
+        // FASE 5: se conserva el archivo original. Antes solo se guardaba la
+        // URL `blob:` de la línea anterior, que deja de existir al recargar
+        // la página: por eso las fotos nunca llegaban a persistirse (R6).
+        // La vista previa sigue usando esa URL; el archivo solo se emplea
+        // al guardar el proyecto para subirlo a Supabase Storage.
+        file,
       };
     });
 
