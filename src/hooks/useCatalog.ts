@@ -7,6 +7,7 @@ import type {
   StoreProduct,
 } from '../types';
 import { colorService, productService, solutionService, storeService } from '../services/catalog';
+import { obtenerTarifaIva, TARIFA_IVA_POR_DEFECTO } from '../services/impuestos';
 
 /**
  * Hooks de catálogo (MÓDULO 36/37).
@@ -102,3 +103,13 @@ export const useProductCategories = (): AsyncState<string[]> =>
 
 export const usePickupStores = (): AsyncState<PintucoStore[]> =>
   useAsyncData(() => storeService.getStores(), SIN_TIENDAS);
+
+/**
+ * Tarifa general de IVA configurada en `app_settings`.
+ *
+ * Arranca en la tarifa por defecto en lugar de en 0 o `null`: así ninguna
+ * pantalla muestra por un instante un desglose con IVA de cero, que sería
+ * mostrarle al cliente una cifra falsa mientras carga.
+ */
+export const useTarifaIva = (): AsyncState<number> =>
+  useAsyncData(() => obtenerTarifaIva(), TARIFA_IVA_POR_DEFECTO);

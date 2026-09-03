@@ -5,6 +5,11 @@ import { Input } from '../components/common/Input';
 import { Select } from '../components/common/Select';
 import { Button } from '../components/common/Button';
 import { BrandLogo } from '../components/common/BrandLogo';
+import { AvisoCarritoEnEspera } from '../components/cart/AvisoCarritoEnEspera';
+import {
+  SelectorUbicacion, UBICACION_VACIA, validarUbicacion, resolverBarrio,
+  type ValorUbicacion, type ErroresUbicacion,
+} from '../components/common/SelectorUbicacion';
 import { GoogleButton, SeparadorAcceso } from '../components/common/GoogleButton';
 import { TIPOS_DOCUMENTO } from '../schemas/auth';
 import {
@@ -86,10 +91,16 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onNavigate }) => {
     clientType: 'Constructor' as (typeof CLIENTES_EMPRESA)[number],
     email: '',
     phone: '',
-    city: 'Medellín',
+    address: '',
     password: '',
     confirmPassword: '',
   });
+
+  // La ciudad ya no se escribe: se elige del diccionario DIVIPOLA. Antes el
+  // campo venía con 'Medellín' puesto, así que quien no lo tocaba quedaba
+  // registrado en Medellín sin haberlo dicho.
+  const [ubicacion, setUbicacion] = useState<ValorUbicacion>(UBICACION_VACIA);
+  const [erroresUbicacion, setErroresUbicacion] = useState<ErroresUbicacion>({});
 
   const set = (campo: keyof typeof datos, valor: string) => {
     setDatos((d) => ({ ...d, [campo]: valor }));
@@ -117,7 +128,11 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onNavigate }) => {
       errs.email = 'Ingresa un correo electrónico válido';
     }
     if (!datos.phone.trim()) errs.phone = 'Ingresa un teléfono de contacto';
-    if (!datos.city.trim()) errs.city = 'La ciudad es requerida';
+    if (datos.address.trim().length < 5) errs.address = 'Ingresa tu dirección';
+
+    const errsUbic = validarUbicacion(ubicacion, { pedirBarrio: true });
+    setErroresUbicacion(errsUbic);
+    Object.assign(errs, errsUbic);
     if (datos.password.length < 6) errs.password = 'La contraseña debe tener al menos 6 caracteres';
     if (datos.password !== datos.confirmPassword) {
       errs.confirmPassword = 'Las contraseñas no coinciden';
@@ -144,11 +159,28 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onNavigate }) => {
     e.preventDefault();
     if (!validar()) return;
 
+    let neighborhoodId: string | null = null;
+    try {
+      // Si el barrio se escribió porque no estaba en la lista, se incorpora
+      // ahora: el servidor lo normaliza y no lo duplica.
+      neighborhoodId = await resolverBarrio(ubicacion);
+    } catch (err) {
+      setErroresUbicacion({
+        neighborhoodName:
+          err instanceof Error ? err.message : 'No fue posible guardar el barrio',
+      });
+      return;
+    }
+
     const comunes = {
       email: datos.email.trim(),
       phone: datos.phone.trim(),
-      city: datos.city.trim(),
       password: datos.password,
+      countryCode: ubicacion.countryCode,
+      departmentCode: ubicacion.departmentCode,
+      municipalityCode: ubicacion.municipalityCode,
+      neighborhoodId,
+      address: datos.address.trim(),
     };
 
     try {
@@ -211,6 +243,9 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onNavigate }) => {
             ? 'Facturamos a nombre de la empresa con su NIT y podrás sumar más usuarios al equipo.'
             : 'Compra a tu nombre. Facturamos con tu documento de identidad.'}
       </p>
+      <div className="max-w-md mx-auto text-left">
+        <AvisoCarritoEnEspera />
+      </div>
     </div>
   );
 
@@ -471,15 +506,39 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onNavigate }) => {
               />
             </div>
 
-            <Input
-              label={esEmpresa ? 'Ciudad principal de operación' : 'Ciudad'}
-              value={datos.city}
-              onChange={(e) => set('city', e.target.value)}
-              placeholder="Ej. Medellín, Bogotá, Cali, Barranquilla..."
-              error={errors.city}
-              required
-              leftIcon={<MapPin className="w-4 h-4" />}
-            />
+            {/* Ubicación y dirección.
+                Despachamos a todo el país, así que están los 33 departamentos
+                y los 1.122 municipios del DANE, no una lista de ciudades
+                principales. Se elige, no se escribe: así no vuelven a
+                aparecer 'Bogotá' y 'Bogotá D.C.' como dos ciudades. */}
+            <div className="space-y-3 pt-1">
+              <p className="text-xs font-bold text-slate-700 uppercase tracking-wide">
+                {esEmpresa ? 'Ubicación de la empresa' : '¿Dónde te encontramos?'}
+              </p>
+
+              <SelectorUbicacion
+                valor={ubicacion}
+                onChange={setUbicacion}
+                errores={erroresUbicacion}
+                requerido
+                compacto
+              />
+
+              <Input
+                label={esEmpresa ? 'Dirección de la sede principal' : 'Dirección'}
+                value={datos.address}
+                onChange={(e) => set('address', e.target.value)}
+                placeholder="Ej. Cra 43A # 18 Sur - 135, Torre 2, Apto 501"
+                error={errors.address}
+                required
+                leftIcon={<MapPin className="w-4 h-4" />}
+              />
+              <p className="text-[11px] text-slate-500 leading-snug">
+                {esEmpresa
+                  ? 'Queda registrada como tu sede principal. Después puedes agregar más sedes y elegir a cuál va cada pedido.'
+                  : 'Queda guardada como tu dirección principal, y el carrito la propone al pedir un envío. Puedes cambiarla en cualquier momento.'}
+              </p>
+            </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
               <Input

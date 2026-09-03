@@ -1,1 +1,49 @@
 @import "tailwindcss";
+
+/* ============================================================
+   Movimiento de la burbuja del asistente
+   ============================================================
+   Se define aquí y no con clases sueltas porque son animaciones propias que
+   Tailwind no trae.
+
+   TODO ESTO SE APAGA con `prefers-reduced-motion`. No es un detalle de buenas
+   maneras: a una parte de la gente el movimiento continuo le produce mareo o
+   migraña, y un elemento que flota y late en la esquina de TODAS las pantallas
+   es de lo peor que se le puede poner delante. Quien lo tenga configurado ve la
+   burbuja quieta, con su sombra y su color, que sigue llamando la atención.
+   ============================================================ */
+
+@keyframes flotar {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-6px); }
+}
+
+/* La onda que sale hacia afuera. Se desvanece al crecer para que parezca que
+   se disuelve en vez de cortarse. */
+@keyframes onda {
+  0%   { transform: scale(1);    opacity: 0.55; }
+  70%  { transform: scale(1.75); opacity: 0; }
+  100% { transform: scale(1.75); opacity: 0; }
+}
+
+/* Un brillo que cruza el botón de lado a lado, como el reflejo de un objeto
+   pulido. Va cada varios segundos, no continuo: un destello permanente cansa. */
+@keyframes brillo {
+  0%, 88%, 100% { transform: translateX(-120%) rotate(18deg); }
+  94%           { transform: translateX(220%)  rotate(18deg); }
+}
+
+.asistente-flota { animation: flotar 3.4s ease-in-out infinite; }
+.asistente-onda  { animation: onda 2.6s cubic-bezier(0, 0, 0.2, 1) infinite; }
+.asistente-brillo { animation: brillo 7s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .asistente-flota,
+  .asistente-onda,
+  .asistente-brillo {
+    animation: none;
+  }
+  /* Sin la onda, la burbuja se queda sin su halo; se le deja fijo y tenue para
+     que no pierda presencia. */
+  .asistente-onda { opacity: 0.25; transform: scale(1.3); }
+}

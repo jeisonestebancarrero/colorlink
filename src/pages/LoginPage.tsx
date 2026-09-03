@@ -6,6 +6,7 @@ import { Button } from '../components/common/Button';
 import { BrandLogo } from '../components/common/BrandLogo';
 import { GoogleButton, SeparadorAcceso } from '../components/common/GoogleButton';
 import { RecuperarPasswordModal } from '../components/common/RecuperarPasswordModal';
+import { AvisoCarritoEnEspera } from '../components/cart/AvisoCarritoEnEspera';
 import {
   Mail,
   Lock,
@@ -176,6 +177,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
           <p className="text-sm text-slate-500 mt-1.5">
             Entra con el correo con el que te registraste.
           </p>
+
+          <AvisoCarritoEnEspera />
 
           {error && (
             <div

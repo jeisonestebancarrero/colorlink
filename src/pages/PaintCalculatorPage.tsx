@@ -430,9 +430,13 @@ export const PaintCalculatorPage: React.FC<PaintCalculatorPageProps> = ({ onNavi
 
               <div className="pt-2 border-t border-slate-700 flex justify-between items-baseline">
                 <span className="text-xs text-slate-300">Inversión Estimada:</span>
-                <span className="text-xl font-extrabold text-white">
-                  {formatCOP(estimatedTotalCOP)}
-                </span>
+                <div className="text-right">
+                  <span className="block text-xl font-extrabold text-white">
+                    {formatCOP(estimatedTotalCOP)}
+                  </span>
+                  {/* Los precios del catálogo ya incluyen IVA. */}
+                  <span className="block text-[10px] text-slate-400">IVA incluido</span>
+                </div>
               </div>
             </div>
 

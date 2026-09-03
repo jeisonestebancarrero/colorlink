@@ -17,7 +17,35 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col font-sans text-slate-900 selection:bg-blue-600 selection:text-white">
+    <div className="relative min-h-screen bg-slate-50 flex flex-col font-sans text-slate-900 selection:bg-blue-600 selection:text-white">
+      {/* Fondo de la marca: óvalos difusos con los colores de Pintuco.
+          ÓVALOS Y NO LÍNEAS porque un patrón de líneas compite con las filas
+          de una tabla y con las tarjetas de producto; una mancha sin borde no
+          se confunde con nada.
+          CÓMO SE CALIBRÓ: se probó pintando este mismo div de rojo sólido.
+          El mecanismo era correcto desde el principio —el div cubre todo el
+          fondo y las tarjetas son semitransparentes, así que el color se ve
+          incluso a través de ellas—; lo que fallaba eran los valores. Se pasó
+          por 3 %, 9 % y 20 % sin que se percibiera nada, porque los centros de
+          las manchas quedaban fuera de pantalla o detrás de la barra de
+          navegación, que es opaca.
+          Ahora los centros están DENTRO del área visible y por debajo de la
+          barra, con intensidades que se ven sin ensuciar el texto.
+          `fixed` para que no se desplace con el catálogo: manchas subiendo y
+          bajando detrás de las fotos distraen más de lo que aportan. */}
+      <div
+        aria-hidden
+        className="pointer-events-none select-none fixed inset-0 z-0"
+        style={{
+          backgroundImage: [
+            'radial-gradient(30rem 30rem at 4% 46%, rgba(0,79,159,0.30), transparent 72%)',
+            'radial-gradient(26rem 26rem at 97% 34%, rgba(2,132,199,0.26), transparent 72%)',
+            'radial-gradient(28rem 26rem at 88% 90%, rgba(217,119,6,0.20), transparent 72%)',
+            'radial-gradient(24rem 24rem at 8% 95%, rgba(0,45,92,0.22), transparent 72%)',
+          ].join(', '),
+        }}
+      />
+
       {/* Off-canvas mobile & tablet navigation drawer */}
       <Sidebar
         currentPage={currentPage}
@@ -34,7 +62,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
       />
 
       {/* Main Content Area */}
-      <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <main className="relative z-10 flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {children}
       </main>
 

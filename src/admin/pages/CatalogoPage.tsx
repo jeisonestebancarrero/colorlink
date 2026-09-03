@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowLeft, ChevronDown, ChevronRight, FolderTree, ImagePlus, Package,
-  Palette, Plus, Search, Tag, X,
+  Palette, Plus, Search, Tag, X, Loader2,
 } from 'lucide-react';
 import {
   catalogoService, colorService, categoriaService, formatearCOP,
@@ -9,10 +9,15 @@ import {
   type ProductoCatalogo, type Presentacion, type ColorCatalogo, type EstadoCatalogo,
   type CategoriaCatalogo,
 } from '../../services/catalogoAdmin';
+import { ExportarBoton } from '../ExportarBoton';
 import { useAdminAuth } from '../AdminAuthContext';
 import { Button } from '../../components/common/Button';
+import {
+  ImagenConRespaldo, urlDeImagenSospechosa, verificarImagen,
+} from '../../components/common/ImagenConRespaldo';
 import { Input } from '../../components/common/Input';
 import { Select } from '../../components/common/Select';
+import { IconoModulo } from '../IconosDeModulo';
 
 // Valores tomados de los enums de la base (`product_environment`,
 // `product_finish`). Si aquí apareciera uno que la base no conoce, guardar
@@ -51,6 +56,9 @@ export const CatalogoPage: React.FC = () => {
   const [ocupado, setOcupado] = useState(false);
 
   const [editandoProducto, setEditandoProducto] = useState<Partial<ProductoCatalogo> | null>(null);
+  /** Resultado de intentar cargar la imagen de la URL escrita. */
+  const [avisoImagen, setAvisoImagen] = useState<string | null>(null);
+  const [verificandoImagen, setVerificandoImagen] = useState(false);
   const [editandoColor, setEditandoColor] = useState<Partial<ColorCatalogo> | null>(null);
   const [editandoPres, setEditandoPres] = useState<
     (Partial<Presentacion> & { precioTexto?: string }) | null
@@ -99,6 +107,27 @@ export const CatalogoPage: React.FC = () => {
           p.presentaciones.some((v) => (v.sku ?? '').toLowerCase().includes(q))),
     );
   }, [productos, busqueda, estado]);
+
+  /**
+   * Lista de precios: una fila por PRESENTACIÓN, no por producto.
+   *
+   * Es lo que se pide cuando alguien dice «mándame la lista de precios»: el
+   * precio y el SKU viven en la presentación, así que un archivo con una fila
+   * por producto no serviría para cotizar ni para cargar en otro sistema.
+   */
+  const filasDePrecios = useMemo(
+    () => productosFiltrados.flatMap((p) =>
+      p.presentaciones.map((v) => ({ p, v }))),
+    [productosFiltrados],
+  );
+
+  /* Los costos solo llegan del servidor a quien tiene `costs.read`; si no, son
+     null. Se omiten las columnas en vez de exportarlas vacías, que se leería
+     como «este producto no tiene costo». */
+  const conCostos = useMemo(
+    () => filasDePrecios.some(({ v }) => v.costoEstandar !== null || v.costoPromedio !== null),
+    [filasDePrecios],
+  );
 
   const coloresFiltrados = useMemo(() => {
     const q = busqueda.trim().toLowerCase();
@@ -387,12 +416,15 @@ export const CatalogoPage: React.FC = () => {
               <div className="w-full sm:w-40 shrink-0">
                 <div className="aspect-square rounded-lg border border-slate-200 bg-slate-50 overflow-hidden flex items-center justify-center">
                   {p.imagenUrl ? (
-                    <img
+                    /* Antes, al fallar la carga, la imagen se ocultaba con
+                       `visibility: hidden` y quedaba un cuadro vacío sin
+                       explicación: parecía que el producto no tenía foto
+                       cuando lo que pasaba es que la URL no servía. */
+                    <ImagenConRespaldo
                       src={p.imagenUrl}
                       alt={p.nombre ? `Imagen de ${p.nombre}` : 'Imagen del producto'}
                       className="w-full h-full object-cover"
-                      onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = 'hidden'; }}
-                      onLoad={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = 'visible'; }}
+                      avisarAlPersonal
                     />
                   ) : (
                     <Package className="w-8 h-8 text-slate-300" />
@@ -401,15 +433,42 @@ export const CatalogoPage: React.FC = () => {
               </div>
 
               <div className="flex-1 space-y-2.5">
+                {/* Cargar por URL sigue siendo válido: la mayoría del
+                    catálogo está así. El aviso solo ataja el error concreto de
+                    pegar la página de resultados de un buscador en lugar de la
+                    imagen, que es lo que dejó un producto con la foto rota. */}
                 <Input
                   label="URL de la imagen"
                   type="url"
                   value={p.imagenUrl ?? ''}
-                  onChange={(e) =>
-                    setEditandoProducto({ ...p, imagenUrl: e.target.value || null })
-                  }
+                  onChange={(e) => {
+                    setAvisoImagen(null);
+                    setEditandoProducto({ ...p, imagenUrl: e.target.value || null });
+                  }}
+                  // Al salir del campo se INTENTA CARGAR la imagen. Es la única
+                  // comprobación que no se puede engañar: ya se guardaron dos
+                  // URL que eran páginas —una de Google Imágenes y una ficha de
+                  // producto de pintuco.com.co— y las dos pasaban cualquier
+                  // validación por patrón.
+                  onBlur={async () => {
+                    const url = (p.imagenUrl ?? '').trim();
+                    if (url === '') { setAvisoImagen(null); return; }
+                    setVerificandoImagen(true);
+                    try {
+                      const r = await verificarImagen(url);
+                      setAvisoImagen(r.ok ? null : (r.aviso ?? 'La imagen no carga.'));
+                    } finally {
+                      setVerificandoImagen(false);
+                    }
+                  }}
                   placeholder="https://…"
+                  error={avisoImagen ?? urlDeImagenSospechosa(p.imagenUrl ?? '') ?? undefined}
                 />
+                {verificandoImagen && (
+                  <p className="text-[11px] text-slate-500 flex items-center gap-1.5">
+                    <Loader2 className="w-3 h-3 animate-spin" /> Comprobando la imagen…
+                  </p>
+                )}
                 <input
                   ref={archivoImagen}
                   type="file"
@@ -585,7 +644,9 @@ export const CatalogoPage: React.FC = () => {
     <div className="space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">Catálogo</h1>
+          <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2.5">
+            <IconoModulo nombre="Palette" /> Catálogo
+          </h1>
           <p className="text-sm text-slate-500 font-medium">
             Lo que Pintuco vende y a qué precio. Es lo que el cliente ve en la tienda.
           </p>
@@ -668,6 +729,80 @@ export const CatalogoPage: React.FC = () => {
             <option key={s} value={s}>{ETIQUETA_CATALOGO[s]}</option>
           ))}
         </select>
+
+        {/* Uno por pestaña: la lista de precios, la carta de colores y las
+            categorías son tres documentos distintos que se piden por separado. */}
+        <div className="ml-auto">
+          {pestana === 'productos' && (
+            <ExportarBoton<{ p: ProductoCatalogo; v: Presentacion }>
+              filas={filasDePrecios}
+              nombre="lista-de-precios"
+              titulo="Lista de precios"
+              filtros={[
+                estado === 'TODOS' ? 'Todos los estados' : ETIQUETA_CATALOGO[estado],
+                busqueda.trim() ? `Búsqueda: ${busqueda.trim()}` : null,
+                `${productosFiltrados.length} productos`,
+              ].filter(Boolean).join(' · ')}
+              columnas={[
+                { titulo: 'Código', valor: ({ p }) => p.codigo },
+                { titulo: 'Producto', valor: ({ p }) => p.nombre },
+                { titulo: 'Categoría', valor: ({ p }) => p.categoria },
+                { titulo: 'Marca', valor: ({ p }) => p.marca },
+                { titulo: 'Presentación', valor: ({ v }) => v.label },
+                { titulo: 'SKU', valor: ({ v }) => v.sku },
+                { titulo: 'Código de barras', valor: ({ v }) => v.barcode },
+                { titulo: 'Litros', valor: ({ v }) => v.volumenLitros, numerica: true },
+                { titulo: 'Precio', valor: ({ v }) => v.precio, numerica: true },
+                { titulo: 'IVA (%)', valor: ({ p }) => p.iva, numerica: true },
+                { titulo: 'Acabado', valor: ({ p }) => p.acabado },
+                { titulo: 'Ambiente', valor: ({ p }) => p.ambiente },
+                { titulo: 'Rendimiento (m²/gal)', valor: ({ p }) => p.rendimiento, numerica: true },
+                { titulo: 'Estado', valor: ({ v }) => v.estado },
+                // Solo para quien puede ver costos. Ver la nota de `conCostos`.
+                ...(conCostos ? [
+                  { titulo: 'Costo estándar', valor: ({ v }: { v: Presentacion }) => v.costoEstandar, numerica: true },
+                  { titulo: 'Costo promedio', valor: ({ v }: { v: Presentacion }) => v.costoPromedio, numerica: true },
+                  { titulo: 'Margen (%)', valor: ({ v }: { v: Presentacion }) => v.margenPct, numerica: true },
+                ] : []),
+              ]}
+            />
+          )}
+
+          {pestana === 'colores' && (
+            <ExportarBoton<ColorCatalogo>
+              filas={coloresFiltrados}
+              nombre="carta-de-colores"
+              titulo="Carta de colores"
+              filtros={busqueda.trim() ? `Búsqueda: ${busqueda.trim()}` : 'Todos'}
+              columnas={[
+                { titulo: 'Código', valor: (c) => c.codigo },
+                { titulo: 'Nombre', valor: (c) => c.nombre },
+                { titulo: 'Familia', valor: (c) => c.familia },
+                { titulo: 'Hex', valor: (c) => c.hex },
+                { titulo: 'RGB', valor: (c) => c.rgb },
+                { titulo: 'En carta', valor: (c) => (c.enCarta ? 'Sí' : 'No') },
+                { titulo: 'Producto recomendado', valor: (c) => c.productoRecomendado },
+              ]}
+            />
+          )}
+
+          {pestana === 'categorias' && (
+            <ExportarBoton<CategoriaCatalogo>
+              filas={categoriasFiltradas}
+              nombre="categorias"
+              titulo="Categorías del catálogo"
+              filtros={busqueda.trim() ? `Búsqueda: ${busqueda.trim()}` : 'Todas'}
+              columnas={[
+                { titulo: 'Nombre', valor: (c) => c.nombre },
+                { titulo: 'Slug', valor: (c) => c.slug },
+                { titulo: 'Descripción', valor: (c) => c.descripcion },
+                { titulo: 'Orden', valor: (c) => c.orden, numerica: true },
+                { titulo: 'Productos', valor: (c) => c.productos, numerica: true },
+                { titulo: 'Activa', valor: (c) => (c.activa ? 'Sí' : 'No') },
+              ]}
+            />
+          )}
+        </div>
       </div>
 
       {cargando ? (
@@ -742,7 +877,7 @@ export const CatalogoPage: React.FC = () => {
                                   <div className="flex items-center gap-3">
                                     <div className="w-9 h-9 rounded-lg border border-slate-200 bg-slate-50 overflow-hidden shrink-0 flex items-center justify-center">
                                       {p.imagenUrl ? (
-                                        <img
+                                        <ImagenConRespaldo
                                           src={p.imagenUrl}
                                           alt=""
                                           className="w-full h-full object-cover"

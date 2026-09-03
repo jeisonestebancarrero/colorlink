@@ -10,11 +10,13 @@ import {
   ETIQUETA_VISITA, COLOR_VISITA,
   type EstadoProyecto, type ProyectoLista, type ProyectoDetalle,
 } from '../../services/proyectosBackoffice';
+import { ExportarBoton } from '../ExportarBoton';
 import { useAdminAuth } from '../AdminAuthContext';
 import { Button } from '../../components/common/Button';
 import { Input } from '../../components/common/Input';
 import { Select } from '../../components/common/Select';
 import { ProgramarVisita } from '../ProgramarVisita';
+import { IconoModulo } from '../IconosDeModulo';
 
 const fecha = formatearFecha;
 
@@ -541,7 +543,9 @@ export const ProyectosPage: React.FC = () => {
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">Proyectos</h1>
+        <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2.5">
+            <IconoModulo nombre="FolderKanban" /> Proyectos
+          </h1>
         <p className="text-sm text-slate-500 font-medium">
           Obras de los clientes, con su diagnóstico, su equipo y sus visitas.
         </p>
@@ -575,6 +579,43 @@ export const ProyectosPage: React.FC = () => {
             </option>
           ))}
         </select>
+
+        {/* La cartera de obras es lo que se lleva a un comité comercial: qué
+            hay abierto, en qué ciudad, con cuánta área y quién la atiende. */}
+        <ExportarBoton<ProyectoLista>
+          filas={filtrados}
+          nombre={estado === 'TODOS' ? 'proyectos' : `proyectos-${estado.toLowerCase()}`}
+          titulo="Proyectos"
+          filtros={[
+            estado === 'TODOS' ? 'Todos los estados' : ETIQUETA_PROYECTO[estado],
+            busqueda.trim() ? `Búsqueda: ${busqueda.trim()}` : null,
+          ].filter(Boolean).join(' · ')}
+          columnas={[
+            { titulo: 'Código', valor: (p) => p.codigo },
+            { titulo: 'Obra', valor: (p) => p.nombre },
+            { titulo: 'Cliente', valor: (p) => p.cliente },
+            { titulo: 'Empresa', valor: (p) => p.empresa },
+            { titulo: 'Ciudad', valor: (p) => p.ciudad },
+            { titulo: 'Tipo', valor: (p) => p.tipo },
+            { titulo: 'Área (m²)', valor: (p) => p.areaM2, numerica: true },
+            { titulo: 'Estado', valor: (p) => ETIQUETA_PROYECTO[p.estado] ?? p.estado },
+            { titulo: 'Progreso (%)', valor: (p) => p.progreso, numerica: true },
+            // Quién la atiende, con el rol: sin eso el listado no sirve para
+            // repartir trabajo, que es para lo que se saca.
+            {
+              titulo: 'Asignados',
+              valor: (p) => p.asignados.map((a) => `${a.nombre} (${a.rol})`).join(', '),
+            },
+            { titulo: 'Visitas pendientes', valor: (p) => p.visitasPendientes, numerica: true },
+            {
+              titulo: 'Requerido para',
+              valor: (p) => (p.requeridoPara
+                ? new Date(p.requeridoPara).toLocaleDateString('es-CO')
+                : ''),
+            },
+            { titulo: 'Creado', valor: (p) => new Date(p.creado).toLocaleDateString('es-CO') },
+          ]}
+        />
       </div>
 
       <div className="bg-white rounded-xl border border-slate-200 shadow-2xs overflow-hidden">

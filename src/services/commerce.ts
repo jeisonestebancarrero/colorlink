@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase';
 import type { CartItem, NotificationItem, SolutionKit, StoreProduct } from '../types';
+import { CANTIDAD_MAXIMA, type LineaInvitado } from './carritoInvitado';
 
 /**
  * Carrito, pedidos, notificaciones y motor de cálculo — FASES 7 a 13.
@@ -244,6 +245,54 @@ export const cartService = {
     if (error) throw errorLegible('clear', error);
     return [];
   },
+
+  /**
+   * Absorbe el carrito que el visitante armó SIN sesión.
+   *
+   * Se llama una sola vez, justo después de entrar o registrarse: lo que la
+   * persona había puesto en el carrito antes de tener cuenta se suma al
+   * carrito real en lugar de perderse. Si ya tenía algo guardado de una visita
+   * anterior, las cantidades se suman, no se reemplazan.
+   *
+   * Recibe solo variante, color y cantidad. Ningún precio viene del navegador.
+   */
+  async absorberLineas(lineas: LineaInvitado[]): Promise<CartItem[]> {
+    if (lineas.length === 0) return this.getItems();
+    const cartId = await carritoActivo();
+    if (!cartId) throw new Error('Inicia sesión para recuperar tu carrito.');
+
+    for (const linea of lineas) {
+      const { data: existente } = await supabase
+        .from('cart_items')
+        .select('id, quantity')
+        .eq('cart_id', cartId)
+        .eq('variant_id', linea.variantId)
+        .is('color_id', linea.colorId)
+        .maybeSingle();
+
+      // El tope lo impone cart_items_cantidad_positiva (<= 999): pasarse haría
+      // fallar el volcado entero y el visitante perdería su carrito al entrar,
+      // que es exactamente lo que se está evitando.
+      if (existente) {
+        const fila = existente as { id: string; quantity: number };
+        const cantidad = Math.min(CANTIDAD_MAXIMA, fila.quantity + linea.quantity);
+        const { error } = await supabase
+          .from('cart_items').update({ quantity: cantidad }).eq('id', fila.id);
+        if (error) throw errorLegible('absorberLineas/update', error);
+      } else {
+        const { error } = await supabase.from('cart_items').insert({
+          cart_id: cartId,
+          variant_id: linea.variantId,
+          color_id: linea.colorId,
+          quantity: Math.min(CANTIDAD_MAXIMA, linea.quantity),
+          kit_solution_id: linea.kitSolutionId,
+        });
+        if (error) throw errorLegible('absorberLineas/insert', error);
+      }
+    }
+
+    return this.getItems();
+  },
 };
 
 // ============================================================
@@ -268,8 +317,23 @@ export const orderService = {
   async createFromCart(datos: {
     deliveryMethod: 'pickup' | 'delivery';
     pickupLocationExternalRef?: string;
+    /**
+     * Destino. Se manda el ID de la sede o de la dirección guardada, y el
+     * SERVIDOR lee de ahí la dirección: si el navegador enviara las dos cosas,
+     * podría mandar una dirección que no corresponde a esa sede y el despacho
+     * saldría hacia donde dijera la pestaña. La dirección escrita a mano
+     * (`shippingAddress` + `shippingMunicipalityCode`) es para la obra, que no
+     * es una sede registrada.
+     */
+    companyBranchId?: string | null;
+    customerAddressId?: string | null;
     shippingAddress?: string;
-    shippingCity?: string;
+    shippingMunicipalityCode?: string;
+    /** Quién recibe: los cuatro son obligatorios, también al retirar en tienda. */
+    recipientName: string;
+    recipientDocumentType: string;
+    recipientDocumentNumber: string;
+    recipientPhone: string;
     projectId?: string;
     notes?: string;
   }): Promise<ResumenPedido> {
@@ -285,7 +349,13 @@ export const orderService = {
       _delivery_method: datos.deliveryMethod === 'delivery' ? 'ENVIO' : 'RETIRO_TIENDA',
       _pickup_location_id: pickupId,
       _shipping_address: datos.shippingAddress ?? null,
-      _shipping_city: datos.shippingCity ?? null,
+      _shipping_municipality_code: datos.shippingMunicipalityCode ?? null,
+      _customer_address_id: datos.customerAddressId ?? null,
+      _company_branch_id: datos.companyBranchId ?? null,
+      _recipient_name: datos.recipientName,
+      _recipient_document_type: datos.recipientDocumentType,
+      _recipient_document_number: datos.recipientDocumentNumber,
+      _recipient_phone: datos.recipientPhone,
       _project_id: datos.projectId ?? null,
       _notes: datos.notes ?? null,
     });

@@ -360,6 +360,12 @@ export interface VisitaLista {
   resultado: string | null;
   observaciones: string | null;
   assistanceId: string | null;
+  /**
+   * Sede que atiende la visita. Hoy siempre null: una visita cuelga de un
+   * proyecto y los proyectos no tienen sede, así que no se puede derivar y no
+   * se inventa. La columna existe para cuando la programación decida la sede.
+   */
+  locationId: string | null;
 }
 
 interface FilaVisita {
@@ -371,6 +377,7 @@ interface FilaVisita {
   scheduled_time: string | null;
   address: string | null;
   status: EstadoVisita;
+  location_id: string | null;
   result: string | null;
   observations: string | null;
   projects: {
@@ -384,7 +391,7 @@ interface FilaVisita {
 
 const SELECT_VISITA = `
   id, project_id, assistance_id, technician_id, scheduled_date, scheduled_time,
-  address, status, result, observations,
+  address, status, location_id, result, observations,
   projects:project_id ( name, code, city, profiles:user_id ( first_name, last_name ) ),
   profiles:technician_id ( first_name, last_name )
 `;
@@ -408,6 +415,7 @@ function aVisita(f: FilaVisita): VisitaLista {
     resultado: f.result,
     observaciones: f.observations,
     assistanceId: f.assistance_id,
+    locationId: f.location_id,
   };
 }
 
@@ -433,6 +441,12 @@ export const visitaService = {
     tecnicoId?: string;
     direccion?: string;
     assistanceId?: string;
+    /**
+     * Sede que atiende la visita. Opcional: si no se indica, el servidor la
+     * deduce de la ciudad del proyecto, y si esa ciudad no tiene tienda la
+     * deja sin sede en lugar de asignar «la más cercana».
+     */
+    locationId?: string | null;
   }): Promise<string> {
     const { data, error } = await supabase.rpc('schedule_technical_visit', {
       _project_id: datos.projectId,
@@ -441,6 +455,7 @@ export const visitaService = {
       _technician_id: datos.tecnicoId ?? null,
       _direccion: datos.direccion ?? null,
       _assistance_id: datos.assistanceId ?? null,
+      _location_id: datos.locationId ?? null,
     });
     if (error) throw errorLegible('programar', error);
     return String(data);

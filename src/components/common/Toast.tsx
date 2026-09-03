@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom';
 import React from 'react';
 import { useProjects } from '../../context/ProjectContext';
 import { CheckCircle2, AlertCircle, Info, X } from 'lucide-react';
@@ -19,10 +20,17 @@ export const Toast: React.FC = () => {
     info: 'border-blue-200 bg-white text-slate-800 shadow-blue-500/10',
   };
 
-  return (
+  // En un portal por la misma razón que el diálogo: colgado de `main`, que
+  // tiene `relative z-10`, el aviso quedaba por debajo de la cabecera y de
+  // cualquier capa con `z` mayor fuera de ese contenedor.
+  return createPortal(
     <div
       id="colorlink-toast-container"
-      className="fixed bottom-6 right-6 z-50 max-w-md w-full animate-in slide-in-from-bottom-5 duration-300 pointer-events-auto"
+      /* `bottom-24` y no `bottom-6`: ahí abajo está la burbuja del asistente,
+         y en ese punto exacto el aviso la tapaba justo cuando la persona iba a
+         pulsarla. El aviso es pasajero y la burbuja permanente, así que el
+         aviso es el que se aparta. */
+      className="fixed bottom-24 right-6 z-50 max-w-md w-full animate-in slide-in-from-bottom-5 duration-300 pointer-events-auto"
     >
       <div
         className={`flex items-start gap-3 p-4 rounded-xl border shadow-xl ${borders[toast.type]}`}
@@ -39,6 +47,7 @@ export const Toast: React.FC = () => {
           <X className="w-4 h-4" />
         </button>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 };

@@ -1,6 +1,18 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { readFileSync, existsSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { limpiarCuentasDePrueba, clienteDeServicio } from './limpieza';
+/**
+ * Los nombres se guardan en MAYÚSCULAS y los documentos sin puntos
+ * (20260902100006): la comparación se hace contra el dato NORMALIZADO, no
+ * contra la caja con la que se escribió. Comparar contra el literal original
+ * estaría comprobando cómo lo escribió la prueba, no qué guardó la base.
+ */
+const NORM = (t: string) => t.trim().replace(/\s+/g, ' ').toUpperCase();
+/** Documento sin separadores, conservando el guion del dígito de verificación. */
+const NORM_DOC = (t: string) =>
+  t.toUpperCase().replace(/[^0-9A-ZÁÉÍÓÚÑ-]/g, '').replace(/^-+|-+$/g, '');
+
 
 /**
  * El registro tiene dos caminos y cada uno debe producir exactamente lo suyo.
@@ -159,18 +171,14 @@ describe.skipIf(!disponible)('Registro bifurcado · persona natural y empresa', 
       console.warn('[registro-bifurcado] sin SUPABASE_SERVICE_ROLE_KEY: cuentas de prueba no eliminadas');
       return;
     }
-    for (const id of creados) {
-      await fetch(`${API}/auth/v1/admin/users/${id}`, {
-        method: 'DELETE',
-        headers: { apikey: SERVICE, Authorization: `Bearer ${SERVICE}` },
-      });
-    }
-    for (const nit of [NIT_EMPRESA, NIT_IMPOSTOR]) {
-      await fetch(`${API}/rest/v1/companies?nit=eq.${encodeURIComponent(nit)}`, {
-        method: 'DELETE',
-        headers: { apikey: SERVICE, Authorization: `Bearer ${SERVICE}` },
-      });
-    }
+
+    // Se borra por PATRÓN de correo, no por la lista `creados`. Esa lista se
+    // llena al FINAL del `beforeAll`: si una de las cuatro altas fallaba,
+    // las anteriores ya existían pero nunca llegaban a la lista y se
+    // quedaban en la base. Así se acumularon 62 usuarios y 71 empresas de
+    // prueba, hasta enterrar a los clientes reales en la pantalla de
+    // Clientes. El patrón las atrapa todas, se rompa donde se rompa.
+    await limpiarCuentasDePrueba(clienteDeServicio(API, SERVICE), sello);
   });
 
   it('ambos caminos crean sesión', () => {
@@ -205,8 +213,8 @@ describe.skipIf(!disponible)('Registro bifurcado · persona natural y empresa', 
     const r = await fetch(`${API}/rest/v1/companies?select=name,nit`, { headers: auth(tEmpresa) });
     const empresas = await r.json();
     expect(empresas).toHaveLength(1);
-    expect(empresas[0].name).toBe(`Constructora Prueba ${sello}`);
-    expect(empresas[0].nit).toBe(NIT_EMPRESA);
+    expect(empresas[0].name).toBe(NORM(`Constructora Prueba ${sello}`));
+    expect(empresas[0].nit).toBe(NORM_DOC(NIT_EMPRESA));
 
     const m = await fetch(`${API}/rest/v1/company_members?select=company_role`, {
       headers: auth(tEmpresa),
@@ -229,7 +237,7 @@ describe.skipIf(!disponible)('Registro bifurcado · persona natural y empresa', 
 
     // Ve una empresa homónima, pero es SUYA y recién creada, no la original.
     expect(empresas).toHaveLength(1);
-    expect(empresas[0].nit).toBe(NIT_IMPOSTOR);
+    expect(empresas[0].nit).toBe(NORM_DOC(NIT_IMPOSTOR));
 
     // La prueba de fuego: no puede ver los proyectos de la empresa original.
     const proyectos = await fetch(`${API}/rest/v1/projects?select=id`, {
@@ -251,7 +259,7 @@ describe.skipIf(!disponible)('Registro bifurcado · persona natural y empresa', 
 
   it('no duplica la empresa y deja una solicitud pendiente', async () => {
     const empresas = await fetch(
-      `${API}/rest/v1/companies?select=id&nit=eq.${encodeURIComponent(NIT_EMPRESA)}`,
+      `${API}/rest/v1/companies?select=id&nit=eq.${encodeURIComponent(NORM_DOC(NIT_EMPRESA))}`,
       { headers: auth(tEmpresa) },
     ).then((r) => r.json());
     expect(empresas).toHaveLength(1);

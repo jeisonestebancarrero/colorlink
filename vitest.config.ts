@@ -11,6 +11,18 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
   test: {
     environment: 'node',
+    /**
+     * Los archivos corren de UNO EN UNO, no en paralelo.
+     *
+     * Las pruebas de integración comparten la base local y varias usan el
+     * carrito del MISMO cliente de demostración (solo puede haber un carrito
+     * activo por persona). En paralelo se pisan entre ellas y la suite falla
+     * de forma intermitente sin que haya nada roto en el código, que es la
+     * peor clase de prueba: la que enseña a ignorar los fallos.
+     *
+     * El costo es despreciable: la suite completa tarda unos segundos.
+     */
+    fileParallelism: false,
     include: ['src/**/*.test.ts', 'supabase/tests/**/*.test.ts'],
     coverage: {
       provider: 'v8',

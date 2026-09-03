@@ -1,19 +1,18 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import {
-  BookOpen, ChartLine, Circle, FolderKanban, Landmark, LayoutDashboard,
-  MessagesSquare, Package, Palette, ReceiptText, Search, Settings,
-  ShoppingBag, Truck, Users, Wrench, X,
-} from 'lucide-react';
+import { Search, X } from 'lucide-react';
 import { useAdminAuth } from './AdminAuthContext';
 import { LogOut } from 'lucide-react';
 import type { VistaMenu } from '../services/admin';
 import logoPintuco from '../../assets/brand/pintuco-logo.jpeg';
-
-const ICONOS: Record<string, React.FC<{ className?: string }>> = {
-  LayoutDashboard, ShoppingBag, Truck, Package, FolderKanban, Wrench,
-  ReceiptText, Landmark, BookOpen, MessagesSquare, Palette, ChartLine,
-  Users, Settings,
-};
+import { SelectorSede } from './SelectorSede';
+// El mapa de iconos es UNO solo, compartido con la barra lateral y con el
+// encabezado de cada pantalla. Aquí había una TERCERA copia, y le faltaban
+// `PackagePlus`, `Store` y `Building2`: por eso Recepciones, Puntos de venta y
+// Clientes salían en el tablero con un círculo genérico. Centralizarlo en un
+// sitio no bastó mientras quedara una copia sin tocar.
+import { iconoDeModulo } from './IconosDeModulo';
+import { CampanaMensajes } from './CampanaMensajes';
+import { CampanaAvisos } from './CampanaAvisos';
 
 /**
  * Tablero de aplicaciones del ERP.
@@ -27,7 +26,11 @@ const ICONOS: Record<string, React.FC<{ className?: string }>> = {
  * Los colores no están escritos aquí: vienen de `app_views.color`, de modo
  * que el administrador puede recolorear o reordenar el tablero sin desplegar.
  */
-export const LauncherPage: React.FC<{ onAbrir: (ruta: string) => void }> = ({ onAbrir }) => {
+export const LauncherPage: React.FC<{
+  onAbrir: (ruta: string) => void;
+  /** Abre un pedido concreto. Lo usa la campana de mensajes. */
+  onAbrirPedido?: (numero: string) => void;
+}> = ({ onAbrir, onAbrirPedido }) => {
   const { acceso, nombre, salir } = useAdminAuth();
   const [filtro, setFiltro] = useState('');
   const [buscando, setBuscando] = useState(false);
@@ -95,7 +98,7 @@ export const LauncherPage: React.FC<{ onAbrir: (ruta: string) => void }> = ({ on
     setBuscando(false);
   };
 
-  const icono = (v: VistaMenu) => ICONOS[v.icon ?? ''] ?? Circle;
+  const icono = (v: VistaMenu) => iconoDeModulo(v.icon);
   const color = (v: VistaMenu) => v.color ?? '#004F9F';
 
   return (
@@ -147,6 +150,13 @@ export const LauncherPage: React.FC<{ onAbrir: (ruta: string) => void }> = ({ on
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
+            {/* El selector de sede va también aquí: el lanzador es donde se
+                aterriza, y si solo estuviera dentro de los módulos habría que
+                entrar a uno para saber qué sede está activa. */}
+            <div className="hidden sm:block">
+              <SelectorSede variante="barra" />
+            </div>
+
             {/* La búsqueda no ocupa sitio hasta que se usa. */}
             {buscando ? (
               <div className="relative w-56 sm:w-72">
@@ -180,6 +190,15 @@ export const LauncherPage: React.FC<{ onAbrir: (ruta: string) => void }> = ({ on
                 <Search className="w-4 h-4" />
               </button>
             )}
+
+            {/* La campana va en el tablero porque entrar al portal es el
+                momento en que uno mira si le escribieron. */}
+            {onAbrirPedido && (
+              <CampanaMensajes onAbrirPedido={onAbrirPedido} variante="barra" />
+            )}
+            {/* Y la de avisos aparte: uno se archiva, el otro espera
+                respuesta. */}
+            <CampanaAvisos onIr={(ruta) => onAbrir(ruta)} />
 
             <button
               onClick={salir}

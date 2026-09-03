@@ -1,5 +1,23 @@
 import React, { useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
+
+/**
+ * Diálogo modal.
+ *
+ * Se dibuja en un PORTAL colgado de `document.body`, y eso NO es un detalle de
+ * implementación: es lo que hace que funcione.
+ *
+ * Las dos aplicaciones montan el contenido dentro de un `<main>` con
+ * `relative z-10`, y un elemento posicionado con `z-index` crea un CONTEXTO DE
+ * APILAMIENTO: todo lo que cuelga de él compite solo ahí dentro. Un diálogo con
+ * `z-50` escrito dentro de una página quedaba por debajo de cualquier hermano
+ * de `main` con `z` mayor —la cabecera de la tienda (`z-40`) y la barra azul
+ * del portal (`z-20`)— y aparecía cortado. Subir el número no sirve de nada
+ * mientras el diálogo siga dentro del contenedor.
+ *
+ * El `id` se conserva por si alguna prueba o estilo lo busca.
+ */
 
 interface ModalProps {
   isOpen: boolean;
@@ -47,7 +65,7 @@ export const Modal: React.FC<ModalProps> = ({
     '3xl': 'max-w-3xl',
   };
 
-  return (
+  return createPortal(
     <div
       id="colorlink-modal-portal"
       className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200"
@@ -75,6 +93,7 @@ export const Modal: React.FC<ModalProps> = ({
         {/* Content */}
         <div className="p-6">{children}</div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 };

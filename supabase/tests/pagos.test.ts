@@ -118,6 +118,12 @@ describe.skipIf(!disponible)('Pagos', () => {
     const id = await rpc('create_order_from_cart', tCliente, {
       _delivery_method: 'RETIRO_TIENDA',
       _pickup_location_id: (punto as Array<{ id: string }>)[0].id,
+      // Quién recibe es obligatorio desde 20260902100002: sin nombre, documento
+      // y teléfono, el punto de retiro no sabe a quién le entrega.
+      _recipient_name: 'Carlos Mendoza',
+      _recipient_document_type: 'CC',
+      _recipient_document_number: '71234567',
+      _recipient_phone: '3001234567',
     }).then((r) => r.json());
 
     creados.push(id as string);

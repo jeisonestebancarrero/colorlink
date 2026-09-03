@@ -3,8 +3,11 @@ import {
   AlertTriangle, ArrowRight, CalendarClock, ClipboardList, MessageSquare,
   Package, PackageCheck, TrendingDown, TrendingUp, Truck,
 } from 'lucide-react';
+import { useSedes } from '../SedeContext';
 import { useAdminAuth } from '../AdminAuthContext';
 import { panelService, formatearCOP, formatearFecha, type ResumenPanel } from '../../services/backoffice';
+import { ExportarBoton } from '../ExportarBoton';
+import { IconoModulo } from '../IconosDeModulo';
 
 /**
  * Panel: la bandeja del día.
@@ -18,23 +21,38 @@ import { panelService, formatearCOP, formatearFecha, type ResumenPanel } from '.
  * se dibujan: un técnico de campo no debe ver un cero en "ventas de hoy", debe
  * no ver la tarjeta.
  */
+/* Las dos listas que trae el resumen. Se nombran para poder tiparlas en el
+   botón de exportar sin volver a escribir su forma. */
+type FilaCritica = NonNullable<ResumenPanel['criticos']>[number];
+type FilaAgenda = NonNullable<ResumenPanel['agenda']>[number];
+
 export const PanelPage: React.FC<{ onIr?: (ruta: string) => void }> = ({ onIr }) => {
   const { nombre } = useAdminAuth();
+  // El Panel se acota a las sedes activas del selector. El cruce con las
+  // PERMITIDAS lo hace el servidor: `resumen_panel` es SECURITY DEFINER, así
+  // que RLS no aplica dentro y no puede confiar en lo que le manden.
+  const { filtroSedes } = useSedes();
   const [r, setR] = useState<ResumenPanel | null>(null);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
+    let activo = true;
     (async () => {
+      setCargando(true);
       try {
-        setR(await panelService.resumen());
+        const datos = await panelService.resumen(filtroSedes);
+        if (activo) setR(datos);
       } catch (e) {
-        setError(e instanceof Error ? e.message : 'No fue posible cargar el panel.');
+        if (activo) setError(e instanceof Error ? e.message : 'No fue posible cargar el panel.');
       } finally {
-        setCargando(false);
+        if (activo) setCargando(false);
       }
     })();
-  }, []);
+    return () => { activo = false; };
+    // Cambiar de sede recarga el panel: sin esta dependencia se quedaría con
+    // las cifras de la selección anterior.
+  }, [filtroSedes]);
 
   const saludo = (() => {
     const h = new Date().getHours();
@@ -113,8 +131,8 @@ export const PanelPage: React.FC<{ onIr?: (ruta: string) => void }> = ({ onIr })
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">
-          {saludo}, {nombre?.split(' ')[0] ?? 'equipo'}
+        <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2.5">
+          <IconoModulo nombre="LayoutDashboard" /> {saludo}, {nombre?.split(' ')[0] ?? 'equipo'}
         </h1>
         <p className="text-sm text-slate-500 font-medium mt-0.5 first-letter:uppercase">
           {formatearFecha(new Date().toISOString().slice(0, 10))}
@@ -235,6 +253,24 @@ export const PanelPage: React.FC<{ onIr?: (ruta: string) => void }> = ({ onIr })
                   <span className="text-rose-600">{r.agotados} agotados</span>
                 )}
               </div>
+
+              {/* El faltante es la lista que se lleva a compras. Salir a
+                  pedirlo con las cifras en la pantalla es cómo se pide de
+                  menos. */}
+              <ExportarBoton<FilaCritica>
+                filas={r.criticos ?? []}
+                nombre="inventario-en-alerta"
+                titulo="Inventario en alerta"
+                filtros={`${r.bajoMinimo} bajo mínimo · ${r.agotados ?? 0} agotados`}
+                columnas={[
+                  { titulo: 'Producto', valor: (c) => c.producto },
+                  { titulo: 'Presentación', valor: (c) => c.presentacion },
+                  { titulo: 'Punto de venta', valor: (c) => c.punto },
+                  { titulo: 'Existencia', valor: (c) => c.existencia, numerica: true },
+                  { titulo: 'Mínimo', valor: (c) => c.minimo, numerica: true },
+                  { titulo: 'Faltante', valor: (c) => c.faltante, numerica: true },
+                ]}
+              />
             </div>
 
             {(r.criticos?.length ?? 0) === 0 ? (
@@ -283,6 +319,20 @@ export const PanelPage: React.FC<{ onIr?: (ruta: string) => void }> = ({ onIr })
               <span className="text-[11px] font-bold text-slate-500 tabular-nums">
                 {r.visitasHoy ?? 0} hoy · {r.visitasSemana} esta semana
               </span>
+
+              <ExportarBoton<FilaAgenda>
+                filas={r.agenda ?? []}
+                nombre="proximas-visitas"
+                titulo="Próximas visitas técnicas"
+                filtros={`${r.visitasHoy ?? 0} hoy · ${r.visitasSemana} esta semana`}
+                columnas={[
+                  { titulo: 'Fecha', valor: (v) => v.fecha },
+                  { titulo: 'Hora', valor: (v) => v.hora },
+                  { titulo: 'Obra', valor: (v) => v.proyecto },
+                  { titulo: 'Ciudad', valor: (v) => v.ciudad },
+                  { titulo: 'Técnico', valor: (v) => v.tecnico },
+                ]}
+              />
             </div>
 
             {(r.agenda?.length ?? 0) === 0 ? (

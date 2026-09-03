@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useCart } from '../../context/CartContext';
 import { useAuth } from '../../context/AuthContext';
-import { usePickupStores } from '../../hooks/useCatalog';
+import { usePickupStores, useTarifaIva } from '../../hooks/useCatalog';
+import { desglosarIvaIncluido, formatearImporteImpuesto } from '../../services/impuestos';
 import {
   X,
   ShoppingCart,
@@ -21,12 +23,26 @@ import {
   Printer,
   Sparkles,
   ChevronDown,
+  UserPlus,
+  LogIn,
+  Lock,
 } from 'lucide-react';
 import { Button } from '../common/Button';
 import { PagoModal } from './PagoModal';
 import { CotizacionFormal } from './CotizacionFormal';
+import { DestinoEnvioSelector, QuienRecibeFormulario } from './DestinoEnvio';
 
-export const CartDrawer: React.FC = () => {
+interface CartDrawerProps {
+  /**
+   * La aplicación no usa librería de enrutado: la navegación es estado en
+   * App.tsx. Se recibe para poder llevar al visitante a entrar o registrarse
+   * sin perder el carrito. App.tsx ya lo pasaba, pero el componente lo
+   * ignoraba.
+   */
+  onNavigate?: (page: string, param?: string) => void;
+}
+
+export const CartDrawer: React.FC<CartDrawerProps> = ({ onNavigate }) => {
   // FASE 4 — puntos de retiro desde Supabase. La lógica del carrito y del
   // pedido sigue en CartContext hasta las FASES 8 y 9.
   const { data: PINTUCO_STORES } = usePickupStores();
@@ -48,22 +64,35 @@ export const CartDrawer: React.FC = () => {
     setSelectedStore,
     pickupDate,
     setPickupDate,
-    deliveryAddress,
-    setDeliveryAddress,
-    deliveryCity,
-    setDeliveryCity,
+    destino,
+    setDestino,
+    direccionesGuardadas,
+    sedesEmpresa,
+    quienRecibe,
+    setQuienRecibe,
+    erroresEntrega,
     isCheckoutSuccessOpen,
     setIsCheckoutSuccessOpen,
     lastOrderNumber,
     completeCheckout,
+    necesitaSesionPara,
+    pedirSesionPara,
+    descartarPeticionDeSesion,
+    recuperandoCarrito,
     pedidoPorPagar,
     ultimoPedidoPagado,
     cerrarPago,
   } = useCart();
-  const { user } = useAuth();
+  const { user, isAuthenticated } = useAuth();
 
   const [isGeneratingQuote, setIsGeneratingQuote] = useState(false);
   const [showStoreDropdown, setShowStoreDropdown] = useState(false);
+
+  // El desglose se calcula sobre el total YA descontado, igual que la factura:
+  // si se calculara sobre el subtotal, el IVA del carrito no cuadraría con el
+  // de la factura en cuanto hubiera un descuento de kit.
+  const { data: tarifaIva } = useTarifaIva();
+  const desglose = desglosarIvaIncluido(totalCOP, tarifaIva);
 
   const formatCOP = (num: number) => {
     return new Intl.NumberFormat('es-CO', {
@@ -76,11 +105,43 @@ export const CartDrawer: React.FC = () => {
   // Antes esto llamaba a window.print() sobre la tienda entera y salía la
   // barra de navegación y el catálogo. Ahora abre un documento de cotización
   // de verdad, con emisor, NIT, IVA discriminado, vigencia y condiciones.
-  const handleDownloadQuote = () => setIsGeneratingQuote(true);
+  //
+  // La cotización lleva los datos del cliente y queda como documento a su
+  // nombre, así que exige cuenta. Se le pide aquí, con el carrito ya armado
+  // delante, en lugar de habérsela pedido al añadir el primer producto.
+  const handleDownloadQuote = () => {
+    if (!isAuthenticated) {
+      pedirSesionPara('cotizacion');
+      return;
+    }
+    setIsGeneratingQuote(true);
+  };
+
+  /** Lleva a entrar o a registrarse dejando el carrito intacto. */
+  const irA = (pagina: 'login' | 'register') => {
+    setIsCartOpen(false);
+    onNavigate?.(pagina);
+  };
 
   if (!isCartOpen && !isCheckoutSuccessOpen && !pedidoPorPagar) return null;
 
-  return (
+  /**
+   * Se dibuja en un PORTAL, colgado de `document.body`.
+   *
+   * El cajón se veía cortado por arriba: le faltaba su cabecera con el título
+   * y la X. No era un problema de altura —es `fixed inset-y-0`, ocupa toda la
+   * pantalla— sino de orden de pintado. `CartDrawer` cuelga de
+   * `<main className="relative z-10">`, y eso crea un CONTEXTO DE APILAMIENTO:
+   * su `z-50` solo compite dentro de ese contenedor, así que la cabecera del
+   * sitio (`sticky z-40`, hermana de `main`) se pintaba encima de los primeros
+   * 220 píxeles del cajón.
+   *
+   * Subir el número no lo arregla: mientras siga dentro de `main`, cualquier
+   * `z` pierde contra un hermano de `main`. Un portal lo saca de ahí y el
+   * problema desaparece de raíz, que es lo que se espera de un cajón o un
+   * diálogo: se dibujan sobre TODO.
+   */
+  return createPortal(
     <>
       {isGeneratingQuote && (
         <CotizacionFormal
@@ -258,26 +319,14 @@ export const CartDrawer: React.FC = () => {
                               className="border border-slate-200 rounded px-2 py-0.5 text-xs text-slate-800 font-semibold focus:outline-none focus:border-blue-600"
                             />
                           </div>
+
+                          {/* Al retirar en tienda también hay que saber a
+                              quién se le entrega: el punto de venta verifica
+                              el documento. El servidor lo exige igual. */}
+                          <QuienRecibeFormulario />
                         </div>
                       ) : (
-                        <div className="mt-3 p-3 bg-white rounded-lg border border-blue-100 space-y-2">
-                          <div className="space-y-1">
-                            <label className="text-[11px] font-bold text-slate-700">
-                              Dirección de entrega en Obra:
-                            </label>
-                            <input
-                              type="text"
-                              value={deliveryAddress}
-                              onChange={(e) => setDeliveryAddress(e.target.value)}
-                              placeholder="Dirección completa, torre, apto o frente de obra"
-                              className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 focus:outline-none focus:border-blue-600"
-                            />
-                          </div>
-                          <div className="flex items-center justify-between text-[11px] text-slate-500">
-                            <span>Ciudad: <strong>{deliveryCity}</strong></span>
-                            <span className="text-blue-700 font-semibold">Entrega estimada: 24-48 horas</span>
-                          </div>
-                        </div>
+                        <DestinoEnvioSelector />
                       )}
                     </div>
 
@@ -329,7 +378,7 @@ export const CartDrawer: React.FC = () => {
                               </div>
                             )}
                             <p className="text-xs font-extrabold text-[#004F9F] mt-1">
-                              {formatCOP(item.unitPrice)} <span className="text-[10px] font-normal text-slate-500">c/u</span>
+                              {formatCOP(item.unitPrice)} <span className="text-[10px] font-normal text-slate-500">c/u · IVA incl.</span>
                             </p>
                           </div>
 
@@ -402,33 +451,119 @@ export const CartDrawer: React.FC = () => {
                       <span>Asesoría Técnica Pintuco:</span>
                       <span className="font-semibold text-blue-700">INCLUIDA ($0)</span>
                     </div>
+
+                    {/* Desglose del IVA.
+                        Los precios de góndola ya lo incluyen, así que aquí NO
+                        se suma nada: se despeja hacia atrás con el mismo
+                        cálculo de `emitir_factura_pos`, y por eso el total
+                        no cambia. Sin estas dos líneas el cliente veía un
+                        precio sin saber si al pagar le sumarían el 19 %. */}
+                    <div className="pt-2 border-t border-dashed border-slate-300 space-y-1.5">
+                      <div className="flex justify-between text-slate-500">
+                        <span>Base gravable:</span>
+                        <span className="tabular-nums">{formatearImporteImpuesto(desglose.base)}</span>
+                      </div>
+                      <div className="flex justify-between text-slate-500">
+                        <span>IVA {desglose.tarifa} % (incluido):</span>
+                        <span className="tabular-nums">{formatearImporteImpuesto(desglose.iva)}</span>
+                      </div>
+                    </div>
+
                     <div className="pt-2 border-t border-slate-200 flex justify-between items-baseline">
-                      <span className="text-sm font-extrabold text-slate-900">Total Estimado (COP):</span>
+                      <span className="text-sm font-extrabold text-slate-900">Total a Pagar (COP):</span>
                       <span className="text-xl font-extrabold text-[#004F9F]">
                         {formatCOP(totalCOP)}
                       </span>
                     </div>
+                    <p className="text-[11px] text-slate-500 leading-snug">
+                      IVA incluido. Este es el valor final: al pagar no se suma
+                      nada más.
+                    </p>
                   </div>
 
-                  {/* CTAs */}
-                  <div className="grid grid-cols-2 gap-2">
-                    <Button
-                      onClick={handleDownloadQuote}
-                      variant="outline"
-                      className="text-xs font-bold border-slate-300 text-slate-700 flex items-center justify-center gap-1.5"
-                    >
-                      <Printer className="w-3.5 h-3.5 text-slate-500" />
-                      <span>Cotización formal</span>
-                    </Button>
-                    <Button
-                      onClick={completeCheckout}
-                      variant="primary"
-                      className="bg-[#004F9F] hover:bg-[#003B77] text-xs font-bold text-white shadow-md flex items-center justify-center gap-1.5 cursor-pointer"
-                    >
-                      <span>Confirmar Pedido</span>
-                      <ArrowRight className="w-3.5 h-3.5" />
-                    </Button>
-                  </div>
+                  {/* Se pide la cuenta AQUÍ, no al añadir al carrito. Lo que
+                      la persona armó sigue arriba, a la vista, y se recupera
+                      tal cual después de entrar. */}
+                  {necesitaSesionPara ? (
+                    <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 space-y-3">
+                      <div className="flex items-start gap-2.5">
+                        <Lock className="w-4 h-4 text-[#004F9F] shrink-0 mt-0.5" />
+                        <div className="space-y-1">
+                          <p className="text-sm font-bold text-slate-900">
+                            {necesitaSesionPara === 'cotizacion'
+                              ? 'Necesitas una cuenta para la cotización formal'
+                              : 'Necesitas una cuenta para confirmar el pedido'}
+                          </p>
+                          <p className="text-xs text-slate-600 leading-snug">
+                            {necesitaSesionPara === 'cotizacion'
+                              ? 'La cotización se emite a tu nombre, con tus datos y tu NIT si eres empresa.'
+                              : 'El pedido queda vinculado a tu cuenta para que puedas seguir el alistamiento y recibir la factura.'}
+                          </p>
+                          <p className="text-xs font-semibold text-emerald-700">
+                            Tranquilo: guardamos tus {cartCount}{' '}
+                            {cartCount === 1 ? 'producto' : 'productos'} y te los
+                            devolvemos al entrar.
+                          </p>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <Button
+                          onClick={() => irA('login')}
+                          variant="primary"
+                          className="bg-[#004F9F] hover:bg-[#003B77] text-xs font-bold text-white shadow-md flex items-center justify-center gap-1.5 cursor-pointer"
+                        >
+                          <LogIn className="w-3.5 h-3.5" />
+                          <span>Iniciar sesión</span>
+                        </Button>
+                        <Button
+                          onClick={() => irA('register')}
+                          variant="outline"
+                          className="text-xs font-bold border-[#004F9F] text-[#004F9F] flex items-center justify-center gap-1.5"
+                        >
+                          <UserPlus className="w-3.5 h-3.5" />
+                          <span>Crear cuenta</span>
+                        </Button>
+                      </div>
+                      <button
+                        onClick={descartarPeticionDeSesion}
+                        className="w-full text-[11px] font-semibold text-slate-500 hover:text-slate-700 transition-colors"
+                      >
+                        Seguir viendo productos
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      {!isAuthenticated && (
+                        <p className="text-[11px] text-slate-500 leading-snug flex items-start gap-1.5">
+                          <Lock className="w-3 h-3 text-slate-400 shrink-0 mt-0.5" />
+                          <span>
+                            Puedes armar tu carrito sin cuenta. Te pediremos
+                            iniciar sesión solo al cotizar o confirmar el pedido.
+                          </span>
+                        </p>
+                      )}
+                      <div className="grid grid-cols-2 gap-2">
+                        <Button
+                          onClick={handleDownloadQuote}
+                          disabled={recuperandoCarrito}
+                          variant="outline"
+                          className="text-xs font-bold border-slate-300 text-slate-700 flex items-center justify-center gap-1.5"
+                        >
+                          <Printer className="w-3.5 h-3.5 text-slate-500" />
+                          <span>Cotización formal</span>
+                        </Button>
+                        <Button
+                          onClick={completeCheckout}
+                          disabled={recuperandoCarrito}
+                          variant="primary"
+                          className="bg-[#004F9F] hover:bg-[#003B77] text-xs font-bold text-white shadow-md flex items-center justify-center gap-1.5 cursor-pointer"
+                        >
+                          <span>Confirmar Pedido</span>
+                          <ArrowRight className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
+                    </>
+                  )}
                 </div>
               )}
             </div>
@@ -503,7 +638,7 @@ export const CartDrawer: React.FC = () => {
               <div className="flex justify-between">
                 <span className="text-slate-500">Punto de Entrega:</span>
                 <strong className="text-slate-800 truncate max-w-[200px]">
-                  {deliveryMethod === 'pickup' ? selectedStore.name : deliveryAddress}
+                  {deliveryMethod === 'pickup' ? selectedStore.name : 'Envío a la dirección indicada'}
                 </strong>
               </div>
               <div className="flex justify-between">
@@ -529,6 +664,7 @@ export const CartDrawer: React.FC = () => {
           </div>
         </div>
       )}
-    </>
+    </>,
+    document.body,
   );
 };

@@ -34,7 +34,6 @@ interface ProjectContextType {
   ) => Promise<Project>;
   markNotificationRead: (id: string) => Promise<void>;
   markAllNotificationsRead: () => Promise<void>;
-  resetDemoData: () => Promise<void>;
   toast: ToastState;
   showToast: (message: string, type?: 'success' | 'info' | 'error') => void;
   hideToast: () => void;
@@ -169,13 +168,6 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
    * Ahora recarga proyectos y notificaciones desde la base. Nunca borra
    * datos reales del usuario.
    */
-  const resetDemoData = async () => {
-    setActiveProjectId(null);
-    await refreshProjects();
-    setNotifications(await notificationService.getNotifications());
-    showToast('Datos de demostración restablecidos', 'info');
-  };
-
   const activeProject = projects.find((p) => p.id === activeProjectId) || projects[0] || null;
   const unreadNotificationsCount = notifications.filter((n) => !n.read).length;
 
@@ -204,7 +196,6 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
         requestTechnicalAssistance,
         markNotificationRead,
         markAllNotificationsRead,
-        resetDemoData,
         toast,
         showToast,
         hideToast,

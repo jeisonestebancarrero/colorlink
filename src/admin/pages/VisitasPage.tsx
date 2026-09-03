@@ -8,6 +8,12 @@ import {
 import { useAdminAuth } from '../AdminAuthContext';
 import { Button } from '../../components/common/Button';
 import { Input } from '../../components/common/Input';
+import { useSedes } from '../SedeContext';
+import {
+  ContadorPorSede, sedeVisible, useAislamientoDeSede,
+} from '../ContadorPorSede';
+import { ExportarBoton } from '../ExportarBoton';
+import { IconoModulo } from '../IconosDeModulo';
 
 // `toISOString` da la fecha en UTC: después de las 7 p. m. en Colombia
 // habría propuesto el día siguiente como fecha por defecto.
@@ -38,6 +44,8 @@ function agrupar(visitas: VisitaLista[]): Array<[string, VisitaLista[]]> {
  * a no tenerlas.
  */
 export const VisitasPage: React.FC = () => {
+  const { filtroSedes } = useSedes();
+  const { sedeAislada, aislar, filtroEfectivo } = useAislamientoDeSede();
   const { puede } = useAdminAuth();
   const [visitas, setVisitas] = useState<VisitaLista[]>([]);
   const [cargando, setCargando] = useState(true);
@@ -68,6 +76,8 @@ export const VisitasPage: React.FC = () => {
   const filtradas = useMemo(() => {
     const q = busqueda.trim().toLowerCase();
     return visitas.filter((v) => {
+      // El dominio de sede vale aunque no haya búsqueda ni filtro de estado.
+      if (!sedeVisible(v.locationId, filtroEfectivo)) return false;
       const porEstado =
         estado === 'TODAS'
           ? true
@@ -162,14 +172,51 @@ export const VisitasPage: React.FC = () => {
     (v) => !v.tecnicoId && !['REALIZADA', 'CANCELADA'].includes(v.estado),
   ).length;
 
+  // Los contadores se calculan sobre la selección GLOBAL, no sobre lo ya
+  // aislado: si no, al entrar a una sede las demás mostrarían 0.
+  const porSede = visitas.filter((x) => sedeVisible(x.locationId, filtroSedes));
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">Visitas técnicas</h1>
+        <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2.5">
+            <IconoModulo nombre="Wrench" /> Visitas técnicas
+          </h1>
         <p className="text-sm text-slate-500 font-medium">
           Agenda de campo. Las visitas se programan desde el proyecto.
         </p>
       </div>
+
+      {/* Exporta EXACTAMENTE lo que se ve: los filtros y la sede activa ya
+          están aplicados en la lista. */}
+      <div className="flex justify-end">
+        <ExportarBoton<VisitaLista>
+          filas={filtradas}
+          nombre="visitas"
+          titulo="Agenda de visitas técnicas"
+          filtros={String(estado)}
+          columnas={[
+            { titulo: 'Proyecto', valor: (v) => v.proyecto },
+            { titulo: 'Código', valor: (v) => v.codigoProyecto },
+            { titulo: 'Cliente', valor: (v) => v.cliente },
+            { titulo: 'Ciudad', valor: (v) => v.ciudad },
+            { titulo: 'Dirección', valor: (v) => v.direccion ?? '' },
+            { titulo: 'Fecha', valor: (v) => (v.fecha ?? '').slice(0, 10) },
+            { titulo: 'Hora', valor: (v) => v.hora ?? '' },
+            { titulo: 'Estado', valor: (v) => ETIQUETA_VISITA[v.estado] },
+            { titulo: 'Técnico', valor: (v) => v.tecnico ?? '' },
+            { titulo: 'Resultado', valor: (v) => v.resultado ?? '' },
+          ]}
+        />
+      </div>
+
+      {/* Con varias sedes activas, un total no dice cómo se reparte: la
+          comparación entre sedes es lo que se busca al activar varias. */}
+      <ContadorPorSede
+        sedeAislada={sedeAislada}
+        onAislar={aislar}
+        filas={porSede.map((x) => ({ locationId: x.locationId }))}
+        sustantivo="Visitas"
+      />
 
       {error && (
         <div className="p-3.5 bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-lg font-medium">

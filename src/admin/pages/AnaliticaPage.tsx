@@ -6,11 +6,15 @@ import {
 import {
   analiticaService, formatearCOP,
   type AnaliticaDetallada, type CorteVentas, type OpcionesAnalitica, type Ranking,
+  type SerieMes,
 } from '../../services/backoffice';
+import { ExportarBoton } from '../ExportarBoton';
 import {
   BarraComposicion, GraficoAnios, GraficoDispersion, GraficoLinea,
   type SerieAnual,
 } from '../components/Graficos';
+import { useSedes } from '../SedeContext';
+import { IconoModulo } from '../IconosDeModulo';
 
 /**
  * Tablero de ventas.
@@ -80,6 +84,14 @@ export const AnaliticaPage: React.FC = () => {
   const [desde, setDesde] = useState(rangos.find((r) => r.clave === '12m')!.desde);
   const [hasta, setHasta] = useState(rangos.find((r) => r.clave === '12m')!.hasta);
 
+  /**
+   * Puntos elegidos DENTRO de Analítica.
+   *
+   * EL SELECTOR GLOBAL MANDA: lo que se elija aquí se cruza con las sedes
+   * activas de la cabecera y nunca las amplía. Antes eran dos mecanismos
+   * independientes para lo mismo, y se podía tener «Medellín» arriba y
+   * «Barranquilla» abajo sin saber cuál estaba viendo.
+   */
   const [puntos, setPuntos] = useState<string[]>([]);
   const [categorias, setCategorias] = useState<string[]>([]);
   const [producto, setProducto] = useState('');
@@ -90,6 +102,24 @@ export const AnaliticaPage: React.FC = () => {
   const [corte, setCorte] = useState<Corte>('punto');
   const [verFiltros, setVerFiltros] = useState(false);
 
+  const { filtroSedes, permitidas } = useSedes();
+
+  /**
+   * Puntos que de verdad se consultan: la elección local ∩ las sedes activas.
+   *
+   * Si no se eligió ningún punto aquí, valen las sedes activas. `useMemo` con
+   * la clave serializada para que el arreglo no cambie de identidad en cada
+   * render y dispare la recarga en bucle.
+   */
+  const clavePuntos = `${puntos.join(',')}|${(filtroSedes ?? []).join(',')}`;
+  const puntosEfectivos = useMemo(() => {
+    if (!filtroSedes) return puntos;                 // todas las sedes activas
+    if (puntos.length === 0) return filtroSedes;     // sin elección local
+    const activas = new Set(filtroSedes);
+    return puntos.filter((id) => activas.has(id));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clavePuntos]);
+
   const cargar = useCallback(async () => {
     setRefrescando(true);
     setError('');
@@ -97,7 +127,7 @@ export const AnaliticaPage: React.FC = () => {
       const d = await analiticaService.detallada({
         desde: desde || undefined,
         hasta: hasta || undefined,
-        puntos,
+        puntos: puntosEfectivos,
         categorias,
         productos: producto ? [producto] : undefined,
       });
@@ -108,7 +138,7 @@ export const AnaliticaPage: React.FC = () => {
       setRefrescando(false);
       setCargando(false);
     }
-  }, [desde, hasta, puntos, categorias, producto]);
+  }, [desde, hasta, puntosEfectivos, categorias, producto]);
 
   useEffect(() => { void cargar(); }, [cargar]);
 
@@ -122,14 +152,15 @@ export const AnaliticaPage: React.FC = () => {
       try {
         setHistorico(
           await analiticaService.detallada({
-            puntos, categorias, productos: producto ? [producto] : undefined,
+            puntos: puntosEfectivos, categorias,
+            productos: producto ? [producto] : undefined,
           }),
         );
       } catch {
         setHistorico(null);
       }
     })();
-  }, [puntos, categorias, producto]);
+  }, [puntosEfectivos, categorias, producto]);
 
   useEffect(() => {
     (async () => {
@@ -250,6 +281,14 @@ export const AnaliticaPage: React.FC = () => {
     categoria: { titulo: 'Categoría', icono: <Tag className="w-3.5 h-3.5" />, filas: d.porCategoria },
     producto: { titulo: 'Producto', icono: <Package className="w-3.5 h-3.5" />, filas: d.porProducto },
   };
+  /** Cómo se describe el recorte activo en el encabezado del documento. */
+  const descripcionDelPeriodo = [
+    anio !== null ? `Año ${anio}` : `${desde} a ${hasta}`,
+    puntos.length > 0 ? `${puntos.length} punto(s) de venta` : 'Sedes activas',
+    categorias.length > 0 ? `${categorias.length} categoría(s)` : null,
+    producto ? 'Un producto' : null,
+  ].filter(Boolean).join(' · ');
+
   const filasCorte = cortes[corte].filas;
   const maxCorte = Math.max(1, ...filasCorte.map((f) => f.ingresos));
   const maxAsesor = Math.max(1, ...(ranking?.asesores ?? []).map((a) => a.total));
@@ -273,7 +312,9 @@ export const AnaliticaPage: React.FC = () => {
     <div className="space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">Analítica</h1>
+          <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2.5">
+            <IconoModulo nombre="ChartLine" /> Analítica
+          </h1>
           <p className="text-sm text-slate-500 font-medium">
             Ventas, rentabilidad y comportamiento por punto, categoría y producto.
           </p>
@@ -385,9 +426,18 @@ export const AnaliticaPage: React.FC = () => {
           <div>
             <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-2">
               Puntos de venta
+              {filtroSedes && (
+                <span className="ml-1.5 font-semibold normal-case tracking-normal text-slate-400">
+                  · limitado a las sedes activas
+                </span>
+              )}
             </p>
             <div className="flex flex-wrap gap-1.5">
-              {opciones.puntos.map((p) => {
+              {/* Solo las sedes ACTIVAS del selector: ofrecer una que el
+                  selector excluyó daría cero y parecería que no hubo ventas. */}
+              {opciones.puntos
+                .filter((p) => !filtroSedes || filtroSedes.includes(p.id))
+                .map((p) => {
                 const activo = puntos.includes(p.id);
                 return (
                   <button
@@ -560,6 +610,26 @@ export const AnaliticaPage: React.FC = () => {
                 {texto}
               </button>
             ))}
+
+            {/* La serie mensual en tabla: es la que se pega en una hoja de
+                cálculo para comparar contra presupuesto o contra el año
+                anterior, algo que la gráfica no permite hacer. */}
+            <ExportarBoton<SerieMes>
+              filas={d.porMes}
+              nombre="ventas-por-mes"
+              titulo="Ventas por mes"
+              filtros={descripcionDelPeriodo}
+              columnas={[
+                { titulo: 'Mes', valor: (m) => m.mes },
+                { titulo: 'Nombre del mes', valor: (m) => nombreMes(m.mes) },
+                { titulo: 'Ingresos', valor: (m) => m.ingresos, numerica: true },
+                { titulo: 'Pedidos', valor: (m) => m.pedidos, numerica: true },
+                { titulo: 'Unidades', valor: (m) => m.unidades, numerica: true },
+                ...(d.verCostos
+                  ? [{ titulo: 'Margen', valor: (m: SerieMes) => m.margen, numerica: true }]
+                  : []),
+              ]}
+            />
           </div>
         </div>
 
@@ -710,6 +780,29 @@ export const AnaliticaPage: React.FC = () => {
                 {cortes[c].titulo}
               </button>
             ))}
+
+            {/* El desglose es la tabla que se lleva a un comité; la gráfica
+                sirve para mirarla, no para trabajarla. Sale el corte abierto
+                con el período y los filtros que están puestos. */}
+            <ExportarBoton<CorteVentas>
+              filas={filasCorte}
+              nombre={`ventas-por-${corte}`}
+              titulo={`Ventas por ${cortes[corte].titulo.toLowerCase()}`}
+              filtros={descripcionDelPeriodo}
+              columnas={[
+                { titulo: cortes[corte].titulo, valor: (f) => f.etiqueta },
+                { titulo: 'Detalle', valor: (f) => f.detalle },
+                { titulo: 'Ingresos', valor: (f) => f.ingresos, numerica: true },
+                { titulo: 'Pedidos', valor: (f) => f.pedidos, numerica: true },
+                { titulo: 'Unidades', valor: (f) => f.unidades, numerica: true },
+                // El margen solo llega a quien puede verlo; si no, va vacío en
+                // toda la columna y el archivo lo refleja tal cual.
+                ...(d.verCostos ? [
+                  { titulo: 'Margen', valor: (f: CorteVentas) => f.margen, numerica: true },
+                  { titulo: 'Margen (%)', valor: (f: CorteVentas) => f.margenPct, numerica: true },
+                ] : []),
+              ]}
+            />
           </div>
         </div>
 

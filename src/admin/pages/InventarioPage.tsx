@@ -8,11 +8,14 @@ import {
   TIPOS_MOVIMIENTO, ETIQUETA_MOVIMIENTO,
   type Existencia, type Movimiento, type ResumenPunto, type TipoMovimiento,
 } from '../../services/backoffice';
+import { useSedes } from '../SedeContext';
+import { ExportarBoton } from '../ExportarBoton';
 import { useAdminAuth } from '../AdminAuthContext';
 import { Button } from '../../components/common/Button';
 import { Input } from '../../components/common/Input';
 import { Select } from '../../components/common/Select';
 import { FotoPunto } from '../../components/common/FotoPunto';
+import { IconoModulo } from '../IconosDeModulo';
 
 const cantidad = (n: number) => n.toLocaleString('es-CO');
 
@@ -28,6 +31,7 @@ const cantidad = (n: number) => n.toLocaleString('es-CO');
  * quien repone, cuenta o traslada lo hace desde un punto concreto.
  */
 export const InventarioPage: React.FC = () => {
+  const { filtroSedes } = useSedes();
   const { puede } = useAdminAuth();
 
   const [puntos, setPuntos] = useState<ResumenPunto[]>([]);
@@ -123,9 +127,19 @@ export const InventarioPage: React.FC = () => {
     });
   };
 
+  const puntosVisibles = puntos.filter(
+    (p) => !filtroSedes || filtroSedes.includes(p.locationId)
+  );
+
   // ── Tablero de puntos de venta ────────────────────────────────────────────
+  //
+  // EL SELECTOR GLOBAL MANDA. Antes esta pantalla elegía punto por su cuenta,
+  // así que había dos mecanismos para lo mismo: se podía tener «Medellín»
+  // activa en la cabecera y estar mirando el inventario de Cali. Ahora el
+  // tablero solo ofrece las sedes activas, y entrar a una es elegir dentro de
+  // esa selección, no saltársela.
   if (!punto) {
-    const total = puntos.reduce(
+    const total = puntosVisibles.reduce(
       (acc, p) => ({
         disponible: acc.disponible + p.disponible,
         reservado: acc.reservado + p.reservado,
@@ -138,7 +152,9 @@ export const InventarioPage: React.FC = () => {
     return (
       <div className="space-y-5">
         <div>
-          <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">Inventario</h1>
+          <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2.5">
+            <IconoModulo nombre="Package" /> Inventario
+          </h1>
           <p className="text-sm text-slate-500 font-medium">
             Entra a un punto de venta para ver y mover sus existencias.
           </p>
@@ -173,7 +189,7 @@ export const InventarioPage: React.FC = () => {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-            {puntos.map((p) => (
+            {puntosVisibles.map((p) => (
               <button
                 key={p.locationId}
                 onClick={() => void cargarPunto(p)}
@@ -305,6 +321,32 @@ export const InventarioPage: React.FC = () => {
             >
               Solo lo que requiere atención ({enAtencion})
             </button>
+
+            {/* Exporta las existencias del punto abierto, con la búsqueda y el
+                filtro de atención ya aplicados. */}
+            <ExportarBoton<Existencia>
+              filas={filtradas}
+              nombre={`inventario-${punto?.ciudad ?? 'punto'}`}
+              titulo={`Existencias · ${punto?.punto ?? ''}`}
+              filtros={[
+                punto?.punto ?? '',
+                soloAtencion ? 'Solo lo que requiere atención' : 'Todas las referencias',
+                busqueda.trim() ? `Búsqueda: ${busqueda.trim()}` : '',
+              ].filter(Boolean).join(' · ')}
+              columnas={[
+                { titulo: 'Código', valor: (e) => e.codigo },
+                { titulo: 'Producto', valor: (e) => e.producto },
+                { titulo: 'Presentación', valor: (e) => e.presentacion },
+                { titulo: 'Categoría', valor: (e) => e.categoria },
+                { titulo: 'Marca', valor: (e) => e.marca },
+                { titulo: 'Bodega', valor: (e) => e.bodega },
+                { titulo: 'Ciudad', valor: (e) => e.ciudad },
+                { titulo: 'Disponible', valor: (e) => e.disponible, numerica: true },
+                { titulo: 'Reservado', valor: (e) => e.reservado, numerica: true },
+                { titulo: 'Neto', valor: (e) => e.neto, numerica: true },
+                { titulo: 'Mínimo', valor: (e) => e.minimo, numerica: true },
+              ]}
+            />
           </div>
 
           {grupos.length === 0 ? (

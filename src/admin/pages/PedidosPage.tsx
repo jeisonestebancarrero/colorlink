@@ -9,9 +9,31 @@ import { useAdminAuth } from '../AdminAuthContext';
 import { Chatter } from '../Chatter';
 import { ReciboPOS } from '../ReciboPOS';
 import { Button } from '../../components/common/Button';
+import { useSedes } from '../SedeContext';
+import {
+  ContadorPorSede, sedeVisible, useAislamientoDeSede,
+} from '../ContadorPorSede';
+import { ExportarBoton } from '../ExportarBoton';
+import { IconoModulo } from '../IconosDeModulo';
 
 /** Gestión de pedidos: listado, detalle, estados, factura y conversación. */
-export const PedidosPage: React.FC = () => {
+interface PedidosPageProps {
+  /**
+   * Pedido que pide la URL (`/pedidos/ORD-PNT-000045`). Se abre solo al
+   * entrar, para que recargar o compartir el enlace lleve al mismo pedido.
+   */
+  idAbierto?: string | null;
+  /** Escribe el id en la URL al abrir un pedido. */
+  onAbrir?: (id: string) => void;
+  /** Quita el id de la URL al volver al listado. */
+  onCerrar?: () => void;
+}
+
+export const PedidosPage: React.FC<PedidosPageProps> = ({
+  idAbierto, onAbrir, onCerrar,
+}) => {
+  const { filtroSedes } = useSedes();
+  const { sedeAislada, aislar, filtroEfectivo } = useAislamientoDeSede();
   const { puede } = useAdminAuth();
   const [pedidos, setPedidos] = useState<PedidoLista[]>([]);
   const [detalle, setDetalle] = useState<PedidoDetalle | null>(null);
@@ -35,20 +57,49 @@ export const PedidosPage: React.FC = () => {
 
   useEffect(() => { void cargar(); }, [estado]);
 
+  /**
+   * Abre el pedido que pide la URL, una sola vez.
+   *
+   * `abrio` evita que volver al listado lo reabra de inmediato: sin esa
+   * guarda, el efecto vería el id todavía en la URL y no habría forma de
+   * cerrar el detalle.
+   */
+  const [abrio, setAbrio] = useState<string | null>(null);
+  useEffect(() => {
+    if (!idAbierto || abrio === idAbierto) return;
+    setAbrio(idAbierto);
+    void (async () => {
+      try {
+        const d = await pedidoService.detallePorNumero(idAbierto);
+        if (d) setDetalle(d);
+        else setError(`No se encontró el pedido ${idAbierto}.`);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'No fue posible abrir el pedido.');
+      }
+    })();
+  }, [idAbierto, abrio]);
+
   const filtrados = useMemo(() => {
     const q = busqueda.trim().toLowerCase();
-    if (!q) return pedidos;
-    return pedidos.filter(
+    // La sede activa se aplica ANTES del texto: es un dominio, no una
+    // búsqueda, y tiene que valer aunque el buscador esté vacío.
+    const deSede = pedidos.filter((p) => sedeVisible(p.locationId, filtroEfectivo));
+    if (!q) return deSede;
+    return deSede.filter(
       (p) => p.numero.toLowerCase().includes(q) ||
              p.cliente.toLowerCase().includes(q) ||
              (p.empresa ?? '').toLowerCase().includes(q)
     );
-  }, [pedidos, busqueda]);
+  }, [pedidos, busqueda, filtroEfectivo]);
 
   const abrir = async (id: string) => {
     setError('');
     try {
-      setDetalle(await pedidoService.detalle(id));
+      const d = await pedidoService.detalle(id);
+      setDetalle(d);
+      // La URL usa el NÚMERO de pedido, no el uuid: es lo que la persona
+      // reconoce y lo que va a pegar en un chat.
+      if (d) onAbrir?.(d.numero);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'No fue posible abrir el pedido.');
     }
@@ -91,7 +142,7 @@ export const PedidosPage: React.FC = () => {
     const siguientes = TRANSICIONES[detalle.estado] ?? [];
     return (
       <div className="space-y-6">
-        <button onClick={() => setDetalle(null)}
+        <button onClick={() => { setDetalle(null); onCerrar?.(); }}
           className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-[#004F9F] transition-colors">
           <ArrowLeft className="w-3.5 h-3.5" /> Volver a pedidos
         </button>
@@ -229,14 +280,49 @@ export const PedidosPage: React.FC = () => {
   }
 
   // ---------- Listado ----------
+  // Los contadores se calculan sobre la selección GLOBAL, no sobre lo ya
+  // aislado: si no, al entrar a una sede las demás mostrarían 0.
+  const porSede = pedidos.filter((x) => sedeVisible(x.locationId, filtroSedes));
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">Pedidos</h1>
+        <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2.5">
+            <IconoModulo nombre="ShoppingBag" /> Pedidos
+          </h1>
         <p className="text-sm text-slate-500 font-medium mt-1">
           Seguimiento, cambios de estado y facturación.
         </p>
       </div>
+
+      {/* Exporta EXACTAMENTE lo que se ve: los filtros y la sede activa ya
+          están aplicados en la lista. */}
+      <div className="flex justify-end">
+        <ExportarBoton<PedidoLista>
+          filas={filtrados}
+          nombre="pedidos"
+          titulo="Listado de pedidos"
+          filtros={[estado === 'TODOS' ? 'Todos los estados' : estado, sedeAislada ? 'Una sede' : 'Sedes activas'].join(' · ')}
+          columnas={[
+            { titulo: 'Pedido', valor: (p) => p.numero },
+            { titulo: 'Cliente', valor: (p) => p.cliente },
+            { titulo: 'Empresa', valor: (p) => p.empresa ?? '' },
+            { titulo: 'Estado', valor: (p) => p.estado },
+            { titulo: 'Entrega', valor: (p) => p.metodo },
+            { titulo: 'Punto de retiro', valor: (p) => p.puntoRetiro ?? '' },
+            { titulo: 'Total', valor: (p) => p.total, numerica: true },
+            { titulo: 'Creado', valor: (p) => p.creadoEn.slice(0, 10) },
+          ]}
+        />
+      </div>
+
+      {/* Con varias sedes activas, un total no dice cómo se reparte: la
+          comparación entre sedes es lo que se busca al activar varias. */}
+      <ContadorPorSede
+        sedeAislada={sedeAislada}
+        onAislar={aislar}
+        filas={porSede.map((x) => ({ locationId: x.locationId }))}
+        sustantivo="Pedidos"
+      />
 
       <div className="flex flex-wrap gap-2 items-center">
         <div className="relative flex-1 min-w-[15rem] max-w-sm">

@@ -4,9 +4,11 @@ import {
   usuarioService, ROLES_INTERNOS, ETIQUETA_ROL, type UsuarioAdmin,
 } from '../../services/admin';
 import { Button } from '../../components/common/Button';
+import { ExportarBoton } from '../ExportarBoton';
 import { Input } from '../../components/common/Input';
 import { Modal } from '../../components/common/Modal';
 import { AccesoUsuarioPanel } from '../AccesoUsuarioPanel';
+import { IconoModulo } from '../IconosDeModulo';
 
 /** Alta y consulta del personal. Las cuentas internas no se autorregistran. */
 export const UsuariosPage: React.FC = () => {
@@ -17,6 +19,8 @@ export const UsuariosPage: React.FC = () => {
   const [error, setError] = useState('');
   const [guardando, setGuardando] = useState(false);
   const [claveTemporal, setClaveTemporal] = useState<string | null>(null);
+  /** Lo que de verdad pasó al crear la cuenta, para no prometer de más. */
+  const [altaHecha, setAltaHecha] = useState<{ correoEnviado: boolean } | null>(null);
   const [copiado, setCopiado] = useState(false);
   const [usuarioAbierto, setUsuarioAbierto] = useState<UsuarioAdmin | null>(null);
 
@@ -47,6 +51,7 @@ export const UsuariosPage: React.FC = () => {
     try {
       const r = await usuarioService.crear(form);
       setClaveTemporal(r.temporaryPassword);
+      setAltaHecha({ correoEnviado: r.correoEnviado });
       setForm({ email: '', firstName: '', lastName: '', phone: '', city: '', roles: [] });
       await cargar(soloInternos);
       if (!r.temporaryPassword) setAbierto(false);
@@ -67,7 +72,9 @@ export const UsuariosPage: React.FC = () => {
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">Usuarios</h1>
+          <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2.5">
+            <IconoModulo nombre="Users" /> Usuarios
+          </h1>
           <p className="text-sm text-slate-500 font-medium mt-1">
             El personal interno no se registra solo: se crea aquí, con sus roles.
           </p>
@@ -94,6 +101,29 @@ export const UsuariosPage: React.FC = () => {
             {o.t}
           </button>
         ))}
+
+        <div className="ml-auto">
+          {/* Un listado del personal con sus roles es lo que pide auditoría y
+              lo que se revisa cuando alguien entra o sale de la empresa. */}
+          <ExportarBoton<UsuarioAdmin>
+            filas={usuarios}
+            nombre={soloInternos ? 'personal-interno' : 'usuarios'}
+            titulo={soloInternos ? 'Personal interno' : 'Usuarios del sistema'}
+            filtros={soloInternos ? 'Personal interno' : 'Todos los usuarios'}
+            columnas={[
+              { titulo: 'Persona', valor: (u) => u.nombre },
+              { titulo: 'Correo', valor: (u) => u.email },
+              { titulo: 'Teléfono', valor: (u) => u.telefono },
+              { titulo: 'Ciudad', valor: (u) => u.ciudad },
+              { titulo: 'Empresa', valor: (u) => u.empresa },
+              // Los roles legibles, no los códigos: el archivo lo lee alguien
+              // de recursos humanos, no la base de datos.
+              { titulo: 'Roles', valor: (u) => u.roles.map((r) => ETIQUETA_ROL[r] ?? r).join(', ') },
+              { titulo: 'Estado', valor: (u) => u.estado },
+              { titulo: 'Creado', valor: (u) => new Date(u.creadoEn).toLocaleDateString('es-CO') },
+            ]}
+          />
+        </div>
       </div>
 
       {error && !abierto && (
@@ -166,14 +196,24 @@ export const UsuariosPage: React.FC = () => {
         />
       )}
 
+      {/* El subtítulo decía «se le enviará una contraseña temporal que deberá
+          cambiar», y las dos mitades eran falsas: no se enviaba ningún correo
+          y nada la obligaba a cambiarla. Ahora sale un correo con un enlace
+          para que ponga la suya —la contraseña nunca viaja por correo— y la
+          cuenta queda obligada a cambiarla al entrar. */}
       <Modal isOpen={abierto} onClose={() => setAbierto(false)} title="Crear usuario interno"
-        subtitle="Se le enviará una contraseña temporal que deberá cambiar">
+        subtitle="Recibe un enlace para poner su contraseña, y tendrá que cambiar la provisional al entrar">
         {claveTemporal ? (
           <div className="space-y-4 text-left">
             <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl">
               <p className="text-sm font-bold text-emerald-900">Usuario creado</p>
               <p className="text-xs text-emerald-800 mt-1">
-                Entrégale esta contraseña temporal. No volverá a mostrarse.
+                {altaHecha?.correoEnviado
+                  ? 'Le enviamos un correo con un enlace para que ponga su propia '
+                    + 'contraseña. Esta provisional es el respaldo por si no le llega; '
+                    + 'no volverá a mostrarse.'
+                  : 'El correo no salió, así que tienes que entregarle esta contraseña '
+                    + 'provisional. No volverá a mostrarse.'}
               </p>
               <div className="mt-3 flex items-center gap-2">
                 <code className="flex-1 bg-white border border-emerald-200 rounded-lg px-3 py-2 text-sm font-mono font-bold text-slate-900">
@@ -188,7 +228,13 @@ export const UsuariosPage: React.FC = () => {
                 </Button>
               </div>
             </div>
-            <Button variant="pintuco" className="w-full" onClick={() => { setClaveTemporal(null); setAbierto(false); }}>
+            <p className="text-xs text-slate-500 font-medium">
+              Al entrar con la provisional, el sistema le pedirá cambiarla antes
+              de dejarle hacer nada.
+            </p>
+
+            <Button variant="pintuco" className="w-full"
+              onClick={() => { setClaveTemporal(null); setAltaHecha(null); setAbierto(false); }}>
               Entendido
             </Button>
           </div>

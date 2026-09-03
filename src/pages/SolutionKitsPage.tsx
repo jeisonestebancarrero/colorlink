@@ -301,7 +301,8 @@ export const SolutionKitsPage: React.FC<SolutionKitsPageProps> = ({ onNavigate }
               </span>
             </div>
             <p className="text-[11px] text-slate-400">
-              Incluye retiro gratis en tienda Pintuco o despacho directo a obra.
+              IVA incluido. Incluye retiro gratis en tienda Pintuco o despacho
+              directo a obra.
             </p>
           </div>
 

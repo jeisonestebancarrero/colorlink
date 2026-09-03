@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { Copy, KeyRound, Mail, RotateCcw, ShieldCheck, Smartphone, X } from 'lucide-react';
 import { aplicacionService, usuarioService, ETIQUETA_ROL, type AccesoUsuario, type UsuarioAdmin } from '../services/admin';
 import { Button } from '../components/common/Button';
+import { Input } from '../components/common/Input';
+import { SedesDelUsuarioPanel } from './SedesDelUsuarioPanel';
 
 /**
  * Accesos de una persona concreta.
@@ -104,13 +106,18 @@ export const AccesoUsuarioPanel: React.FC<{
     }
   };
 
+  /** Contraseña que escribe el administrador. Vacía = se genera una. */
+  const [claveEscrita, setClaveEscrita] = useState('');
+
   const restablecerPassword = async (modo: 'correo' | 'temporal') => {
     setError('');
     setAvisoMFA('');
     setClaveTemporal(null);
     setRestableciendo(modo);
     try {
-      const r = await usuarioService.restablecerPassword(usuario.id, modo);
+      const r = await usuarioService.restablecerPassword(
+        usuario.id, modo, modo === 'temporal' ? claveEscrita : undefined,
+      );
       if (modo === 'correo') {
         setAvisoMFA(
           `Le enviamos un enlace de recuperación a ${r.correo}. Elegirá su propia contraseña; tú nunca la conocerás.`,
@@ -119,6 +126,7 @@ export const AccesoUsuarioPanel: React.FC<{
         setClaveTemporal(r.password ?? null);
       }
       setConfirmandoTemporal(false);
+      setClaveEscrita('');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'No fue posible restablecer la contraseña.');
     } finally {
@@ -180,6 +188,19 @@ export const AccesoUsuarioPanel: React.FC<{
             <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-lg font-medium">{error}</div>
           )}
 
+          {/* Sedes permitidas. Va junto a los accesos porque es lo mismo:
+              acota qué puede ver, solo que por ubicación en lugar de por
+              módulo. Solo para personal interno: un cliente no opera sedes. */}
+          {!usuario.roles.every((r) => r.startsWith('CLIENTE')) && (
+            <div className="rounded-xl border border-slate-200 p-3.5">
+              <SedesDelUsuarioPanel
+                userId={usuario.id}
+                nombre={usuario.nombre || usuario.email}
+                esAdministrador={usuario.roles.includes('ADMINISTRADOR')}
+              />
+            </div>
+          )}
+
           {/* Restablecer la contraseña de otra persona.
               El camino por correo es el preferido: el administrador nunca
               llega a conocerla. La temporal existe porque en obra el correo
@@ -230,19 +251,40 @@ export const AccesoUsuarioPanel: React.FC<{
                 <p className="text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg p-2.5 leading-relaxed">
                   Vas a fijarle una contraseña provisional que tú vas a ver. Prefiere el enlace por
                   correo siempre que puedas: así la contraseña la elige solo la persona. Esto queda
-                  registrado en la auditoría.
+                  registrado en la auditoría, y al entrar el sistema le pedirá cambiarla.
                 </p>
+                {/* Se puede ESCRIBIR o dejar en blanco.
+                    Escribirla sirve cuando hay que dictarla por teléfono, que
+                    en obra pasa. Dejarla en blanco es lo preferible: nadie
+                    elige una débil por comodidad. En los dos casos la persona
+                    tendrá que cambiarla al entrar. */}
+                <Input
+                  label="Contraseña (opcional)"
+                  type="text"
+                  value={claveEscrita}
+                  onChange={(e) => setClaveEscrita(e.target.value)}
+                  placeholder="Déjalo vacío y se genera una"
+                  helperText={
+                    claveEscrita.trim() === ''
+                      ? 'Se generará una difícil de adivinar y fácil de dictar.'
+                      : claveEscrita.trim().length < 8
+                        ? 'Mínimo 8 caracteres.'
+                        : 'La persona tendrá que cambiarla al entrar.'
+                  }
+                />
                 <div className="flex gap-2">
-                  <Button size="sm" variant="ghost" onClick={() => setConfirmandoTemporal(false)}>
+                  <Button size="sm" variant="ghost"
+                    onClick={() => { setConfirmandoTemporal(false); setClaveEscrita(''); }}>
                     Cancelar
                   </Button>
                   <Button
                     size="sm"
                     variant="pintuco"
                     isLoading={restableciendo === 'temporal'}
+                    disabled={claveEscrita.trim() !== '' && claveEscrita.trim().length < 8}
                     onClick={() => void restablecerPassword('temporal')}
                   >
-                    Generar temporal
+                    {claveEscrita.trim() ? 'Fijar esta contraseña' : 'Generar temporal'}
                   </Button>
                 </div>
               </div>

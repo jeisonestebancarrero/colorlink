@@ -11,7 +11,9 @@
  *                propia contraseña. Es el camino preferido: el administrador
  *                nunca llega a conocerla.
  *
- *   'temporal' — se genera una contraseña provisional que se muestra UNA vez.
+ *   'temporal' — una contraseña provisional que se muestra UNA vez. La escribe
+ *                el administrador o, si no la escribe, se genera. En ambos
+ *                casos la cuenta queda obligada a cambiarla al entrar.
  *                Solo para cuando el correo no es alcanzable, que en obra
  *                pasa. Queda registrado en la auditoría porque, a partir de
  *                ese momento, dos personas conocen esa contraseña.
@@ -92,10 +94,26 @@ Deno.serve(async (req: Request) => {
 
   let userId = '';
   let modo = 'correo';
+  /** Contraseña escrita por el administrador. Vacía = se genera una. */
+  let escrita = '';
   try {
-    ({ userId, modo = 'correo' } = await req.json());
+    ({ userId, modo = 'correo', password: escrita = '' } = await req.json());
   } catch {
     return respuesta({ success: false, error: { code: 'BAD_REQUEST' } }, 400);
+  }
+
+  // Si el administrador la escribe, se respeta, pero con un mínimo. Una clave
+  // corta puesta a mano es peor que la generada, y la persona la va a cambiar
+  // al entrar de todos modos.
+  escrita = String(escrita ?? '').trim();
+  if (modo === 'temporal' && escrita && escrita.length < 8) {
+    return respuesta({
+      success: false,
+      error: {
+        code: 'CLAVE_CORTA',
+        message: 'La contraseña necesita al menos 8 caracteres.',
+      },
+    }, 400);
   }
 
   if (!userId) {
@@ -135,8 +153,24 @@ Deno.serve(async (req: Request) => {
     return respuesta({ success: true, data: { modo: 'correo', correo: cuenta.user.email } });
   }
 
-  const temporal = contrasenaTemporal();
+  // La que escribió el administrador, o una generada si no escribió ninguna.
+  // Generarla es lo preferible —nadie elige una débil por comodidad— pero a
+  // veces hay que dictarla por teléfono y conviene que sea pronunciable.
+  const temporal = escrita || contrasenaTemporal();
   const { error } = await admin.auth.admin.updateUserById(userId, { password: temporal });
+
+  // Una contraseña puesta por otra persona tiene que cambiarse al entrar: se
+  // entrega de viva voz o por chat, y si no se obliga sigue siendo válida
+  // indefinidamente en manos de quien haya visto el mensaje.
+  if (!error) {
+    const { error: errorMarca } = await admin
+      .from('profiles')
+      .update({ must_change_password: true })
+      .eq('id', userId);
+    if (errorMarca) {
+      console.error('[admin-reset-password] marca de clave temporal', errorMarca.message);
+    }
+  }
   if (error) {
     return respuesta(
       { success: false, error: { code: 'UPDATE_FAILED', message: error.message } },

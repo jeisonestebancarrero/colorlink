@@ -10,8 +10,6 @@ import { EMPTY_ACCESS } from '../services/auth';
  * prellenadas en el formulario. En un despliegue real el seed demo no se
  * ejecuta y este botón simplemente falla con un mensaje claro.
  */
-const DEMO_EMAIL = 'carlos.mendoza@constructorahorizonte.com';
-const DEMO_PASSWORD = 'pintuco2025*';
 
 export interface RegisterData {
   firstName: string;
@@ -56,7 +54,6 @@ interface AuthContextType {
     clientType?: ClientType;
     company?: string;
   }) => Promise<void>;
-  loadDemoAccount: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -213,10 +210,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setAccess(await authService.getAccess());
   };
 
-  const loadDemoAccount = async () => {
-    await login(DEMO_EMAIL, DEMO_PASSWORD);
-  };
-
   // Se recalcula con el usuario: en cuanto complete sus datos, desaparece.
   const necesitaCompletarPerfil = isAuthenticated && authService.perfilIncompleto(user);
 
@@ -243,7 +236,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         loginWithGoogle,
         necesitaCompletarPerfil,
         completeProfile,
-        loadDemoAccount,
       }}
     >
       {children}

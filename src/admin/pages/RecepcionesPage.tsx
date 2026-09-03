@@ -13,6 +13,12 @@ import { useAdminAuth } from '../AdminAuthContext';
 import { Button } from '../../components/common/Button';
 import { Input } from '../../components/common/Input';
 import { Select } from '../../components/common/Select';
+import { useSedes } from '../SedeContext';
+import {
+  ContadorPorSede, sedeVisible, useAislamientoDeSede,
+} from '../ContadorPorSede';
+import { ExportarBoton } from '../ExportarBoton';
+import { IconoModulo } from '../IconosDeModulo';
 
 /**
  * Recepción de mercancía.
@@ -26,6 +32,8 @@ import { Select } from '../../components/common/Select';
  * entran las unidades y se recalcula el costo promedio de la bodega.
  */
 export const RecepcionesPage: React.FC = () => {
+  const { filtroSedes } = useSedes();
+  const { sedeAislada, aislar, filtroEfectivo } = useAislamientoDeSede();
   const { puede } = useAdminAuth();
   const [recepciones, setRecepciones] = useState<Recepcion[]>([]);
   const [abierta, setAbierta] = useState<Recepcion | null>(null);
@@ -84,15 +92,18 @@ export const RecepcionesPage: React.FC = () => {
 
   const filtradas = useMemo(() => {
     const q = busqueda.trim().toLowerCase();
-    if (!q) return recepciones;
-    return recepciones.filter(
+    // La sede activa se aplica ANTES del texto: es un dominio, no una
+    // búsqueda, y tiene que valer aunque el buscador esté vacío.
+    const deSede = recepciones.filter((r) => sedeVisible(r.puntoId, filtroEfectivo));
+    if (!q) return deSede;
+    return deSede.filter(
       (r) =>
         r.numero.toLowerCase().includes(q) ||
         (r.proveedor ?? '').toLowerCase().includes(q) ||
         (r.documento ?? '').toLowerCase().includes(q) ||
         r.punto.toLowerCase().includes(q),
     );
-  }, [recepciones, busqueda]);
+  }, [recepciones, busqueda, filtroEfectivo]);
 
   const refrescar = async (id?: string) => {
     const recs = await recepcionService.listar();
@@ -390,15 +401,49 @@ export const RecepcionesPage: React.FC = () => {
   }
 
   // ── Listado ───────────────────────────────────────────────────────────────
+  // Los contadores se calculan sobre la selección GLOBAL, no sobre lo ya
+  // aislado: si no, al entrar a una sede las demás mostrarían 0.
+  const porSede = recepciones.filter((x) => sedeVisible(x.puntoId, filtroSedes));
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">Recepciones</h1>
+          <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2.5">
+            <IconoModulo nombre="PackagePlus" /> Recepciones
+          </h1>
           <p className="text-sm text-slate-500 font-medium">
             Entrada de mercancía. Es donde el costo llega al sistema.
           </p>
         </div>
+
+      {/* Exporta EXACTAMENTE lo que se ve: los filtros y la sede activa ya
+          están aplicados en la lista. */}
+      <div className="flex justify-end">
+        <ExportarBoton<Recepcion>
+          filas={filtradas}
+          nombre="recepciones"
+          titulo="Listado de recepciones"
+          filtros={sedeAislada ? 'Una sede' : 'Sedes activas'}
+          columnas={[
+            { titulo: 'Recepción', valor: (r) => r.numero },
+            { titulo: 'Proveedor', valor: (r) => r.proveedor ?? '' },
+            { titulo: 'Punto', valor: (r) => r.punto },
+            { titulo: 'Documento', valor: (r) => r.documento ?? '' },
+            { titulo: 'Fecha', valor: (r) => r.fecha.slice(0, 10) },
+            { titulo: 'Estado', valor: (r) => ETIQUETA_RECEPCION[r.estado] },
+            { titulo: 'Total', valor: (r) => r.total, numerica: true },
+          ]}
+        />
+      </div>
+
+      {/* Con varias sedes activas, un total no dice cómo se reparte: la
+          comparación entre sedes es lo que se busca al activar varias. */}
+      <ContadorPorSede
+        sedeAislada={sedeAislada}
+        onAislar={aislar}
+        filas={porSede.map((x) => ({ locationId: x.puntoId }))}
+        sustantivo="Recepciones"
+      />
         {escribe && !creando && (
           <Button variant="pintuco" leftIcon={<Plus className="w-4 h-4" />} onClick={() => setCreando(true)}>
             Nueva recepción

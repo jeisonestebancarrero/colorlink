@@ -1,6 +1,18 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { readFileSync, existsSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { borrarEmpresasHuerfanas, clienteDeServicio } from './limpieza';
+/**
+ * Los nombres se guardan en MAYÚSCULAS y los documentos sin puntos
+ * (20260902100006): la comparación se hace contra el dato NORMALIZADO, no
+ * contra la caja con la que se escribió. Comparar contra el literal original
+ * estaría comprobando cómo lo escribió la prueba, no qué guardó la base.
+ */
+const NORM = (t: string) => t.trim().replace(/\s+/g, ' ').toUpperCase();
+/** Documento sin separadores, conservando el guion del dígito de verificación. */
+const NORM_DOC = (t: string) =>
+  t.toUpperCase().replace(/[^0-9A-ZÁÉÍÓÚÑ-]/g, '').replace(/^-+|-+$/g, '');
+
 
 /**
  * Pruebas de integración de seguridad — FASE 2 (MÓDULO 49, criterio 24).
@@ -96,10 +108,19 @@ describe.skipIf(!disponible)('RLS · identidad y multi-tenant', () => {
       });
     }
     // Las empresas no caen con el usuario: hay que retirarlas aparte.
-    await fetch(
-      `${API}/rest/v1/companies?name=eq.${encodeURIComponent('Constructora de Prueba S.A.S.')}`,
-      { method: 'DELETE', headers: { apikey: SERVICE, Authorization: `Bearer ${SERVICE}` } },
-    );
+    //
+    // NO se borran por nombre. Una de las pruebas se registra a propósito con
+    // «Constructora Horizonte S.A.S.», que es el nombre de la empresa REAL de
+    // carlos.mendoza —de eso trata la prueba: comprobar que registrarse con
+    // el nombre de otra empresa no te mete en ella—. Un `delete` por nombre
+    // se llevaría por delante la empresa de demostración con sus 229 pedidos.
+    //
+    // Por eso se barren las HUÉRFANAS: las que no tienen ni perfil, ni
+    // pedidos, ni miembros, ni sedes. La empresa real nunca cae en esa red.
+    // Antes solo se borraba la otra, así que cada corrida dejaba una empresa
+    // suelta; así se llegó a 72 empresas con el mismo nombre en la pantalla
+    // de Clientes.
+    await borrarEmpresasHuerfanas(clienteDeServicio(API, SERVICE));
   });
 
   beforeAll(async () => {
@@ -123,8 +144,9 @@ describe.skipIf(!disponible)('RLS · identidad y multi-tenant', () => {
       fetch(`${API}/rest/v1/companies?select=name`, { headers: auth(tCarlos) }).then((r) => r.json()),
       fetch(`${API}/rest/v1/companies?select=name`, { headers: auth(tAna) }).then((r) => r.json()),
     ]);
-    expect(c.map((x: { name: string }) => x.name)).toEqual(['Constructora Horizonte S.A.S.']);
-    expect(a.map((x: { name: string }) => x.name)).toEqual(['Edificar Plus S.A.S.']);
+    expect(c.map((x: { name: string }) => x.name))
+      .toEqual([NORM('Constructora Horizonte S.A.S.')]);
+    expect(a.map((x: { name: string }) => x.name)).toEqual([NORM('Edificar Plus S.A.S.')]);
   });
 
   it('un cliente no ve perfiles de otras empresas', async () => {
@@ -216,7 +238,7 @@ describe.skipIf(!disponible)('RLS · identidad y multi-tenant', () => {
     expect(acceso.is_admin).toBe(false);
 
     const empresas = await fetch(`${API}/rest/v1/companies?select=name`, { headers: auth(token) }).then((x) => x.json());
-    expect(empresas).toEqual([{ name: 'Constructora de Prueba S.A.S.' }]);
+    expect(empresas).toEqual([{ name: NORM('Constructora de Prueba S.A.S.') }]);
   });
 
   it('SEGURIDAD: el registro NO vincula a una empresa preexistente', async () => {

@@ -29,7 +29,10 @@ interface Peticion {
   phone?: string;
   city?: string;
   roles: string[];
-  /** Si no se envía, se genera una temporal y se pide cambiarla. */
+  /**
+   * Si no se envía, se genera una temporal, se marca la cuenta para que la
+   * cambie al entrar y se le manda un correo para que ponga la suya.
+   */
   password?: string;
 }
 
@@ -153,12 +156,59 @@ Deno.serve(async (req: Request) => {
     }
   }
 
+  // La cuenta nace con contraseña provisional y hay que cambiarla al entrar.
+  //
+  // Antes el comentario de arriba decía «y se pide cambiarla», pero nada la
+  // pedía: quien entraba con la temporal se quedaba con ella indefinidamente.
+  // Y como esa contraseña se entrega de viva voz o por chat, seguía siendo
+  // válida meses después en manos de quien hubiera visto el mensaje.
+  if (!p.password?.trim()) {
+    const { error: errorMarca } = await admin
+      .from('profiles')
+      .update({ must_change_password: true })
+      .eq('id', nuevoId);
+    if (errorMarca) {
+      // No se revierte el alta por esto: la cuenta sirve igual, solo que sin
+      // la obligación. Se deja constancia para poder corregirlo.
+      console.error('[admin-create-user] marca de clave temporal', errorMarca.message);
+    }
+  }
+
+  // Correo de bienvenida con enlace para poner su propia contraseña.
+  //
+  // Antes no se enviaba NINGÚN correo: la temporal se mostraba una sola vez en
+  // pantalla, y si el administrador la perdía antes de entregarla había que
+  // reiniciar el acceso. Con el enlace, la persona puede entrar aunque nadie
+  // le haya dicho nunca la contraseña.
+  //
+  // El enlace NO lleva la contraseña. Mandar una contraseña por correo la deja
+  // escrita para siempre en un buzón que no controlamos.
+  let correoEnviado = false;
+  try {
+    const { error: errorEnlace } = await admin.auth.resetPasswordForEmail(
+      p.email.trim().toLowerCase(),
+    );
+    correoEnviado = !errorEnlace;
+    if (errorEnlace) {
+      console.error('[admin-create-user] correo de bienvenida', errorEnlace.message);
+    }
+  } catch (e) {
+    // Si el correo saliente no está configurado, el alta NO debe fallar: el
+    // administrador todavía tiene la contraseña temporal en pantalla.
+    console.error('[admin-create-user] correo de bienvenida', e);
+  }
+
   await admin.from('audit_logs').insert({
     user_id: solicitante.id,
     action: 'USER_CREATED',
     entity: 'auth.users',
     entity_id: nuevoId,
-    metadata: { email: p.email, roles: p.roles },
+    metadata: {
+      email: p.email,
+      roles: p.roles,
+      correo_enviado: correoEnviado,
+      clave_provisional: !p.password?.trim(),
+    },
   });
 
   return respuesta({
@@ -170,6 +220,9 @@ Deno.serve(async (req: Request) => {
       // Solo se devuelve si la generó el sistema, para que el administrador
       // pueda entregarla. Si el admin fijó una, no se hace eco de ella.
       temporaryPassword: p.password?.trim() ? null : temporal,
+      // Para que la pantalla diga la verdad sobre lo que pasó.
+      correoEnviado,
+      debeCambiarla: !p.password?.trim(),
     },
     message: 'Usuario creado correctamente',
   }, 201);

@@ -212,7 +212,10 @@ export const authService = {
             company: d.company,
             company_nit: d.companyNit,
             phone: d.phone,
-            city: d.city,
+            country_code: d.countryCode,
+            municipality_code: d.municipalityCode,
+            ...(d.neighborhoodId ? { neighborhood_id: d.neighborhoodId } : {}),
+            address: d.address,
           }
         : {
             first_name: d.firstName,
@@ -221,7 +224,10 @@ export const authService = {
             document_type: d.documentType,
             document_number: d.documentNumber,
             phone: d.phone,
-            city: d.city,
+            country_code: d.countryCode,
+            municipality_code: d.municipalityCode,
+            ...(d.neighborhoodId ? { neighborhood_id: d.neighborhoodId } : {}),
+            address: d.address,
           };
 
     // Se comprueba el documento ANTES de crear nada. Si se deja llegar hasta

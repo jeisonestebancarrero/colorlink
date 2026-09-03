@@ -107,6 +107,8 @@ export interface PedidoLista {
   total: number;
   creadoEn: string;
   puntoRetiro: string | null;
+  /** Sede del pedido. Null en un envío que no sale de una tienda concreta. */
+  locationId: string | null;
 }
 
 export interface LineaPedido {
@@ -134,7 +136,7 @@ export interface PedidoDetalle extends PedidoLista {
 const PEDIDO_SELECT = `
   id, order_number, status, delivery_method, subtotal_cop, discount_cop,
   shipping_cop, total_cop, created_at, shipping_address, shipping_city,
-  pickup_code,
+  pickup_code, pickup_location_id,
   profiles:user_id ( first_name, last_name ),
   companies ( name ),
   pickup_locations ( name, city )
@@ -153,6 +155,7 @@ interface FilaPedido {
   shipping_address: string | null;
   shipping_city: string | null;
   pickup_code: string | null;
+  pickup_location_id: string | null;
   profiles: { first_name: string; last_name: string } | null;
   companies: { name: string } | null;
   pickup_locations: { name: string; city: string } | null;
@@ -168,6 +171,7 @@ const aPedido = (f: FilaPedido): PedidoLista => ({
   total: num(f.total_cop),
   creadoEn: f.created_at,
   puntoRetiro: f.pickup_locations ? `${f.pickup_locations.name} · ${f.pickup_locations.city}` : null,
+  locationId: f.pickup_location_id,
 });
 
 export const pedidoService = {
@@ -187,6 +191,22 @@ export const pedidoService = {
     const { data, error } = await consulta;
     if (error) throw errorLegible('listar', error);
     return ((data ?? []) as unknown as FilaPedido[]).map(aPedido);
+  },
+
+  /**
+   * Igual que `detalle`, pero por NÚMERO de pedido.
+   *
+   * La URL lleva `ORD-PNT-000045` y no el uuid: es lo que la persona reconoce
+   * y lo que va a pegar en un chat. Un uuid en la barra de direcciones no le
+   * dice nada a nadie.
+   */
+  async detallePorNumero(numero: string): Promise<PedidoDetalle | null> {
+    const { data, error } = await supabase
+      .from('orders').select('id').eq('order_number', numero).maybeSingle();
+    if (error) throw errorLegible('detallePorNumero', error);
+    const fila = data as { id: string } | null;
+    if (!fila) return null;
+    return this.detalle(fila.id);
   },
 
   async detalle(id: string): Promise<PedidoDetalle | null> {
@@ -255,7 +275,72 @@ export interface Mensaje {
    */
   quien: 'CLIENTE' | 'EQUIPO' | 'YO' | 'SISTEMA';
   creadoEn: string;
+  /**
+   * Cuándo lo leyó el destinatario. Null = entregado pero sin abrir.
+   *
+   * Solo se muestra en los mensajes PROPIOS: `read_at` lo escribe quien abre
+   * la conversación, así que en un mensaje ajeno diría cuándo lo leí yo.
+   */
+  leidoEn: string | null;
 }
+
+export interface AvisoInterno {
+  id: string;
+  titulo: string;
+  mensaje: string;
+  leido: boolean;
+  creadoEn: string;
+  projectId: string | null;
+  orderId: string | null;
+}
+
+/**
+ * Avisos del personal interno.
+ *
+ * Son los mismos `notifications` que recibe el cliente, pero dirigidos a una
+ * cuenta interna: «Proyecto asignado» cuando alguien te asigna una obra,
+ * «Solicitud de vinculación» cuando un empleado de una empresa cliente pide
+ * entrar. Hasta ahora el portal no los mostraba en ninguna parte, así que
+ * llegaban a la base y nadie los veía nunca.
+ *
+ * RLS ya limita cada fila a su destinatario: aquí no hay que filtrar por
+ * usuario.
+ */
+export const avisoInternoService = {
+  async listar(limite = 20): Promise<AvisoInterno[]> {
+    const { data, error } = await supabase
+      .from('notifications')
+      .select('id, title, message, read, created_at, project_id, order_id')
+      .order('created_at', { ascending: false })
+      .limit(limite);
+    if (error) {
+      // Un fallo aquí no puede tumbar la barra lateral.
+      console.error('[avisos] listar:', error.message);
+      return [];
+    }
+    return ((data ?? []) as unknown as Array<Record<string, unknown>>).map((f) => ({
+      id: String(f.id),
+      titulo: (f.title as string) ?? '',
+      mensaje: (f.message as string) ?? '',
+      leido: f.read === true,
+      creadoEn: String(f.created_at ?? ''),
+      projectId: (f.project_id as string) ?? null,
+      orderId: (f.order_id as string) ?? null,
+    }));
+  },
+
+  /** Al abrirlo. `notifications_update_propio` deja marcar solo los suyos. */
+  async marcarLeido(id: string): Promise<void> {
+    const { error } = await supabase.from('notifications').update({ read: true }).eq('id', id);
+    if (error) console.error('[avisos] marcarLeido:', error.message);
+  },
+
+  async marcarTodosLeidos(): Promise<void> {
+    const { error } = await supabase
+      .from('notifications').update({ read: true }).eq('read', false);
+    if (error) console.error('[avisos] marcarTodosLeidos:', error.message);
+  },
+};
 
 export const chatterService = {
   async mensajes(campo: 'order_id' | 'project_id', id: string): Promise<Mensaje[]> {
@@ -267,7 +352,8 @@ export const chatterService = {
     const [{ data, error }, dueno, sesion] = await Promise.all([
       supabase
         .from('conversation_messages')
-        .select('id, kind, body, created_at, author_id, profiles:author_id ( first_name, last_name )')
+        .select('id, kind, body, created_at, read_at, author_id, '
+          + 'profiles:author_id ( first_name, last_name )')
         .eq(campo, id)
         .order('created_at'),
       supabase.from(tabla).select('user_id').eq('id', id).maybeSingle(),
@@ -280,6 +366,7 @@ export const chatterService = {
 
     return ((data ?? []) as unknown as Array<{
       id: string; kind: Mensaje['tipo']; body: string; created_at: string;
+      read_at: string | null;
       author_id: string | null;
       profiles: { first_name: string; last_name: string } | null;
     }>).map((m) => ({
@@ -296,7 +383,38 @@ export const chatterService = {
             ? 'CLIENTE'
             : 'EQUIPO',
       creadoEn: m.created_at,
+      leidoEn: m.read_at,
     }));
+  },
+
+  /** ¿Se puede escribir todavía? Solo aplica a pedidos. */
+  async estadoConversacion(orderId: string): Promise<{
+    sePuedeEscribir: boolean; atendida: boolean;
+  } | null> {
+    const { data, error } = await supabase.rpc('estado_conversacion', { _order_id: orderId });
+    if (error || !data) return null;
+    const d = data as Record<string, unknown>;
+    return {
+      // Lo decide el PEDIDO: mientras siga en curso, el cliente escribe.
+      sePuedeEscribir: d.se_puede_escribir !== false,
+      atendida: d.atendida === true,
+    };
+  },
+
+  /**
+   * Da por terminada la conversación del pedido.
+   *
+   * Lo puede hacer cualquiera de los dos lados. No borra nada: impide escribir
+   * mensajes nuevos, y así el equipo sabe qué hilos siguen pendientes.
+   */
+  async cerrarConversacion(orderId: string): Promise<void> {
+    const { error } = await supabase.rpc('cerrar_conversacion', { _order_id: orderId });
+    if (error) throw errorLegible('cerrarConversacion', error);
+  },
+
+  async reabrirConversacion(orderId: string): Promise<void> {
+    const { error } = await supabase.rpc('reabrir_conversacion', { _order_id: orderId });
+    if (error) throw errorLegible('reabrirConversacion', error);
   },
 
   async publicar(
@@ -336,6 +454,32 @@ export const ETIQUETA_ENVIO: Record<EstadoEnvio, string> = {
   DEVUELTO: 'Devuelto',
 };
 
+/**
+ * Icono de cada estado de envío.
+ *
+ * Va aquí, junto a la etiqueta y el color, para que el estado se muestre igual
+ * en el filtro, en la tabla y en el detalle. Si cada pantalla eligiera su
+ * icono, «Despachado» sería un camión en una y una caja en otra.
+ *
+ * Se guarda el NOMBRE del icono y no el componente porque este archivo es de
+ * servicios y no debe importar de `lucide-react`: quien lo consume resuelve el
+ * nombre contra su propio mapa.
+ */
+export const ICONO_ENVIO: Record<EstadoEnvio, string> = {
+  // Espera a que alguien lo tome.
+  PENDIENTE: 'Clock',
+  // Alguien está armando la caja en la bodega.
+  EN_PREPARACION: 'PackageOpen',
+  // Salió de la tienda.
+  DESPACHADO: 'PackageCheck',
+  // Va en camino.
+  EN_TRANSITO: 'Truck',
+  // Lo recibió el cliente.
+  ENTREGADO: 'CheckCircle2',
+  // Volvió: es el único estado que hay que mirar dos veces.
+  DEVUELTO: 'Undo2',
+};
+
 export const COLOR_ENVIO: Record<EstadoEnvio, string> = {
   PENDIENTE: 'bg-amber-50 text-amber-800 border-amber-200',
   EN_PREPARACION: 'bg-violet-50 text-violet-800 border-violet-200',
@@ -358,6 +502,8 @@ export interface Despacho {
   estimada: string | null;
   despachadoEn: string | null;
   entregadoEn: string | null;
+  /** Sede que despacha. Se hereda del pedido. */
+  locationId: string | null;
 }
 
 interface FilaEnvio {
@@ -368,6 +514,7 @@ interface FilaEnvio {
   address: string | null;
   city: string | null;
   status: EstadoEnvio;
+  location_id: string | null;
   estimated_at: string | null;
   shipped_at: string | null;
   delivered_at: string | null;
@@ -392,6 +539,7 @@ const aDespacho = (f: FilaEnvio): Despacho => ({
   estimada: f.estimated_at,
   despachadoEn: f.shipped_at,
   entregadoEn: f.delivered_at,
+  locationId: f.location_id,
 });
 
 export const despachoService = {
@@ -400,7 +548,7 @@ export const despachoService = {
       .from('shipments')
       .select(
         'id, order_id, carrier, tracking_number, address, city, status, ' +
-          'estimated_at, shipped_at, delivered_at, ' +
+          'location_id, estimated_at, shipped_at, delivered_at, ' +
           'orders ( order_number, profiles:user_id ( first_name, last_name ) )'
       )
       .order('created_at', { ascending: false })
@@ -842,13 +990,15 @@ export interface FacturaLista {
   total: number;
   estado: string;
   emitida: string;
+  /** Sede que emitió la factura. Null en las históricas sin pedido asociado. */
+  locationId: string | null;
 }
 
 export const facturaService = {
   async listar(busqueda?: string): Promise<FacturaLista[]> {
     let consulta = supabase
       .from('invoices')
-      .select('id, invoice_number, customer_name, taxable_base_cop, tax_cop, total_cop, status, issued_at, orders ( order_number )')
+      .select('id, invoice_number, customer_name, taxable_base_cop, tax_cop, total_cop, status, issued_at, location_id, orders ( order_number )')
       .order('issued_at', { ascending: false })
       .limit(100);
     if (busqueda?.trim()) {
@@ -861,7 +1011,8 @@ export const facturaService = {
     return ((data ?? []) as unknown as Array<{
       id: string; invoice_number: string; customer_name: string;
       taxable_base_cop: string | number; tax_cop: string | number; total_cop: string | number;
-      status: string; issued_at: string; orders: { order_number: string } | null;
+      status: string; issued_at: string; location_id: string | null;
+      orders: { order_number: string } | null;
     }>).map((f) => ({
       id: f.id,
       numero: f.invoice_number,
@@ -872,6 +1023,7 @@ export const facturaService = {
       total: num(f.total_cop),
       estado: f.status,
       emitida: f.issued_at,
+      locationId: f.location_id,
     }));
   },
 
@@ -904,6 +1056,50 @@ export const facturaService = {
     const { data, error } = await supabase.rpc('issue_pos_invoice', { _order_id: orderId });
     if (error) throw errorLegible('emitir', error);
     return data as string;
+  },
+
+  /**
+   * Anula una factura emitida.
+   *
+   * El motivo es obligatorio y lo exige la base, no esta pantalla: una factura
+   * anulada sin explicación es lo primero que pregunta una auditoría.
+   *
+   * Se niega si la factura ya tiene dinero recibido. No es una limitación
+   * técnica: anularla dejaría el recaudo colgando de un documento que dejó de
+   * existir, y el dinero del cliente sin respaldo. Primero se devuelve.
+   */
+  async anular(invoiceId: string, motivo: string): Promise<{
+    numero: string; asientoRevertido: boolean;
+  }> {
+    const { data, error } = await supabase.rpc('anular_factura', {
+      _invoice_id: invoiceId, _motivo: motivo,
+    });
+    if (error) {
+      const m = error.message;
+      if (/TIENE_RECAUDOS/.test(m)) {
+        // Se conserva la cifra que devuelve la base: decir «tiene recaudos» sin
+        // decir cuánto obliga a ir a buscarlo a otra pantalla.
+        const cuanto = m.match(/tiene ([\d.,]+) recaudado/)?.[1];
+        throw new Error(
+          cuanto
+            ? `No se puede anular: ya tiene $${cuanto} recaudado. Registra primero la devolución del dinero.`
+            : 'No se puede anular: la factura ya tiene dinero recibido.',
+        );
+      }
+      if (/YA_ANULADA/.test(m)) throw new Error('Esa factura ya estaba anulada.');
+      if (/VALIDATION/.test(m)) {
+        throw new Error('Escribe el motivo de la anulación, explicando qué pasó.');
+      }
+      if (/FORBIDDEN/.test(m)) {
+        throw new Error('No tienes permiso para anular facturas.');
+      }
+      throw errorLegible('anular', error);
+    }
+    const d = data as Record<string, unknown>;
+    return {
+      numero: String(d.numero ?? ''),
+      asientoRevertido: d.asiento_revertido === true,
+    };
   },
 };
 
@@ -943,8 +1139,16 @@ export interface ResumenPanel {
 }
 
 export const panelService = {
-  async resumen(): Promise<ResumenPanel> {
-    const { data, error } = await supabase.rpc('resumen_panel');
+  /**
+   * Resumen del panel, acotado a las sedes que pida la pantalla.
+   *
+   * El servidor cruza `_sedes` con las permitidas, así que mandar una sede
+   * ajena no devuelve sus cifras: aquí solo se pasa la selección de pantalla.
+   */
+  async resumen(sedes?: string[] | null): Promise<ResumenPanel> {
+    const { data, error } = await supabase.rpc('resumen_panel', {
+      _sedes: sedes && sedes.length > 0 ? sedes : null,
+    });
     if (error) throw errorLegible('panel', error);
     const d = (data ?? {}) as Record<string, unknown>;
     const n = (v: unknown) => (v === null || v === undefined ? null : num(v as number));
@@ -1052,9 +1256,12 @@ export interface Ranking {
 }
 
 export const analiticaService = {
-  async resumen(desde?: string, hasta?: string): Promise<ResumenVentas> {
+  async resumen(
+    desde?: string, hasta?: string, sedes?: string[] | null
+  ): Promise<ResumenVentas> {
     const { data, error } = await supabase.rpc('resumen_ventas', {
       _desde: desde ?? null, _hasta: hasta ?? null,
+      _sedes: sedes && sedes.length > 0 ? sedes : null,
     });
     if (error) throw errorLegible('resumen', error);
     const d = data as Record<string, unknown>;
@@ -1214,6 +1421,8 @@ export interface MovimientoTesoreria {
   referencia: string | null;
   conciliado: boolean;
   refExtracto: string | null;
+  /** Sede del movimiento. Null en un egreso que no pertenece a una tienda. */
+  locationId: string | null;
 }
 
 export const tesoreriaService = {
@@ -1258,7 +1467,7 @@ export const tesoreriaService = {
   async movimientos(soloPendientes = false): Promise<MovimientoTesoreria[]> {
     let consulta = supabase
       .from('treasury_movements')
-      .select('id, direction, amount_cop, occurred_on, concept, reference, reconciled, bank_statement_ref, bank_accounts ( name )')
+      .select('id, direction, amount_cop, occurred_on, concept, reference, reconciled, bank_statement_ref, location_id, bank_accounts ( name )')
       .order('occurred_on', { ascending: false })
       .limit(120);
     if (soloPendientes) consulta = consulta.eq('reconciled', false);
@@ -1269,6 +1478,7 @@ export const tesoreriaService = {
       id: string; direction: 'INGRESO' | 'EGRESO'; amount_cop: string | number;
       occurred_on: string; concept: string; reference: string | null;
       reconciled: boolean; bank_statement_ref: string | null;
+      location_id: string | null;
       bank_accounts: { name: string } | null;
     }>).map((m) => ({
       id: m.id,
@@ -1280,6 +1490,7 @@ export const tesoreriaService = {
       referencia: m.reference,
       conciliado: m.reconciled,
       refExtracto: m.bank_statement_ref,
+      locationId: m.location_id,
     }));
   },
 
@@ -1303,6 +1514,66 @@ export const tesoreriaService = {
     }
     const d = data as { saldo: number; saldada: boolean };
     return { saldo: num(d.saldo), saldada: Boolean(d.saldada) };
+  },
+
+  /**
+   * Cuentas contables que pueden ser contrapartida de un egreso.
+   *
+   * Se excluyen caja y bancos: pagar de una cuenta a otra es un traslado, no
+   * un egreso, y mezclarlos haría que el estado de resultados contara como
+   * gasto un dinero que sigue siendo de la empresa.
+   */
+  async cuentasParaEgreso(): Promise<Array<{ codigo: string; nombre: string; clase: string }>> {
+    const { data, error } = await supabase
+      .from('accounts')
+      .select('code, name, class')
+      .eq('is_postable', true)
+      .eq('is_active', true)
+      .not('code', 'in', '(1105,1110)')
+      .order('code');
+    if (error) throw errorLegible('cuentasParaEgreso', error);
+    return ((data ?? []) as unknown as Array<Record<string, string>>).map((c) => ({
+      codigo: c.code, nombre: c.name, clase: c.class,
+    }));
+  },
+
+  /**
+   * Registra una salida de dinero.
+   *
+   * La contrapartida es OBLIGATORIA: un egreso no dice por sí solo qué se
+   * pagó —un flete, un abono a proveedor, un servicio— y ponerle una por
+   * defecto metería todos los pagos en la misma cuenta.
+   */
+  async registrarEgreso(datos: {
+    cuentaId: string; monto: number; concepto: string;
+    contrapartida: string; referencia?: string; fecha?: string;
+  }): Promise<{ saldoDespues: number; quedaEnNegativo: boolean; contrapartida: string }> {
+    const { data, error } = await supabase.rpc('registrar_egreso', {
+      _account_id: datos.cuentaId,
+      _amount: datos.monto,
+      _concept: datos.concepto,
+      _cuenta_contrapartida: datos.contrapartida,
+      _reference: datos.referencia ?? null,
+      _occurred_on: datos.fecha ?? null,
+    });
+    if (error) {
+      if (/CUENTA_INVALIDA/.test(error.message)) {
+        throw new Error(
+          'Esa cuenta contable no sirve como contrapartida. Caja y bancos no valen: '
+          + 'eso sería un traslado, no un egreso.',
+        );
+      }
+      if (/VALIDATION/.test(error.message)) {
+        throw new Error('Revisa el valor y el concepto del egreso.');
+      }
+      throw errorLegible('registrarEgreso', error);
+    }
+    const d = data as Record<string, unknown>;
+    return {
+      saldoDespues: num(d.saldo_despues as number),
+      quedaEnNegativo: d.queda_en_negativo === true,
+      contrapartida: String(d.contrapartida ?? ''),
+    };
   },
 
   async conciliar(movementId: string, refExtracto: string, conciliado = true): Promise<void> {

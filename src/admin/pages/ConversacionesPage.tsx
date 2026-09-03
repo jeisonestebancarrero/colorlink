@@ -2,6 +2,8 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { FolderKanban, MessagesSquare, Radio, Search, ShoppingBag, Zap } from 'lucide-react';
 import { conversacionService, type HiloConversacion } from '../../services/backoffice';
 import { Chatter } from '../Chatter';
+import { ExportarBoton } from '../ExportarBoton';
+import { IconoModulo } from '../IconosDeModulo';
 
 /**
  * Bandeja de conversaciones.
@@ -62,7 +64,9 @@ export const ConversacionesPage: React.FC = () => {
     <div className="space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">Conversaciones</h1>
+          <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2.5">
+            <IconoModulo nombre="MessagesSquare" /> Conversaciones
+          </h1>
           <p className="text-sm text-slate-500 font-medium mt-1">
             Hilos de pedidos y proyectos. Las notas internas no las ve el cliente.
           </p>
@@ -88,6 +92,38 @@ export const ConversacionesPage: React.FC = () => {
           }`}>
           Solo con mensajes de clientes
         </button>
+
+        <div className="ml-auto">
+          {/* No se exporta la conversación, se exporta la BANDEJA: quién está
+              esperando respuesta y desde cuándo. Es lo que se revisa para
+              repartir la atención, y lo único de esta pantalla que sirve fuera
+              de ella. */}
+          <ExportarBoton<HiloConversacion>
+            filas={filtrados}
+            nombre="conversaciones"
+            titulo="Bandeja de conversaciones"
+            filtros={[
+              soloConMensajes ? 'Solo con mensajes de clientes' : 'Todos los hilos',
+              busqueda.trim() ? `Búsqueda: ${busqueda.trim()}` : null,
+            ].filter(Boolean).join(' · ')}
+            columnas={[
+              { titulo: 'Tipo', valor: (h) => h.tipo },
+              { titulo: 'Asunto', valor: (h) => h.titulo },
+              { titulo: 'Cliente', valor: (h) => h.contraparte },
+              { titulo: 'Mensajes', valor: (h) => h.mensajes, numerica: true },
+              {
+                titulo: 'Tiene mensajes de personas',
+                valor: (h) => (h.soloEventos ? 'No, solo eventos' : 'Sí'),
+              },
+              // Fecha completa, no «hace 3 h»: el archivo se lee días después.
+              {
+                titulo: 'Última actividad',
+                valor: (h) => new Date(h.ultimaFecha).toLocaleString('es-CO'),
+              },
+              { titulo: 'Último mensaje', valor: (h) => h.ultimoMensaje },
+            ]}
+          />
+        </div>
       </div>
 
       {error && (

@@ -1,9 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import {
   ArrowLeft, CheckCircle2, Circle, Clock, Package, Radio, Store, Truck,
+  MessageSquare,
 } from 'lucide-react';
 import { trackingService, type PedidoCliente } from '../services/tracking';
 import { MapaSeguimiento } from '../components/orders/MapaSeguimiento';
+import { ConversacionPedido } from '../components/orders/ConversacionPedido';
+import { useMensajes } from '../context/MensajesContext';
 import { Button } from '../components/common/Button';
 import { CatalogError, CatalogLoading } from '../components/common/CatalogState';
 
@@ -16,17 +19,31 @@ import { CatalogError, CatalogLoading } from '../components/common/CatalogState'
  */
 interface Props {
   onNavigate: (page: string, param?: string) => void;
+  /** Pedido que pide la URL, por su NÚMERO. Lo usa la campana de mensajes. */
+  numeroAbierto?: string;
 }
 
 const formatearCOP = (n: number) =>
   new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(n);
 
-export const MisPedidosPage: React.FC<Props> = ({ onNavigate }) => {
+export const MisPedidosPage: React.FC<Props> = ({ onNavigate, numeroAbierto }) => {
   const [pedidos, setPedidos] = useState<PedidoCliente[]>([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState('');
   const [abierto, setAbierto] = useState<string | null>(null);
   const [enVivo, setEnVivo] = useState(false);
+  const { conversaciones } = useMensajes();
+  /**
+   * Filtro por estado.
+   *
+   * Arranca en «en curso» porque es lo que se viene a mirar: nadie entra a
+   * esta pantalla para revisar un pedido que recibio hace tres meses. Con
+   * 160 entregados de por medio, los tres que importan quedaban enterrados.
+   */
+  const [filtro, setFiltro] = useState<'CURSO' | 'TERMINADOS' | 'TODOS'>('CURSO');
+
+  /** Cuántos mensajes sin leer tiene cada pedido, para señalarlo en la lista. */
+  const sinLeerPorPedido = new Map(conversaciones.map((c) => [c.orderId, c.sinLeer]));
 
   const cargar = async () => {
     try {
@@ -41,6 +58,21 @@ export const MisPedidosPage: React.FC<Props> = ({ onNavigate }) => {
 
   useEffect(() => { void cargar(); }, []);
 
+  /**
+   * Abre el pedido que pide la URL.
+   *
+   * Se guarda cuál se abrió para no volver a hacerlo: sin esa marca, cerrar el
+   * detalle volvería a abrirlo en el siguiente render, porque el número sigue
+   * en la dirección.
+   */
+  const [abrioPorUrl, setAbrioPorUrl] = useState<string | null>(null);
+  useEffect(() => {
+    if (!numeroAbierto || abrioPorUrl === numeroAbierto || pedidos.length === 0) return;
+    setAbrioPorUrl(numeroAbierto);
+    const p = pedidos.find((x) => x.numero === numeroAbierto);
+    if (p) setAbierto(p.id);
+  }, [numeroAbierto, abrioPorUrl, pedidos]);
+
   // Seguimiento en vivo: cuando despacho mueve el envío, esto se actualiza
   // solo, sin recargar ni consultar cada pocos segundos.
   useEffect(() => {
@@ -54,6 +86,13 @@ export const MisPedidosPage: React.FC<Props> = ({ onNavigate }) => {
 
   if (cargando) return <CatalogLoading mensaje="Cargando tus pedidos…" />;
   if (error) return <CatalogError mensaje={error} onReintentar={() => { setCargando(true); void cargar(); }} />;
+
+  const terminado = (e: string) => e === 'ENTREGADO' || e === 'CANCELADO';
+  const enCurso = pedidos.filter((p) => !terminado(p.estado));
+  const cerrados = pedidos.filter((p) => terminado(p.estado));
+  const visibles = filtro === 'CURSO' ? enCurso
+    : filtro === 'TERMINADOS' ? cerrados
+      : pedidos;
 
   const detalle = pedidos.find((p) => p.id === abierto);
 
@@ -163,7 +202,12 @@ export const MisPedidosPage: React.FC<Props> = ({ onNavigate }) => {
 
           {/* Línea de tiempo */}
           <div className="lg:col-span-2">
-            <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-2xs sticky top-6">
+            {/* SIN `sticky`, y es lo único que había que arreglar.
+                La tarjeta de estados se quedaba fija al desplazar y tapaba lo
+                que venía debajo. Un elemento fijo solo se sostiene si nada
+                tiene que pasar por su sitio; aquí sí lo hay, así que la
+                tarjeta se desplaza con el resto de la página. */}
+            <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-2xs">
               <h2 className="text-base font-extrabold text-slate-900 mb-5">Estado de tu pedido</h2>
               <div className="space-y-1">
                 {detalle.hitos.map((h, i) => (
@@ -195,6 +239,13 @@ export const MisPedidosPage: React.FC<Props> = ({ onNavigate }) => {
                 ))}
               </div>
             </div>
+
+
+            {/* La conversación, debajo del estado: es donde la persona mira
+                cómo va su pedido y donde le nace la pregunta. */}
+            <div className="mt-5">
+              <ConversacionPedido orderId={detalle.id} numero={detalle.numero} />
+            </div>
           </div>
         </div>
       </div>
@@ -209,6 +260,34 @@ export const MisPedidosPage: React.FC<Props> = ({ onNavigate }) => {
         <p className="text-sm text-slate-500 font-medium mt-1.5">
           Sigue el avance de tus compras en tiempo real.
         </p>
+
+        {/* Filtro por estado. Con 160 entregados de por medio, los tres
+            pedidos que importan quedaban enterrados al final de la lista. */}
+        {pedidos.length > 0 && (
+          <div className="mt-5 inline-flex p-1 bg-slate-100 rounded-xl border border-slate-200">
+            {([
+              ['CURSO', 'En curso', enCurso.length],
+              ['TERMINADOS', 'Terminados', cerrados.length],
+              ['TODOS', 'Todos', pedidos.length],
+            ] as const).map(([clave, texto, cuantos]) => (
+              <button
+                key={clave}
+                onClick={() => setFiltro(clave)}
+                aria-pressed={filtro === clave}
+                disabled={cuantos === 0}
+                className={`px-3.5 py-2 rounded-lg text-xs font-bold transition-all
+                            cursor-pointer disabled:opacity-35 disabled:cursor-not-allowed ${
+                  filtro === clave
+                    ? 'bg-white text-[#004F9F] shadow-2xs'
+                    : 'text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                {texto}{' '}
+                <span className="tabular-nums text-[11px]">{cuantos}</span>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {pedidos.length === 0 ? (
@@ -223,8 +302,19 @@ export const MisPedidosPage: React.FC<Props> = ({ onNavigate }) => {
           </Button>
         </div>
       ) : (
+        visibles.length === 0 ? (
+        <div className="bg-white rounded-2xl p-10 border border-slate-200 shadow-2xs text-center">
+          <Package className="w-8 h-8 text-slate-300 mx-auto mb-3" />
+          <p className="text-sm font-bold text-slate-700">
+            {filtro === 'CURSO' ? 'No tienes pedidos en curso' : 'Nada por aquí'}
+          </p>
+          <p className="text-xs text-slate-500 font-medium mt-1">
+            Cambia el filtro para ver los demás.
+          </p>
+        </div>
+        ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {pedidos.map((p) => (
+          {visibles.map((p) => (
             <button key={p.id} onClick={() => setAbierto(p.id)}
               className="text-left bg-white rounded-2xl p-5 border border-slate-200 shadow-2xs hover:border-[#004F9F]/40 hover:shadow-md transition-all">
               <div className="flex items-start justify-between gap-3">
@@ -232,10 +322,21 @@ export const MisPedidosPage: React.FC<Props> = ({ onNavigate }) => {
                   <p className="text-base font-extrabold text-slate-900">{p.numero}</p>
                   <p className="text-xs text-slate-500 font-medium mt-0.5">{fecha(p.creadoEn)}</p>
                 </div>
-                <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-slate-600 bg-slate-50 border border-slate-200 px-2 py-1 rounded-full shrink-0">
-                  {p.esEnvio ? <Truck className="w-3 h-3" /> : <Store className="w-3 h-3" />}
-                  {p.esEnvio ? 'Envío' : 'Retiro'}
-                </span>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  {/* En qué pedido está el mensaje: sin esto, la campana dice
+                      que hay uno sin leer y hay que abrirlos de uno en uno. */}
+                  {(sinLeerPorPedido.get(p.id) ?? 0) > 0 && (
+                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-white
+                                     bg-[#004F9F] px-2 py-1 rounded-full">
+                      <MessageSquare className="w-3 h-3" />
+                      {sinLeerPorPedido.get(p.id)}
+                    </span>
+                  )}
+                  <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-slate-600 bg-slate-50 border border-slate-200 px-2 py-1 rounded-full">
+                    {p.esEnvio ? <Truck className="w-3 h-3" /> : <Store className="w-3 h-3" />}
+                    {p.esEnvio ? 'Envío' : 'Retiro'}
+                  </span>
+                </div>
               </div>
 
               <div className="mt-4">
@@ -254,6 +355,7 @@ export const MisPedidosPage: React.FC<Props> = ({ onNavigate }) => {
             </button>
           ))}
         </div>
+        )
       )}
     </div>
   );

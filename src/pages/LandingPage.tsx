@@ -44,15 +44,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
   const { data: PINTUCO_SOLUTION_KITS } = useSolutionKits();
   const { data: PINTUCO_COLOR_PALETTES } = useColorPalette();
 
-  const { loadDemoAccount } = useAuth();
   const { addToCart, selectedStore } = useCart();
   const [heroSearch, setHeroSearch] = useState('');
   const [selectedProblemTab, setSelectedProblemTab] = useState('fachada');
-
-  const handleDemoQuickStart = async () => {
-    await loadDemoAccount();
-    onNavigate('dashboard');
-  };
 
   const handleHeroSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -138,12 +132,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
           <span className="hidden lg:inline flex items-center gap-1 text-blue-100">
             <Phone className="w-3 h-3 text-yellow-400" /> Línea Constructor: <strong>(01 8000) 111-247</strong>
           </span>
-          <button
-            onClick={handleDemoQuickStart}
-            className="text-slate-950 bg-yellow-400 hover:bg-yellow-300 font-extrabold text-[10px] uppercase tracking-wider px-2 py-0.5 rounded transition-colors cursor-pointer"
-          >
-            Demo Caso Horizonte (85 m²)
-          </button>
         </div>
       </div>
 
@@ -388,7 +376,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
                   : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-100'
               }`}
             >
-              🏢 Fachada Exterior 85 m² (Caso Horizonte)
+              🏢 Fachada Exterior 85 m²
             </button>
             <button
               onClick={() => setSelectedProblemTab('humedad')}
@@ -561,6 +549,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
                         <span className="text-base font-black text-[#004F9F]">
                           {formatCOP(pres.priceCOP)}
                         </span>
+                        {/* El precio de góndola ya incluye IVA. */}
+                        <span className="text-[10px] text-slate-400 block font-medium">
+                          IVA incluido
+                        </span>
                       </div>
 
                       <button
@@ -646,15 +638,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
           </div>
 
           <div className="flex flex-wrap items-center gap-3 shrink-0">
-            <Button
-              variant="outline"
-              size="lg"
-              onClick={handleDemoQuickStart}
-              leftIcon={<Play className="w-4 h-4 text-white" />}
-              className="border-white/30 text-white hover:bg-white/10 font-bold text-xs bg-white/5"
-            >
-              Ver Caso Horizonte (85 m²)
-            </Button>
             <Button
               variant="pintuco"
               size="lg"

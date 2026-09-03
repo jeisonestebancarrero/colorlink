@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Lock, Info } from 'lucide-react';
 import { permisoService, ROLES_INTERNOS, ETIQUETA_ROL, type Permiso } from '../../services/admin';
+import { IconoModulo } from '../IconosDeModulo';
+import { RolesPanel } from '../RolesPanel';
 
 /**
  * Matriz de permisos editable.
@@ -81,9 +83,24 @@ export const PermisosPage: React.FC = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">Permisos</h1>
+        <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2.5">
+            <IconoModulo nombre="ShieldCheck" /> Permisos
+          </h1>
         <p className="text-sm text-slate-500 font-medium mt-1">
-          Define qué puede hacer cada rol. Los cambios se aplican de inmediato, sin desplegar.
+          Crea roles, decide qué ve cada uno y qué puede hacer. Los cambios se aplican
+          de inmediato, sin desplegar.
+        </p>
+      </div>
+
+      {/* Qué VE cada rol. Va primero porque es la pregunta que se hace uno al
+          crear un cargo nuevo; los permisos afinan lo que puede hacer dentro. */}
+      <RolesPanel />
+
+      <div className="pt-2 border-t border-slate-200">
+        <h2 className="text-base font-extrabold text-slate-900">Qué puede hacer cada rol</h2>
+        <p className="text-xs text-slate-500 mt-1">
+          Ver una pantalla y poder escribir en ella son cosas distintas. Aquí se decide
+          lo segundo.
         </p>
       </div>
 

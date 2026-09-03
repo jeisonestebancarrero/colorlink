@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useProjects } from '../context/ProjectContext';
 import { Input } from '../components/common/Input';
@@ -18,13 +18,16 @@ import {
   LogOut,
   Sparkles,
 } from 'lucide-react';
+import { MisDireccionesYSedes } from '../components/common/MisDireccionesYSedes';
+import { CambiarFoto } from '../components/common/CambiarFoto';
+import { avatarService } from '../services/avatares';
 
 interface ProfilePageProps {
   onNavigate: (page: string, param?: string) => void;
 }
 
 export const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
-  const { user, updateProfile, logout } = useAuth();
+  const { user, updateProfile, logout, access } = useAuth();
   const { projects, statusStats } = useProjects();
 
   const [isEditing, setIsEditing] = useState(false);
@@ -40,6 +43,23 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
     phone: user?.phone || '',
     city: user?.city || '',
   });
+
+  // `authService` no expone un booleano de "es empresa": la señal fiable es
+  // pertenecer a una empresa, que es lo que resuelve el servidor en `access`.
+  const esCuentaDeEmpresa = access.companyIds.length > 0;
+  const [logoEmpresa, setLogoEmpresa] = useState<string | null>(null);
+
+  // El logo guardado se trae al abrir: sin esto la empresa que ya tenía uno
+  // veía el marcador vacío y creía que se había perdido.
+  useEffect(() => {
+    const companyId = access.companyIds[0];
+    if (!companyId) return;
+    let activo = true;
+    avatarService.obtenerLogoDeEmpresa(companyId)
+      .then((url) => { if (activo) setLogoEmpresa(url); })
+      .catch(() => undefined);
+    return () => { activo = false; };
+  }, [access.companyIds]);
 
   const clientTypes: ClientType[] = [
     'Particular',
@@ -123,10 +143,14 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
       {/* Main Profile Info Card */}
       <div className="bg-white rounded-2xl border border-slate-200 p-6 sm:p-8 shadow-xs">
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 pb-6 border-b border-slate-100">
-          <div className="w-16 h-16 rounded-2xl bg-[#004F9F] text-white flex items-center justify-center text-xl font-bold shadow-md">
-            {user?.firstName?.[0]}
-            {user?.lastName?.[0]}
-          </div>
+          {/* La foto sustituye a las iniciales fijas. `avatar_url` existía y
+              solo la llenaba Google: quien se registró con correo no tenía
+              forma de poner una. */}
+          <CambiarFoto
+            tipo="perfil"
+            urlActual={user?.avatar}
+            nombre={`${user?.firstName ?? ''} ${user?.lastName ?? ''}`}
+          />
 
           <div className="space-y-1 flex-1">
             <div className="flex flex-wrap items-center gap-2">
@@ -163,12 +187,17 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
                 onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
                 required
               />
-              <Input
-                label="Empresa / Razón Social"
-                value={formData.company}
-                onChange={(e) => setFormData({ ...formData, company: e.target.value })}
-                required
-              />
+              {/* Solo si la cuenta es de una empresa. A una persona natural se le
+                  estaba mostrando —y exigiendo— una razón social que no tiene:
+                  o inventaba un dato o no podía guardar su perfil. */}
+              {esCuentaDeEmpresa && (
+                <Input
+                  label="Empresa / Razón Social"
+                  value={formData.company}
+                  onChange={(e) => setFormData({ ...formData, company: e.target.value })}
+                  required
+                />
+              )}
               <Select
                 label="Tipo de cliente"
                 options={clientTypes}
@@ -272,6 +301,24 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
           </div>
         )}
       </div>
+
+      {esCuentaDeEmpresa && (
+        <div className="bg-white border border-slate-200 rounded-2xl p-5">
+          <CambiarFoto
+            tipo="empresa"
+            urlActual={logoEmpresa}
+            nombre={user?.company ?? 'Empresa'}
+            companyId={access.companyIds[0]}
+            onCambio={setLogoEmpresa}
+          />
+        </div>
+      )}
+
+      {/* Direcciones del cliente y sedes de su empresa.
+          Antes la única dirección que existía era la del registro y no se
+          podía cambiar; y sin poder registrar una segunda sede, la pregunta
+          del carrito "¿a cuál sede va?" nunca aparecía. */}
+      <MisDireccionesYSedes />
 
       {/* Account Security Info */}
       <div className="bg-blue-50/60 border border-blue-100 rounded-2xl p-5 flex items-start gap-3">

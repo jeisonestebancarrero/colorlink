@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { Lock, MessageSquare, Send, Zap } from 'lucide-react';
+import { Lock, MessageSquare, Send, Zap, RotateCcw } from 'lucide-react';
 import { chatterService, type Mensaje } from '../services/backoffice';
 import { useAdminAuth } from './AdminAuthContext';
 import { Button } from '../components/common/Button';
+import { AcuseDeLectura } from '../components/common/AcuseDeLectura';
+import { useMensajes } from '../context/MensajesContext';
 
 /**
  * Chatter: conversación y trazabilidad en un mismo hilo.
@@ -26,10 +28,16 @@ export const Chatter: React.FC<{
   const [interno, setInterno] = useState(false);
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState('');
+  /** Null mientras se averigua. Solo los pedidos se pueden dar por terminados. */
+  const [abierta, setAbierta] = useState<boolean | null>(null);
 
   const cargar = async () => {
     try {
       setMensajes(await chatterService.mensajes(campo, id));
+      if (campo === 'order_id') {
+        const est = await chatterService.estadoConversacion(id);
+        setAbierta(est?.sePuedeEscribir !== false);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'No fue posible cargar la conversación.');
     } finally {
@@ -37,7 +45,15 @@ export const Chatter: React.FC<{
     }
   };
 
-  useEffect(() => { void cargar(); }, [campo, id]);
+  const { marcarLeida } = useMensajes();
+
+  useEffect(() => {
+    void cargar();
+    // Abrir el hilo es lo que apaga el aviso, igual que del lado del cliente.
+    // Solo aplica a pedidos: la campana cuenta conversaciones de pedidos.
+    if (campo === 'order_id') void marcarLeida(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [campo, id]);
 
   const enviar = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -71,9 +87,38 @@ export const Chatter: React.FC<{
 
   return (
     <div className="bg-white rounded-xl border border-slate-200 shadow-2xs">
-      <div className="px-5 py-3.5 border-b border-slate-100 flex items-center gap-2">
+      <div className="px-5 py-3.5 border-b border-slate-100 flex items-center gap-2 flex-wrap">
         <MessageSquare className="w-4 h-4 text-[#004F9F]" />
         <h3 className="text-sm font-extrabold text-slate-900">Conversación y trazabilidad</h3>
+
+        {abierta === false && (
+          <span className="inline-flex items-center gap-1.5 text-[10px] font-bold text-slate-500
+                           bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-full">
+            <Lock className="w-2.5 h-2.5" /> Pedido terminado
+          </span>
+        )}
+
+        {/* Terminar cierra el hilo para los DOS lados. Sirve para que el
+            equipo sepa qué queda pendiente: un hilo que nunca cierra parece
+            siempre abierto. */}
+        {campo === 'order_id' && puede('chat.reply') && abierta !== null && (
+          <button
+            type="button"
+            onClick={async () => {
+              try {
+                if (abierta) await chatterService.cerrarConversacion(id);
+                else await chatterService.reabrirConversacion(id);
+                await cargar();
+              } catch (e) {
+                setError(e instanceof Error ? e.message : 'No fue posible cambiar el estado.');
+              }
+            }}
+            className="ml-auto text-[11px] font-bold text-slate-500 hover:text-slate-800
+                       hover:underline cursor-pointer inline-flex items-center gap-1"
+          >
+            {abierta ? 'Dar por atendida' : <><RotateCcw className="w-3 h-3" /> Retomar</>}
+          </button>
+        )}
       </div>
 
       <div className="max-h-[26rem] overflow-y-auto px-5 py-4 space-y-3.5 bg-slate-50/60">
@@ -155,6 +200,17 @@ export const Chatter: React.FC<{
                   <p className="text-sm whitespace-pre-wrap break-words">{m.cuerpo}</p>
                 </div>
 
+                {/* Acuse SOLO en lo que escribió el equipo y el cliente puede
+                    ver. En un mensaje del cliente diría cuándo lo leímos
+                    nosotros —que ya lo sabemos— y en una nota interna no
+                    significa nada: el cliente nunca la va a abrir. */}
+                {mio && !esNota && (
+                  <span className="flex items-center gap-1 px-0.5 text-[10px] text-slate-400">
+                    <AcuseDeLectura leidoEn={m.leidoEn} sobreAzul={false} />
+                    {m.leidoEn ? 'Leído por el cliente' : 'Enviado'}
+                  </span>
+                )}
+
                 {esNota && (
                   <span className="text-[10px] text-amber-700 px-0.5">
                     El cliente no ve esta nota.
@@ -166,7 +222,17 @@ export const Chatter: React.FC<{
         })}
       </div>
 
-      {puede('chat.reply') && (
+      {abierta === false ? (
+        <div className="px-5 py-4 border-t border-slate-100 text-center">
+          <p className="text-xs text-slate-500 flex items-center justify-center gap-1.5">
+            <Lock className="w-3.5 h-3.5" /> El pedido ya terminó. Nadie puede escribir.
+          </p>
+          <p className="text-[11px] text-slate-400 mt-1">
+            Los mensajes se conservan. La conversación se cierra sola cuando el
+            pedido llega a entregado o cancelado.
+          </p>
+        </div>
+      ) : puede('chat.reply') && (
         <form onSubmit={enviar} className="px-5 py-4 border-t border-slate-100 space-y-2.5">
           {error && (
             <div className="p-2.5 bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-lg font-medium">

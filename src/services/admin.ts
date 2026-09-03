@@ -165,7 +165,14 @@ export const usuarioService = {
     city?: string;
     roles: string[];
     password?: string;
-  }): Promise<{ id: string; temporaryPassword: string | null }> {
+  }): Promise<{
+    id: string;
+    temporaryPassword: string | null;
+    /** Si salió el correo con el enlace para poner su propia contraseña. */
+    correoEnviado: boolean;
+    /** Si la cuenta quedará obligada a cambiar la provisional al entrar. */
+    debeCambiarla: boolean;
+  }> {
     const { data, error } = await supabase.functions.invoke('admin-create-user', { body: datos });
 
     if (error) {
@@ -183,9 +190,21 @@ export const usuarioService = {
       throw new Error(mensaje);
     }
 
-    const r = data as { success: boolean; data?: { id: string; temporaryPassword: string | null }; error?: { message: string } };
+    const r = data as {
+      success: boolean;
+      data?: {
+        id: string; temporaryPassword: string | null;
+        correoEnviado?: boolean; debeCambiarla?: boolean;
+      };
+      error?: { message: string };
+    };
     if (!r.success || !r.data) throw new Error(r.error?.message ?? 'No fue posible crear el usuario.');
-    return r.data;
+    return {
+      id: r.data.id,
+      temporaryPassword: r.data.temporaryPassword,
+      correoEnviado: r.data.correoEnviado === true,
+      debeCambiarla: r.data.debeCambiarla !== false,
+    };
   },
 
   /**
@@ -196,12 +215,21 @@ export const usuarioService = {
    * temporal que se muestra una sola vez, para cuando el correo no es
    * alcanzable. Ambos quedan en la auditoría.
    */
+  /**
+   * Restablece el acceso de otra persona.
+   *
+   * En modo `temporal` el administrador puede ESCRIBIR la contraseña —a veces
+   * hay que dictarla por teléfono— o dejar el campo vacío y que se genere una.
+   * Generarla es preferible: nadie elige una débil por comodidad. En los dos
+   * casos la cuenta queda obligada a cambiarla al entrar.
+   */
   async restablecerPassword(
     userId: string,
     modo: 'correo' | 'temporal',
+    password?: string,
   ): Promise<{ modo: string; correo: string; password?: string }> {
     const { data, error } = await supabase.functions.invoke('admin-reset-password', {
-      body: { userId, modo },
+      body: { userId, modo, password: password?.trim() || undefined },
     });
 
     if (error) {
@@ -316,6 +344,104 @@ export interface Permiso {
   isCritical: boolean;
   sortOrder: number;
 }
+
+export interface RolConfigurable {
+  codigo: string;
+  etiqueta: string;
+  descripcion: string | null;
+  /** Los del sistema no se archivan: RLS y los disparadores los nombran. */
+  delSistema: boolean;
+  activo: boolean;
+  personas: number;
+}
+
+export interface VistaDelPortal {
+  code: string;
+  label: string;
+  area: string;
+  orden: number;
+}
+
+export interface ConfiguracionRoles {
+  roles: RolConfigurable[];
+  vistas: VistaDelPortal[];
+  /** Qué vistas tiene concedidas cada rol. */
+  porRol: Record<string, string[]>;
+}
+
+/**
+ * Roles: crearlos, nombrarlos y decidir qué ve cada uno.
+ *
+ * Esto faltaba entero. `set_role_view` existía en la base desde el principio
+ * pero sin pantalla, así que «que este rol ya no vea Inventario» solo se podía
+ * hacer entrando a la base. Lo único configurable desde el portal era la
+ * excepción POR PERSONA, y eso obliga a repetir la misma configuración en cada
+ * alta.
+ */
+export const rolService = {
+  async configuracion(): Promise<ConfiguracionRoles> {
+    const { data, error } = await supabase.rpc('configuracion_de_roles');
+    if (error) throw errorLegible('configuracionRoles', error);
+    const d = (data ?? {}) as Record<string, unknown>;
+    return {
+      roles: (d.roles ?? []) as RolConfigurable[],
+      vistas: (d.vistas ?? []) as VistaDelPortal[],
+      porRol: (d.porRol ?? {}) as Record<string, string[]>,
+    };
+  },
+
+  /**
+   * Crea un rol.
+   *
+   * Nace SIN permisos ni vistas a propósito: heredarlos de otro sería la forma
+   * más silenciosa de dar acceso de más.
+   */
+  async crear(codigo: string, etiqueta: string, descripcion?: string): Promise<string> {
+    const { data, error } = await supabase.rpc('crear_rol', {
+      _codigo: codigo, _etiqueta: etiqueta, _descripcion: descripcion ?? null,
+    });
+    if (error) {
+      if (/YA_EXISTE/.test(error.message)) {
+        throw new Error('Ya existe un rol con ese código.');
+      }
+      if (/CODIGO_INVALIDO/.test(error.message)) {
+        throw new Error('El código necesita al menos 3 letras.');
+      }
+      throw errorLegible('crearRol', error);
+    }
+    return String((data as Record<string, unknown>).rol);
+  },
+
+  async actualizar(codigo: string, cambios: {
+    etiqueta?: string; descripcion?: string; activo?: boolean;
+  }): Promise<void> {
+    const { error } = await supabase.rpc('actualizar_rol', {
+      _codigo: codigo,
+      _etiqueta: cambios.etiqueta ?? null,
+      _descripcion: cambios.descripcion ?? null,
+      _activo: cambios.activo ?? null,
+    });
+    if (error) {
+      if (/ROL_DEL_SISTEMA/.test(error.message)) {
+        throw new Error(
+          'Este rol es parte del funcionamiento del sistema y no se puede archivar.',
+        );
+      }
+      if (/ROL_EN_USO/.test(error.message)) {
+        throw new Error('Hay personas con ese rol. Quítaselo antes de archivarlo.');
+      }
+      throw errorLegible('actualizarRol', error);
+    }
+  },
+
+  /** Concede o quita una aplicación a TODO un rol. */
+  async cambiarVista(rol: string, viewCode: string, visible: boolean): Promise<void> {
+    const { error } = await supabase.rpc('set_role_view', {
+      _role: rol, _view_code: viewCode, _visible: visible,
+    });
+    if (error) throw errorLegible('cambiarVista', error);
+  },
+};
 
 export const permisoService = {
   async catalogo(): Promise<Permiso[]> {

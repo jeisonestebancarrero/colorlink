@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { useCart } from '../context/CartContext';
 import { useProducts, useProductCategories } from '../hooks/useCatalog';
 import { CatalogError, CatalogLoading } from '../components/common/CatalogState';
@@ -318,6 +319,12 @@ export const StorePage: React.FC<StorePageProps> = ({ onNavigate, initialCategor
                     <span className="text-base font-extrabold text-[#004F9F]">
                       {formatCOP(mainPres?.priceCOP || 0)}
                     </span>
+                    {/* El precio del catálogo YA incluye IVA (la factura lo
+                        despeja hacia atrás, no lo suma). Decirlo evita que el
+                        cliente crea que al pagar le añadirán el 19 %. */}
+                    <span className="text-[10px] text-slate-400 block font-medium">
+                      IVA incluido
+                    </span>
                   </div>
 
                   <button
@@ -357,8 +364,15 @@ export const StorePage: React.FC<StorePageProps> = ({ onNavigate, initialCategor
         </div>
       )}
 
-      {/* Product Detail Modal */}
-      {selectedProductDetail && (
+      {/* Product Detail Modal
+          Va en un PORTAL colgado de `document.body`. Se veía cortado por
+          arriba: le faltaba su cabecera azul con el nombre y la X. No era
+          altura —es `fixed inset-0`— sino orden de pintado: esta página se
+          dibuja dentro de `<main class="relative z-10">`, que crea un contexto
+          de apilamiento, así que su `z-50` solo competía ahí dentro y la
+          cabecera del sitio (`sticky z-40`, hermana de `main`) le pasaba por
+          encima. Es el mismo fallo que tenía el carrito. */}
+      {selectedProductDetail && createPortal(
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-white rounded-2xl max-w-2xl w-full overflow-hidden shadow-2xl border border-slate-200 animate-in zoom-in-95 duration-150">
             {/* Header */}
@@ -430,7 +444,12 @@ export const StorePage: React.FC<StorePageProps> = ({ onNavigate, initialCategor
                           }`}
                         >
                           <span>{pres.label}</span>
-                          <span className="font-extrabold">{formatCOP(pres.priceCOP)}</span>
+                          <span className="font-extrabold">
+                            {formatCOP(pres.priceCOP)}
+                            <span className="block text-[10px] font-medium text-slate-400 text-right">
+                              IVA incluido
+                            </span>
+                          </span>
                         </button>
                       ))}
                     </div>
@@ -518,7 +537,8 @@ export const StorePage: React.FC<StorePageProps> = ({ onNavigate, initialCategor
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );

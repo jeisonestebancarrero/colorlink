@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useProjects } from '../../context/ProjectContext';
 import { useCart } from '../../context/CartContext';
+import { useMensajes } from '../../context/MensajesContext';
 import {
   Bell,
   Search,
@@ -29,6 +30,7 @@ import {
   Droplets,
   Wrench,
   CheckCircle2,
+  MessageSquare,
 } from 'lucide-react';
 import { useProducts } from '../../hooks/useCatalog';
 import { BrandLogo } from '../common/BrandLogo';
@@ -48,13 +50,12 @@ export const Navbar: React.FC<NavbarProps> = ({
   // deduplica esta consulta con la de la página que esté abierta.
   const { data: PINTUCO_PRODUCTS } = useProducts();
 
-  const { user, logout, loadDemoAccount } = useAuth();
+  const { user, logout } = useAuth();
   const {
     notifications,
     unreadNotificationsCount,
     markNotificationRead,
     markAllNotificationsRead,
-    resetDemoData,
     setActiveProjectId,
     activeProject,
   } = useProjects();
@@ -63,6 +64,38 @@ export const Navbar: React.FC<NavbarProps> = ({
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showComprarMenu, setShowComprarMenu] = useState(false);
+
+  /**
+   * ¿La fila azul se sale de la pantalla?
+   *
+   * Solo entonces se atenúa el borde derecho. Un degradado fijo dejaría la
+   * última entrada medio apagada aunque quepa entera, que es un defecto
+   * distinto del que se quería arreglar. Se mide de verdad en vez de suponerlo.
+   */
+  const tiraRef = useRef<HTMLDivElement | null>(null);
+  const [hayMasALaDerecha, setHayMasALaDerecha] = useState(false);
+
+  useEffect(() => {
+    const tira = tiraRef.current;
+    if (!tira) return;
+
+    const medir = () => {
+      // 2 px de margen: los navegadores redondean y sin él el degradado
+      // parpadea cuando el ancho queda justo.
+      setHayMasALaDerecha(
+        tira.scrollWidth - tira.clientWidth - tira.scrollLeft > 2,
+      );
+    };
+
+    medir();
+    tira.addEventListener('scroll', medir, { passive: true });
+    const observador = new ResizeObserver(medir);
+    observador.observe(tira);
+    return () => {
+      tira.removeEventListener('scroll', medir);
+      observador.disconnect();
+    };
+  }, []);
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchFocused, setIsSearchFocused] = useState(false);
 
@@ -81,6 +114,12 @@ export const Navbar: React.FC<NavbarProps> = ({
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  const { conversaciones, total: mensajesSinLeer } = useMensajes();
+
+  /** Lo pendiente de leer, que es lo que la campana debe mostrar. */
+  const sinLeer = notifications.filter((n) => !n.read);
+  const [showMensajes, setShowMensajes] = useState(false);
 
   const handleNotificationClick = (notif: typeof notifications[0]) => {
     markNotificationRead(notif.id);
@@ -140,9 +179,14 @@ export const Navbar: React.FC<NavbarProps> = ({
       icon: ShoppingBag,
       hasDropdown: true,
     },
+    // Etiquetas cortas donde el distintivo ya dice el resto: «Soluciones por
+    // Superficie [Kits]» y «Calculadora de Pintura» ocupaban el ancho de dos
+    // entradas para no añadir nada que el icono y el distintivo no dijeran ya.
+    // Con nueve elementos en una sola fila, cada palabra de más se la quita a
+    // la siguiente.
     { id: 'colors', label: 'Encuentra tu Color', icon: Palette, badge: 'Visualizador' },
-    { id: 'solutions', label: 'Soluciones por Superficie', icon: Package, badge: 'Kits' },
-    { id: 'calculator', label: 'Calculadora de Pintura', icon: Calculator },
+    { id: 'solutions', label: 'Soluciones', icon: Package, badge: 'Kits' },
+    { id: 'calculator', label: 'Calculadora', icon: Calculator },
     { id: 'projects', label: 'Mis Proyectos', icon: Building2 },
     { id: 'orders', label: 'Mis Pedidos', icon: ClipboardList },
     { id: 'stores', label: 'Puntos de Retiro', icon: Store },
@@ -193,16 +237,6 @@ export const Navbar: React.FC<NavbarProps> = ({
             Cambiar Tienda
           </button>
 
-          <button
-            onClick={async () => {
-              await loadDemoAccount();
-              onNavigate('dashboard');
-            }}
-            className="hidden sm:inline-flex items-center gap-1 text-white bg-blue-700/80 hover:bg-blue-600 px-2 py-0.5 rounded text-[10px] font-bold transition-colors cursor-pointer"
-          >
-            <Sparkles className="w-2.5 h-2.5 text-yellow-300" />
-            <span>Caso Demo Horizonte (85 m²)</span>
-          </button>
         </div>
       </div>
 
@@ -434,6 +468,86 @@ export const Navbar: React.FC<NavbarProps> = ({
               )}
             </button>
 
+            {/* Campana de MENSAJES.
+                Separada de la de notificaciones a propósito: una notificación
+                se lee y se archiva, un mensaje espera respuesta. Mezclarlas
+                haría que un «tu pedido salió» tapara una pregunta sin
+                contestar.
+                El número NO baja al desplegar esta lista: solo al abrir la
+                conversación. Ver un aviso no es haberlo atendido. */}
+            <div className="relative">
+              <button
+                onClick={() => {
+                  setShowMensajes(!showMensajes);
+                  setShowNotifications(false);
+                  setShowUserMenu(false);
+                }}
+                className="relative p-2 text-slate-700 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
+                aria-label={mensajesSinLeer > 0
+                  ? `Mensajes: ${mensajesSinLeer} sin leer`
+                  : 'Mensajes'}
+              >
+                <MessageSquare className="w-5 h-5" />
+                {mensajesSinLeer > 0 && (
+                  <span className="absolute top-1 right-1 min-w-4 h-4 px-1 bg-[#004F9F] text-white
+                                   text-[10px] font-black rounded-full flex items-center justify-center
+                                   ring-2 ring-white">
+                    {/* Por encima de nueve el número deja de importar y solo
+                        estorba en un círculo de 16 px. */}
+                    {mensajesSinLeer > 9 ? '9+' : mensajesSinLeer}
+                  </span>
+                )}
+              </button>
+
+              {showMensajes && (
+                <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white rounded-2xl shadow-2xl
+                                border border-slate-200 py-3 z-50 animate-in fade-in zoom-in-95 duration-150">
+                  <div className="px-4 py-2 border-b border-slate-100">
+                    <h3 className="text-xs font-extrabold text-slate-900">Mensajes de tus pedidos</h3>
+                    <p className="text-[10px] text-slate-500">
+                      {mensajesSinLeer > 0
+                        ? 'Se marcan leídos cuando abres la conversación'
+                        : 'Estás al día'}
+                    </p>
+                  </div>
+
+                  <div className="max-h-72 overflow-y-auto divide-y divide-slate-100">
+                    {conversaciones.length === 0 ? (
+                      <p className="text-center py-6 text-xs text-slate-400">
+                        No tienes mensajes sin leer
+                      </p>
+                    ) : (
+                      conversaciones.map((c) => (
+                        <button
+                          key={c.orderId}
+                          onClick={() => {
+                            setShowMensajes(false);
+                            // Lleva a la conversación; marcarla leída es cosa
+                            // del chat al abrirse, no de este clic.
+                            onNavigate('orders', c.numero);
+                          }}
+                          className="w-full p-3.5 text-left hover:bg-slate-50 cursor-pointer transition-colors"
+                        >
+                          <div className="flex items-start gap-2.5">
+                            <span className="mt-0.5 shrink-0 min-w-5 h-5 px-1.5 bg-[#004F9F] text-white
+                                             text-[10px] font-black rounded-full flex items-center justify-center">
+                              {c.sinLeer}
+                            </span>
+                            <span className="flex-1 min-w-0 space-y-0.5">
+                              <span className="block text-xs font-bold text-slate-800">{c.numero}</span>
+                              <span className="block text-[11px] text-slate-600 leading-snug line-clamp-2">
+                                {c.ultimo}
+                              </span>
+                            </span>
+                          </div>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
             {/* Notifications Bell */}
             <div className="relative">
               <button
@@ -471,11 +585,20 @@ export const Navbar: React.FC<NavbarProps> = ({
                     )}
                   </div>
 
+                  {/* Solo las SIN LEER.
+                      La campana es una bandeja de pendientes, no un historial:
+                      con las leídas dentro, el aviso nuevo se pierde entre
+                      quince ya atendidos y la gente deja de abrirla. El
+                      historial completo sigue a un clic. */}
                   <div className="max-h-72 overflow-y-auto divide-y divide-slate-100">
-                    {notifications.length === 0 ? (
-                      <p className="text-center py-6 text-xs text-slate-400">No tienes notificaciones pendientes</p>
+                    {sinLeer.length === 0 ? (
+                      <p className="text-center py-6 text-xs text-slate-400">
+                        {notifications.length > 0
+                          ? 'Estás al día. Las anteriores están en el historial.'
+                          : 'No tienes notificaciones pendientes'}
+                      </p>
                     ) : (
-                      notifications.slice(0, 5).map((notif) => (
+                      sinLeer.slice(0, 5).map((notif) => (
                         <div
                           key={notif.id}
                           onClick={() => handleNotificationClick(notif)}
@@ -495,6 +618,19 @@ export const Navbar: React.FC<NavbarProps> = ({
                       ))
                     )}
                   </div>
+
+                  {/* Nada se pierde: lo leído sigue estando, solo que fuera de
+                      la bandeja de pendientes. */}
+                  {notifications.length > 0 && (
+                    <button
+                      onClick={() => { setShowNotifications(false); onNavigate('notifications'); }}
+                      className="w-full px-4 py-2.5 text-[11px] font-bold text-[#004F9F]
+                                 hover:bg-slate-50 border-t border-slate-100 transition-colors
+                                 cursor-pointer text-center"
+                    >
+                      Ver todas ({notifications.length})
+                    </button>
+                  )}
                 </div>
               )}
             </div>
@@ -589,8 +725,22 @@ export const Navbar: React.FC<NavbarProps> = ({
 
       {/* 3. PRIMARY CATEGORY & SECTION NAVIGATION STRIP */}
       <nav className="bg-[#004F9F] text-white px-4 sm:px-6 lg:px-8 hidden md:block">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-1 overflow-x-auto py-1 scrollbar-none">
+        {/* `gap-4` entre la lista y el botón: sin él, «Puntos de Retiro»
+            quedaba pegado a «Diagnosticar mi Superficie» y encima cortado por
+            la mitad. `min-w-0` es lo que permite que la lista se encoja en vez
+            de empujar al botón fuera de la pantalla. */}
+        <div className="flex items-center justify-between gap-4">
+          {/* Si aun así no cabe, la fila se desplaza. El degradado del borde
+              avisa de que hay más a la derecha; sin él el corte parece un
+              fallo, porque la barra de desplazamiento va oculta. */}
+          <div
+            ref={tiraRef}
+            className="flex items-center gap-1.5 overflow-x-auto py-1 min-w-0 scrollbar-none"
+            style={hayMasALaDerecha ? {
+              maskImage: 'linear-gradient(to right, black calc(100% - 2rem), transparent)',
+              WebkitMaskImage: 'linear-gradient(to right, black calc(100% - 2rem), transparent)',
+            } : undefined}
+          >
             {mainNavItems.map((item) => {
               const Icon = item.icon;
               const isActive = currentPage === item.id;
@@ -605,13 +755,13 @@ export const Navbar: React.FC<NavbarProps> = ({
                   >
                     <button
                       onClick={() => onNavigate(item.id)}
-                      className={`flex items-center gap-1.5 px-3 py-2.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                      className={`flex items-center gap-1.5 px-3 py-2.5 rounded-lg text-xs font-bold transition-all cursor-pointer shrink-0 whitespace-nowrap ${
                         isActive
                           ? 'bg-white text-[#004F9F] shadow-xs'
                           : 'text-white hover:bg-white/15'
                       }`}
                     >
-                      <Icon className="w-3.5 h-3.5" />
+                      <Icon className="w-3.5 h-3.5 shrink-0" />
                       <span>{item.label}</span>
                       <ChevronDown className="w-3 h-3 text-blue-200" />
                     </button>
@@ -660,13 +810,13 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <button
                   key={item.id}
                   onClick={() => onNavigate(item.id)}
-                  className={`flex items-center gap-1.5 px-3 py-2.5 rounded-lg text-xs font-bold transition-all cursor-pointer shrink-0 ${
+                  className={`flex items-center gap-1.5 px-3 py-2.5 rounded-lg text-xs font-bold transition-all cursor-pointer shrink-0 whitespace-nowrap ${
                     isActive
                       ? 'bg-white text-[#004F9F] shadow-xs'
                       : 'text-white hover:bg-white/15'
                   }`}
                 >
-                  <Icon className="w-3.5 h-3.5" />
+                  <Icon className="w-3.5 h-3.5 shrink-0" />
                   <span>{item.label}</span>
                   {item.badge && (
                     <span className="bg-yellow-400 text-slate-950 text-[9px] font-black px-1.5 py-0.2 rounded shadow-2xs">
@@ -678,8 +828,10 @@ export const Navbar: React.FC<NavbarProps> = ({
             })}
           </div>
 
-          {/* Quick Technical Assistance Tag */}
-          <div className="hidden lg:flex items-center gap-2 shrink-0 py-1">
+          {/* El botón es una ACCIÓN, no una entrada más del menú. La línea lo
+              separa para que se lea así y para que no parezca que «Puntos de
+              Retiro» y «Diagnosticar» son del mismo grupo. */}
+          <div className="hidden lg:flex items-center gap-2 shrink-0 py-1 pl-4 border-l border-white/20">
             <button
               onClick={() => onNavigate('create-project')}
               className="inline-flex items-center gap-1.5 bg-yellow-400 hover:bg-yellow-300 text-slate-950 px-3 py-1.5 rounded-lg text-xs font-black transition-colors cursor-pointer shadow-xs"

@@ -3,9 +3,12 @@ import { Building2, Mail, Send, CheckCircle2, AlertTriangle } from 'lucide-react
 import { configService, type DatosEmpresa, type EstadoSmtp } from '../../services/admin';
 import { Button } from '../../components/common/Button';
 import { Input } from '../../components/common/Input';
+import { PasarelaPanel } from '../PasarelaPanel';
+import { AsistentePanel } from '../AsistentePanel';
+import { IconoModulo } from '../IconosDeModulo';
 
 /**
- * Configuración de la empresa y del correo saliente.
+ * Configuración de la empresa, del correo saliente y de la pasarela de pagos.
  *
  * Los datos de empresa son los que se imprimen en la factura POS.
  * La contraseña SMTP nunca se lee de vuelta: la base revoca el SELECT sobre
@@ -112,9 +115,11 @@ export const ConfiguracionPage: React.FC = () => {
   return (
     <div className="space-y-7">
       <div>
-        <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">Configuración</h1>
+        <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2.5">
+            <IconoModulo nombre="Settings" /> Configuración
+          </h1>
         <p className="text-sm text-slate-500 font-medium mt-1">
-          Datos de la empresa y servidor de correo saliente.
+          Datos de la empresa, correo saliente, pasarela de pagos y asistente.
         </p>
       </div>
 
@@ -220,6 +225,12 @@ export const ConfiguracionPage: React.FC = () => {
           </div>
         </div>
       </form>
+
+      {/* ---- Pasarela de pagos ---- */}
+      <PasarelaPanel />
+
+      {/* ---- Asistente de la tienda ---- */}
+      <AsistentePanel />
     </div>
   );
 };

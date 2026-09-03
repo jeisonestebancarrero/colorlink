@@ -5,6 +5,7 @@ import { Modal } from '../components/common/Modal';
 import { Input } from '../components/common/Input';
 import { Select } from '../components/common/Select';
 import { Button } from '../components/common/Button';
+import { useSedes } from './SedeContext';
 
 /**
  * Programar una visita a la obra.
@@ -21,11 +22,18 @@ export const ProgramarVisita: React.FC<{
   onCerrar: () => void;
   onProgramada: () => void;
 }> = ({ projectId, direccionSugerida, solicitudes = [], onCerrar, onProgramada }) => {
+  const { permitidas } = useSedes();
   const [fecha, setFecha] = useState('');
   const [hora, setHora] = useState('');
   const [tecnicoId, setTecnicoId] = useState('');
   const [direccion, setDireccion] = useState(direccionSugerida ?? '');
   const [assistanceId, setAssistanceId] = useState('');
+  /**
+   * Sede que atiende la visita. Vacío = que la deduzca el servidor por la
+   * ciudad del proyecto; si esa ciudad no tiene tienda, la visita queda sin
+   * sede y la ve todo el mundo, que es lo correcto mientras nadie decida.
+   */
+  const [locationId, setLocationId] = useState('');
   const [tecnicos, setTecnicos] = useState<Array<{ id: string; nombre: string; rol: string }>>([]);
   const [error, setError] = useState('');
   const [guardando, setGuardando] = useState(false);
@@ -60,6 +68,7 @@ export const ProgramarVisita: React.FC<{
         tecnicoId: tecnicoId || undefined,
         direccion: direccion.trim() || undefined,
         assistanceId: assistanceId || undefined,
+        locationId: locationId || null,
       });
       onProgramada();
     } catch (err) {
@@ -123,6 +132,27 @@ export const ProgramarVisita: React.FC<{
         <p className="text-[11px] text-slate-400 -mt-2 leading-relaxed">
           Quien quede aquí también se asigna al proyecto: sin eso no podría abrir la obra a la que
           lo envías.
+        </p>
+
+        {/* Sede que atiende. Sin esto la visita quedaba sin sede y aparecía en
+            la agenda de todas las tiendas. Solo se ofrecen las permitidas. */}
+        <Select
+          label="Sede que atiende"
+          options={[
+            { value: '', label: 'Deducir por la ciudad de la obra' },
+            ...permitidas.map((sd) => ({
+              value: sd.id,
+              label: `${sd.nombre} · ${sd.ciudad}`,
+            })),
+          ]}
+          value={locationId}
+          onChange={(e) => setLocationId(e.target.value)}
+        />
+        <p className="text-[11px] text-slate-400 -mt-2 leading-relaxed">
+          Si lo dejas en «deducir», se usa la tienda de la ciudad del proyecto.
+          Cuando la obra está en una ciudad sin tienda, la visita queda sin sede
+          y la ven todas: no se le asigna «la más cercana» porque eso sería
+          inventar el dato.
         </p>
 
         <Input

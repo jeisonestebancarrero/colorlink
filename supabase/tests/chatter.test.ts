@@ -25,6 +25,16 @@ function env(): Record<string, string> {
 const E = env();
 const API = E.VITE_SUPABASE_URL ?? '';
 const ANON = E.VITE_SUPABASE_ANON_KEY ?? '';
+/**
+ * Hace falta para LIMPIAR, no para probar.
+ *
+ * `orders` no tiene política de DELETE —a propósito: un pedido no se borra,
+ * se cancela— así que la limpieza que iba con el token del personal afectaba
+ * CERO filas y no daba error. Cada corrida dejaba un pedido y sus siete
+ * mensajes en la base; por eso los números de pedido iban por el 400 y la
+ * campana de mensajes sin leer arrancaba con basura.
+ */
+const SERVICE = E.SUPABASE_SERVICE_ROLE_KEY ?? '';
 const anon = () => ({ apikey: ANON, 'Content-Type': 'application/json' });
 const auth = (t: string) => ({ ...anon(), Authorization: `Bearer ${t}` });
 
@@ -83,12 +93,29 @@ describe.skipIf(!disponible)('Chatter · mensajes, notas internas y trazabilidad
       .then((r) => r.json());
     orderId = await rpc(tCliente, 'create_order_from_cart', {
       _delivery_method: 'RETIRO_TIENDA', _pickup_location_id: loc.id,
+      // Quién recibe es obligatorio desde 20260902100002: sin nombre, documento
+      // y teléfono, el punto de retiro no sabe a quién le entrega.
+      _recipient_name: 'Carlos Mendoza',
+      _recipient_document_type: 'CC',
+      _recipient_document_number: '71234567',
+      _recipient_phone: '3001234567',
     }).then((r) => r.json());
   });
 
   afterAll(async () => {
-    if (orderId) {
-      await fetch(`${API}/rest/v1/orders?id=eq.${orderId}`, { method: 'DELETE', headers: auth(tStaff) });
+    if (!orderId) return;
+    if (!SERVICE) {
+      console.warn('[chatter] sin SUPABASE_SERVICE_ROLE_KEY: el pedido de prueba queda en la base');
+      return;
+    }
+    // Con la llave de servicio, que sí puede borrar. Los mensajes, las líneas
+    // y los envíos caen en cascada con el pedido.
+    const r = await fetch(`${API}/rest/v1/orders?id=eq.${orderId}`, {
+      method: 'DELETE',
+      headers: { apikey: SERVICE, Authorization: `Bearer ${SERVICE}` },
+    });
+    if (!r.ok) {
+      console.warn(`[chatter] no se pudo borrar el pedido de prueba: ${r.status}`);
     }
   });
 

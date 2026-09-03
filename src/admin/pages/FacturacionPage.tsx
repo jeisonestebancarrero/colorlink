@@ -1,16 +1,37 @@
 import React, { useEffect, useState } from 'react';
-import { FileText, Printer, ReceiptText, Search } from 'lucide-react';
+import { Ban, FileText, Printer, ReceiptText, Search } from 'lucide-react';
 import { facturaService, formatearCOP, type FacturaLista } from '../../services/backoffice';
 import { useAdminAuth } from '../AdminAuthContext';
 import { ReciboPOS } from '../ReciboPOS';
+import { AnularFactura } from '../AnularFactura';
 import { Button } from '../../components/common/Button';
+import { useSedes } from '../SedeContext';
+import { ExportarBoton } from '../ExportarBoton';
+import { IconoModulo } from '../IconosDeModulo';
+import {
+  ContadorPorSede, sedeVisible, useAislamientoDeSede,
+} from '../ContadorPorSede';
 
 /** Facturación POS: emitir, consultar y reimprimir. */
-export const FacturacionPage: React.FC = () => {
+interface FacturacionPageProps {
+  /** Factura que pide la URL, por su NÚMERO (`/facturacion/POS-000004`). */
+  idAbierto?: string | null;
+  onAbrir?: (numero: string) => void;
+  onCerrar?: () => void;
+}
+
+export const FacturacionPage: React.FC<FacturacionPageProps> = ({
+  idAbierto, onAbrir, onCerrar,
+}) => {
   const { puede } = useAdminAuth();
+  const { filtroSedes, permitidas } = useSedes();
+  const [anio, setAnio] = useState<string>('TODOS');
+  const { sedeAislada, aislar, filtroEfectivo } = useAislamientoDeSede();
   const [facturas, setFacturas] = useState<FacturaLista[]>([]);
   const [pendientes, setPendientes] = useState<Array<{ id: string; numero: string; cliente: string; total: number }>>([]);
   const [pestana, setPestana] = useState<'emitidas' | 'pendientes'>('emitidas');
+  /** Factura que se está anulando. */
+  const [anulando, setAnulando] = useState<FacturaLista | null>(null);
   const [busqueda, setBusqueda] = useState('');
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState('');
@@ -32,6 +53,21 @@ export const FacturacionPage: React.FC = () => {
 
   useEffect(() => { void cargar(); }, []);
 
+  /**
+   * Abre la factura que pide la URL en cuanto la lista está cargada.
+   *
+   * `abrio` evita que cerrar el recibo lo reabra: el id sigue en la URL hasta
+   * que `onCerrar` lo quita, y sin la guarda el efecto volvería a dispararse.
+   */
+  const [abrio, setAbrio] = useState<string | null>(null);
+  useEffect(() => {
+    if (!idAbierto || abrio === idAbierto || facturas.length === 0) return;
+    setAbrio(idAbierto);
+    const f = facturas.find((x) => x.numero === idAbierto);
+    if (f) setRecibo(f.id);
+    else setError(`No se encontró la factura ${idAbierto}.`);
+  }, [idAbierto, abrio, facturas]);
+
   const emitir = async (orderId: string) => {
     setEmitiendo(orderId);
     setError('');
@@ -49,13 +85,43 @@ export const FacturacionPage: React.FC = () => {
   const fecha = (iso: string) =>
     new Date(iso).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' });
 
-  const totalIva = facturas.reduce((s, f) => s + f.iva, 0);
-  const totalFacturado = facturas.reduce((s, f) => s + f.total, 0);
+  // Lo que se ve queda acotado a las sedes ACTIVAS del selector. RLS ya limitó
+  // las filas a lo permitido; esto es la selección de pantalla.
+  // DOS listas a propósito:
+  //   `porSede`  — solo la selección GLOBAL: es la que alimenta los contadores,
+  //                para que las demás sedes no aparezcan en 0 al aislar una.
+  //   `visibles` — global ∩ aislamiento local: es lo que se muestra.
+  /**
+   * Años con facturas, para el filtro. Se derivan de los datos y no se
+   * escriben a mano: una lista fija quedaría desactualizada en enero.
+   */
+  // Se arma con un bucle y no con `[...new Set(...)]`: el proyecto compila sin
+  // `strictNullChecks` (ver tsconfig.json) y ahí la inferencia del `Set`
+  // degenera a `unknown`. Así queda explícito y no depende de eso.
+  const anios: string[] = [];
+  for (const f of facturas) {
+    const a = f.emitida.slice(0, 4);
+    if (!anios.includes(a)) anios.push(a);
+  }
+  anios.sort((a, b) => b.localeCompare(a));
+
+  const porAnio = (f: FacturaLista) => anio === 'TODOS' || f.emitida.startsWith(anio);
+
+  const porSede = facturas
+    .filter((f) => sedeVisible(f.locationId, filtroSedes))
+    .filter(porAnio);
+  const visibles = facturas
+    .filter((f) => sedeVisible(f.locationId, filtroEfectivo))
+    .filter(porAnio);
+  const totalIva = visibles.reduce((s, f) => s + f.iva, 0);
+  const totalFacturado = visibles.reduce((s, f) => s + f.total, 0);
 
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">Facturación</h1>
+        <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2.5">
+            <IconoModulo nombre="ReceiptText" /> Facturación
+          </h1>
         <p className="text-sm text-slate-500 font-medium mt-1">
           Documento equivalente POS con IVA desglosado. No es facturación electrónica DIAN.
         </p>
@@ -63,7 +129,7 @@ export const FacturacionPage: React.FC = () => {
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {[
-          ['Facturas emitidas', String(facturas.length)],
+          ['Facturas emitidas', String(visibles.length)],
           ['Total facturado', formatearCOP(totalFacturado)],
           ['IVA recaudado', formatearCOP(totalIva)],
           ['Pedidos sin facturar', String(pendientes.length)],
@@ -75,9 +141,56 @@ export const FacturacionPage: React.FC = () => {
         ))}
       </div>
 
+      {/* Con varias sedes activas, el total no dice cómo se reparte: la
+          comparación entre sedes es justo lo que se busca al activar varias. */}
+      <ContadorPorSede
+        filas={porSede}
+        sustantivo="Facturas"
+        sedeAislada={sedeAislada}
+        onAislar={aislar}
+      />
+
       <div className="flex flex-wrap gap-2 items-center">
+        {/* Año: el caso concreto es «descargar el listado de facturas 2025». */}
+        {anios.length > 0 && (
+          <select
+            value={anio}
+            onChange={(e) => setAnio(e.target.value)}
+            className="px-3 py-1.5 rounded-lg text-xs font-bold border border-slate-200
+                       bg-white text-slate-700 cursor-pointer"
+          >
+            <option value="TODOS">Todos los años</option>
+            {anios.map((a) => (
+              <option key={a} value={a}>{a}</option>
+            ))}
+          </select>
+        )}
+
+        {/* Exporta EXACTAMENTE lo que se ve: año, sede y pestaña incluidos. */}
+        <ExportarBoton<FacturaLista>
+          filas={visibles}
+          nombre={`facturas${anio === 'TODOS' ? '' : '-' + anio}`}
+          titulo="Listado de facturas"
+          filtros={[
+            anio === 'TODOS' ? 'Todos los años' : `Año ${anio}`,
+            sedeAislada
+              ? (permitidas.find((s) => s.id === sedeAislada)?.nombre ?? 'Una sede')
+              : 'Sedes activas',
+          ].join(' · ')}
+          columnas={[
+            { titulo: 'Factura', valor: (f) => f.numero },
+            { titulo: 'Pedido', valor: (f) => f.pedido },
+            { titulo: 'Cliente', valor: (f) => f.cliente },
+            { titulo: 'Emitida', valor: (f) => fecha(f.emitida) },
+            { titulo: 'Estado', valor: (f) => f.estado },
+            { titulo: 'Base gravable', valor: (f) => f.base, numerica: true },
+            { titulo: 'IVA', valor: (f) => f.iva, numerica: true },
+            { titulo: 'Total', valor: (f) => f.total, numerica: true },
+          ]}
+        />
+
         <div className="flex gap-1.5">
-          {([['emitidas', `Emitidas (${facturas.length})`], ['pendientes', `Por facturar (${pendientes.length})`]] as const).map(([v, t]) => (
+          {([['emitidas', `Emitidas (${visibles.length})`], ['pendientes', `Por facturar (${pendientes.length})`]] as const).map(([v, t]) => (
             <button key={v} onClick={() => setPestana(v)}
               className={`px-3.5 py-1.5 rounded-lg text-xs font-bold border transition-colors ${
                 pestana === v ? 'bg-[#004F9F] text-white border-[#004F9F]'
@@ -120,13 +233,13 @@ export const FacturacionPage: React.FC = () => {
               </tr>
             </thead>
             <tbody>
-              {facturas.length === 0 && (
+              {visibles.length === 0 && (
                 <tr><td colSpan={8} className="px-5 py-12 text-center text-slate-400">
                   <ReceiptText className="w-7 h-7 mx-auto mb-2 text-slate-300" />
                   Todavía no hay facturas emitidas.
                 </td></tr>
               )}
-              {facturas.map((f) => (
+              {visibles.map((f) => (
                 <tr key={f.id} className="border-t border-slate-100 hover:bg-slate-50/70">
                   <td className="px-5 py-3 font-bold text-slate-900">{f.numero}</td>
                   <td className="px-4 py-3 text-slate-700">{f.cliente}</td>
@@ -136,8 +249,27 @@ export const FacturacionPage: React.FC = () => {
                   <td className="px-4 py-3 text-right tabular-nums font-bold">{formatearCOP(f.total)}</td>
                   <td className="px-4 py-3 text-slate-500 whitespace-nowrap">{fecha(f.emitida)}</td>
                   <td className="px-5 py-3 text-right">
-                    <Button variant="outline" size="sm" onClick={() => setRecibo(f.id)}
-                      leftIcon={<Printer className="w-3.5 h-3.5" />}>Recibo</Button>
+                    <div className="flex items-center justify-end gap-1.5">
+                      {/* El estado se ve en la fila: una factura anulada que
+                          se lee igual que una válida es la forma más fácil de
+                          cobrar dos veces. */}
+                      {f.estado === 'ANULADA' && (
+                        <span className="text-[10px] font-extrabold uppercase tracking-wider
+                                         px-2 py-1 rounded-md bg-rose-50 text-rose-700
+                                         border border-rose-200">
+                          Anulada
+                        </span>
+                      )}
+                      <Button variant="outline" size="sm" onClick={() => { setRecibo(f.id); onAbrir?.(f.numero); }}
+                        leftIcon={<Printer className="w-3.5 h-3.5" />}>Recibo</Button>
+                      {puede('invoices.void') && f.estado !== 'ANULADA' && (
+                        <Button variant="ghost" size="sm" onClick={() => setAnulando(f)}
+                          className="text-rose-600 hover:bg-rose-50"
+                          leftIcon={<Ban className="w-3.5 h-3.5" />}>
+                          Anular
+                        </Button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -183,7 +315,20 @@ export const FacturacionPage: React.FC = () => {
         </div>
       )}
 
-      {recibo && <ReciboPOS facturaId={recibo} onCerrar={() => setRecibo(null)} />}
+      {recibo && (
+        <ReciboPOS
+          facturaId={recibo}
+          onCerrar={() => { setRecibo(null); onCerrar?.(); }}
+        />
+      )}
+
+      {anulando && (
+        <AnularFactura
+          factura={anulando}
+          onCerrar={() => setAnulando(null)}
+          onAnulada={() => { setAnulando(null); void cargar(); }}
+        />
+      )}
     </div>
   );
 };

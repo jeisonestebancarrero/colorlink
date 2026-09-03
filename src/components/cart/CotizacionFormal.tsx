@@ -1,6 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Printer, X } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import {
+  desglosarIvaIncluido, formatearImporteImpuesto, TARIFA_IVA_POR_DEFECTO,
+} from '../../services/impuestos';
 import { useAuth } from '../../context/AuthContext';
 import type { CartItem } from '../../types';
 import logoPintuco from '../../assets/pintuco-logo.jpeg';
@@ -136,9 +139,12 @@ export const CotizacionFormal: React.FC<{
   ).padStart(2, '0')}-${String(Math.floor(hoy.getTime() / 1000) % 10000).padStart(4, '0')}`;
 
   // Los precios de góndola ya incluyen IVA: la base se despeja hacia atrás.
-  const tarifa = emisor?.iva ?? 19;
-  const baseTotal = Math.round((total / (1 + tarifa / 100)) * 100) / 100;
-  const ivaTotal = Math.round((total - baseTotal) * 100) / 100;
+  // El cálculo vive en services/impuestos para que el carrito y este documento
+  // no puedan discrepar: antes estaba escrito solo aquí.
+  const { base: baseTotal, iva: ivaTotal, tarifa } = desglosarIvaIncluido(
+    total,
+    emisor?.iva ?? TARIFA_IVA_POR_DEFECTO
+  );
 
   return (
     <div className="fixed inset-0 z-70 bg-slate-900/70 backdrop-blur-xs overflow-y-auto">
@@ -280,11 +286,11 @@ export const CotizacionFormal: React.FC<{
                   )}
                   <tr>
                     <td className="py-1 text-slate-600">Base gravable</td>
-                    <td className="py-1 text-right tabular-nums">{cop(baseTotal)}</td>
+                    <td className="py-1 text-right tabular-nums">{formatearImporteImpuesto(baseTotal)}</td>
                   </tr>
                   <tr>
                     <td className="py-1 text-slate-600">IVA {tarifa} %</td>
-                    <td className="py-1 text-right tabular-nums">{cop(ivaTotal)}</td>
+                    <td className="py-1 text-right tabular-nums">{formatearImporteImpuesto(ivaTotal)}</td>
                   </tr>
                   <tr className="border-t-2 border-slate-800">
                     <td className="py-2 font-extrabold">TOTAL</td>

@@ -59,7 +59,16 @@ export const registroPersonaSchema = z.object({
   documentNumber: z.string().trim().min(5, 'Ingresa un número de documento válido'),
   email: z.email('Ingresa un correo electrónico válido'),
   phone: z.string().trim().min(1, 'El teléfono es obligatorio'),
-  city: z.string().trim().min(1, 'La ciudad es obligatoria'),
+  /**
+   * Ubicación del diccionario, no texto libre. `city` desapareció de aquí a
+   * propósito: la ciudad se deriva en el servidor del código DIVIPOLA, que es
+   * lo que evita tener 'Bogotá' y 'Bogotá D.C.' como dos ciudades.
+   */
+  countryCode: z.string().trim().length(2, 'Selecciona el país'),
+  departmentCode: z.string().trim().min(1, 'Selecciona el departamento'),
+  municipalityCode: z.string().trim().min(1, 'Selecciona la ciudad'),
+  neighborhoodId: z.string().uuid().nullable().optional(),
+  address: z.string().trim().min(5, 'Ingresa la dirección'),
   password: z.string().min(6, 'La contraseña debe tener al menos 6 caracteres'),
 });
 
@@ -73,7 +82,16 @@ export const registroEmpresaSchema = z.object({
   lastName: z.string().trim().min(1, 'El apellido del representante es obligatorio'),
   email: z.email('Ingresa un correo electrónico válido'),
   phone: z.string().trim().min(1, 'El teléfono es obligatorio'),
-  city: z.string().trim().min(1, 'La ciudad es obligatoria'),
+  /**
+   * Ubicación del diccionario, no texto libre. `city` desapareció de aquí a
+   * propósito: la ciudad se deriva en el servidor del código DIVIPOLA, que es
+   * lo que evita tener 'Bogotá' y 'Bogotá D.C.' como dos ciudades.
+   */
+  countryCode: z.string().trim().length(2, 'Selecciona el país'),
+  departmentCode: z.string().trim().min(1, 'Selecciona el departamento'),
+  municipalityCode: z.string().trim().min(1, 'Selecciona la ciudad'),
+  neighborhoodId: z.string().uuid().nullable().optional(),
+  address: z.string().trim().min(5, 'Ingresa la dirección'),
   password: z.string().min(6, 'La contraseña debe tener al menos 6 caracteres'),
 });
 

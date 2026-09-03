@@ -9,10 +9,12 @@ import {
   type Asiento, type Cuenta, type DocumentoOrigen, type LineaAsiento,
   type RenglonResultado, type SaldoCuenta,
 } from '../../services/contabilidad';
+import { ExportarBoton } from '../ExportarBoton';
 import { useAdminAuth } from '../AdminAuthContext';
 import { Button } from '../../components/common/Button';
 import { Input } from '../../components/common/Input';
 import { Select } from '../../components/common/Select';
+import { IconoModulo } from '../IconosDeModulo';
 
 const hoy = () => {
   const d = new Date();
@@ -107,6 +109,21 @@ export const ContabilidadPage: React.FC = () => {
         (ETIQUETA_ORIGEN[a.origen] ?? '').toLowerCase().includes(q),
     );
   }, [asientos, busqueda]);
+
+  /* El balance se pinta sin las cuentas que no se movieron; el archivo tiene
+     que traer exactamente eso y no el plan de cuentas completo. */
+  const balanceVisible = useMemo(
+    () => balance.filter((b) => b.debitos > 0 || b.creditos > 0),
+    [balance],
+  );
+
+  /** Cómo describir el período en el encabezado del documento. */
+  const periodoTexto = useMemo(() => {
+    if (periodo.desde && periodo.hasta) return `${periodo.desde} a ${periodo.hasta}`;
+    if (periodo.desde) return `Desde ${periodo.desde}`;
+    if (periodo.hasta) return `Hasta ${periodo.hasta}`;
+    return 'Todo el histórico';
+  }, [periodo]);
 
   const totales = useMemo(() => {
     const suma = (l: Renglon[], campo: 'debito' | 'credito') =>
@@ -383,7 +400,9 @@ export const ContabilidadPage: React.FC = () => {
     <div className="space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">Contabilidad</h1>
+          <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2.5">
+            <IconoModulo nombre="BookOpen" /> Contabilidad
+          </h1>
           <p className="text-sm text-slate-500 font-medium">
             Comprobantes en partida doble. La mayoría se generan solos.
           </p>
@@ -593,6 +612,69 @@ export const ContabilidadPage: React.FC = () => {
             </button>
           ),
         )}
+
+        {/* Uno por pestaña, no uno que adivine: cada tabla tiene sus columnas,
+            y estos tres archivos son justo los que pide el contador. Se
+            renderiza solo el de la pestaña abierta para no exportar una tabla
+            que no se está mirando. */}
+        <div className="ml-auto">
+          {pestana === 'comprobantes' && (
+            <ExportarBoton<Asiento>
+              filas={filtrados}
+              nombre="libro-diario"
+              titulo="Libro diario — comprobantes"
+              filtros={[
+                periodoTexto,
+                busqueda.trim() ? `Búsqueda: ${busqueda.trim()}` : null,
+              ].filter(Boolean).join(' · ')}
+              columnas={[
+                { titulo: 'Comprobante', valor: (a) => a.numero },
+                { titulo: 'Fecha', valor: (a) => a.fecha },
+                { titulo: 'Origen', valor: (a) => ETIQUETA_ORIGEN[a.origen] ?? a.origen },
+                { titulo: 'Descripción', valor: (a) => a.descripcion },
+                { titulo: 'Estado', valor: (a) => a.estado },
+                { titulo: 'Débito', valor: (a) => a.totalDebito, numerica: true },
+                { titulo: 'Crédito', valor: (a) => a.totalCredito, numerica: true },
+                // Un comprobante anulado sin su motivo no se puede justificar
+                // ante nadie.
+                { titulo: 'Motivo de anulación', valor: (a) => a.motivoAnulacion },
+              ]}
+            />
+          )}
+
+          {pestana === 'balance' && (
+            <ExportarBoton<SaldoCuenta>
+              filas={balanceVisible}
+              nombre="balance-de-prueba"
+              titulo="Balance de prueba"
+              filtros={periodoTexto}
+              columnas={[
+                { titulo: 'Cuenta', valor: (b) => b.cuenta },
+                { titulo: 'Nombre', valor: (b) => b.nombre },
+                { titulo: 'Clase', valor: (b) => b.clase },
+                { titulo: 'Naturaleza', valor: (b) => b.naturaleza },
+                { titulo: 'Débitos', valor: (b) => b.debitos, numerica: true },
+                { titulo: 'Créditos', valor: (b) => b.creditos, numerica: true },
+                { titulo: 'Saldo', valor: (b) => b.saldo, numerica: true },
+              ]}
+            />
+          )}
+
+          {pestana === 'resultados' && (
+            <ExportarBoton<RenglonResultado>
+              filas={resultados}
+              nombre="estado-de-resultados"
+              titulo="Estado de resultados"
+              filtros={periodoTexto}
+              columnas={[
+                { titulo: 'Clase', valor: (r) => r.clase },
+                { titulo: 'Cuenta', valor: (r) => r.cuenta },
+                { titulo: 'Nombre', valor: (r) => r.nombre },
+                { titulo: 'Valor', valor: (r) => r.valor, numerica: true },
+              ]}
+            />
+          )}
+        </div>
       </div>
 
       {pestana === 'comprobantes' ? (
@@ -716,8 +798,7 @@ export const ContabilidadPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody>
-                {balance
-                  .filter((b) => b.debitos > 0 || b.creditos > 0)
+                {balanceVisible
                   .map((b) => (
                     <tr
                       key={b.cuenta}

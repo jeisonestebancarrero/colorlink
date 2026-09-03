@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { useRutaTienda } from './hooks/useRutaTienda';
 import { ProjectProvider, useProjects } from './context/ProjectContext';
 import { CartProvider } from './context/CartContext';
+import { MensajesProvider } from './context/MensajesContext';
 import { AppLayout } from './components/layout/AppLayout';
 import { Toast } from './components/common/Toast';
 import { CartDrawer } from './components/cart/CartDrawer';
+import { Asistente } from './components/chat/Asistente';
 import { CompleteProfileModal } from './components/common/CompleteProfileModal';
 
 // Pages
@@ -23,6 +26,8 @@ import { PaintCalculatorPage } from './pages/PaintCalculatorPage';
 import { StoresLocatorPage } from './pages/StoresLocatorPage';
 import { NotificationsPage } from './pages/NotificationsPage';
 import { ProfilePage } from './pages/ProfilePage';
+import { CambiarClaveObligatorio } from './components/common/CambiarClaveObligatorio';
+import { claveTemporalService } from './services/claveTemporal';
 
 /**
  * FASE 2 — Páginas accesibles sin sesión iniciada.
@@ -46,12 +51,37 @@ const PUBLIC_PAGES = [
 ];
 
 function AppContent() {
-  const { user, isAuthenticated, isLoading } = useAuth();
+  const { user, isAuthenticated, isLoading, logout } = useAuth();
+
+  /**
+   * ¿Le pusieron una contraseña provisional?
+   *
+   * Pasa cuando el personal le reinicia el acceso en modo temporal. Esa
+   * contraseña se entrega por teléfono o por chat, así que tiene que cambiarla
+   * antes de seguir; si no, sigue siendo válida en manos de cualquiera que
+   * haya visto el mensaje.
+   *
+   * `null` mientras se averigua, para no pintar la tienda y quitarla medio
+   * segundo después.
+   */
+  const [debeCambiarClave, setDebeCambiarClave] = React.useState<boolean | null>(null);
+
+  React.useEffect(() => {
+    if (!isAuthenticated) { setDebeCambiarClave(null); return; }
+    let vigente = true;
+    claveTemporalService.debeCambiarla()
+      .then((r) => { if (vigente) setDebeCambiarClave(r); })
+      .catch(() => { if (vigente) setDebeCambiarClave(false); });
+    return () => { vigente = false; };
+  }, [isAuthenticated]);
   const { activeProjectId } = useProjects();
 
   // Current page view state
-  const [currentPage, setCurrentPage] = useState<string>('landing');
-  const [pageParam, setPageParam] = useState<string | undefined>(undefined);
+  // La página vive en la URL: recargar ya no devuelve a la landing, «atrás»
+  // funciona y el enlace de un pedido se puede compartir.
+  const {
+    pagina: currentPage, param: pageParam, navegar, reemplazar,
+  } = useRutaTienda();
 
   // If user logs in while on landing/login/register, auto redirect to dashboard
   //
@@ -63,9 +93,9 @@ function AppContent() {
       isAuthenticated &&
       (currentPage === 'login' || currentPage === 'register' || currentPage === 'landing')
     ) {
-      setCurrentPage('dashboard');
+      reemplazar('dashboard');
     }
-  }, [isAuthenticated, currentPage]);
+  }, [isAuthenticated, currentPage, reemplazar]);
 
   /**
    * FASE 2 — Protección de rutas (MÓDULO 1).
@@ -75,13 +105,12 @@ function AppContent() {
    */
   useEffect(() => {
     if (!isLoading && !isAuthenticated && !PUBLIC_PAGES.includes(currentPage)) {
-      setCurrentPage('landing');
+      reemplazar('landing');
     }
-  }, [isLoading, isAuthenticated, currentPage]);
+  }, [isLoading, isAuthenticated, currentPage, reemplazar]);
 
   const handleNavigate = (page: string, param?: string) => {
-    setCurrentPage(page);
-    setPageParam(param);
+    navegar(page, param);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -96,6 +125,21 @@ function AppContent() {
           </p>
         </div>
       </div>
+    );
+  }
+
+  // Contraseña provisional: se cambia antes de poder usar la tienda. Va antes
+  // que cualquier vista privada, incluido el carrito.
+  if (isAuthenticated && debeCambiarClave) {
+    return (
+      <>
+        <CambiarClaveObligatorio
+          correo={user?.email ?? null}
+          onListo={() => setDebeCambiarClave(false)}
+          onSalir={() => void logout()}
+        />
+        <Toast />
+      </>
     );
   }
 
@@ -171,7 +215,10 @@ function AppContent() {
           />
         );
       case 'orders':
-        return <MisPedidosPage onNavigate={handleNavigate} />;
+        // El número del pedido viaja en la URL (`/mis-pedidos/ORD-PNT-000106`)
+        // para que la campana pueda abrir la conversación exacta y para que el
+        // enlace se pueda compartir, igual que en el portal interno.
+        return <MisPedidosPage onNavigate={handleNavigate} numeroAbierto={pageParam} />;
       case 'notifications':
         return <NotificationsPage onNavigate={handleNavigate} />;
       case 'profile':
@@ -185,6 +232,9 @@ function AppContent() {
     <AppLayout currentPage={currentPage} onNavigate={handleNavigate}>
       {renderCurrentPage()}
       <CartDrawer onNavigate={handleNavigate} />
+      {/* Asistente automático: responde consultando el sistema y, cuando no
+          sabe, pasa la conversación al equipo por el hilo del pedido. */}
+      <Asistente onNavigate={handleNavigate} />
       {/* Pide los datos que Google no entrega, una sola vez. */}
       <CompleteProfileModal />
       <Toast />
@@ -192,12 +242,28 @@ function AppContent() {
   );
 }
 
+/**
+ * Enchufa la campana de mensajes a la sesión de la TIENDA.
+ *
+ * El proveedor es neutro —lo comparten las dos aplicaciones— y recibe `activo`
+ * por propiedad; este envoltorio es el que sabe de qué contexto de sesión sale
+ * ese dato aquí.
+ */
+const CampanaConSesion: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { isAuthenticated } = useAuth();
+  return <MensajesProvider activo={isAuthenticated}>{children}</MensajesProvider>;
+};
+
 export default function App() {
   return (
     <AuthProvider>
       <ProjectProvider>
         <CartProvider>
-          <AppContent />
+          {/* La campana solo tiene sentido con sesión, y necesita saber
+              cuándo se inicia y cuándo se cierra. */}
+          <CampanaConSesion>
+            <AppContent />
+          </CampanaConSesion>
         </CartProvider>
       </ProjectProvider>
     </AuthProvider>

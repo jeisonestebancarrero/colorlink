@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
   AlertTriangle, Banknote, CheckCircle2, Landmark, Link2, Wallet,
+  ArrowDownCircle,
 } from 'lucide-react';
 import {
   formatearFecha,
@@ -12,6 +13,13 @@ import { Button } from '../../components/common/Button';
 import { Modal } from '../../components/common/Modal';
 import { Input } from '../../components/common/Input';
 import { Select } from '../../components/common/Select';
+import { useSedes } from '../SedeContext';
+import {
+  ContadorPorSede, sedeVisible, useAislamientoDeSede,
+} from '../ContadorPorSede';
+import { ExportarBoton } from '../ExportarBoton';
+import { IconoModulo } from '../IconosDeModulo';
+import { RegistrarEgreso } from '../RegistrarEgreso';
 
 /**
  * Tesorería: recaudos, cartera y conciliación bancaria.
@@ -21,6 +29,8 @@ import { Select } from '../../components/common/Select';
  * por una diferencia.
  */
 export const TesoreriaPage: React.FC = () => {
+  const { filtroSedes } = useSedes();
+  const { sedeAislada, aislar, filtroEfectivo } = useAislamientoDeSede();
   const { puede } = useAdminAuth();
   const [cuentas, setCuentas] = useState<CuentaSaldo[]>([]);
   const [cartera, setCartera] = useState<CarteraItem[]>([]);
@@ -32,6 +42,8 @@ export const TesoreriaPage: React.FC = () => {
   const [recaudo, setRecaudo] = useState<CarteraItem | null>(null);
   const [form, setForm] = useState({ monto: '', metodo: 'TRANSFERENCIA' as MetodoPago, cuenta: '', referencia: '' });
   const [guardando, setGuardando] = useState(false);
+
+  const [egresando, setEgresando] = useState(false);
 
   const [conciliando, setConciliando] = useState<MovimientoTesoreria | null>(null);
   const [refExtracto, setRefExtracto] = useState('');
@@ -119,7 +131,11 @@ export const TesoreriaPage: React.FC = () => {
 
   const totalCartera = cartera.reduce((s, c) => s + c.saldo, 0);
   const vencida = cartera.filter((c) => c.dias > 30).reduce((s, c) => s + c.saldo, 0);
-  const sinConciliar = movimientos.filter((m) => !m.conciliado).length;
+  // Acotado a las sedes ACTIVAS. Un egreso sin sede se conserva: no pertenece
+  // a ninguna tienda y esconderlo al elegir una sede lo haría desaparecer.
+  const movDeSedesActivas = movimientos.filter((m) => sedeVisible(m.locationId, filtroSedes));
+  const movVisibles = movimientos.filter((m) => sedeVisible(m.locationId, filtroEfectivo));
+  const sinConciliar = movVisibles.filter((m) => !m.conciliado).length;
 
   if (cargando) {
     return (
@@ -132,11 +148,52 @@ export const TesoreriaPage: React.FC = () => {
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">Tesorería</h1>
+        <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2.5">
+            <IconoModulo nombre="Landmark" /> Tesorería
+          </h1>
         <p className="text-sm text-slate-500 font-medium mt-1">
-          Recaudos, cartera y conciliación bancaria.
+          Recaudos, egresos, cartera y conciliación bancaria.
         </p>
       </div>
+
+      <div className="flex justify-end gap-2">
+        {/* Faltaba por completo: solo se podía cobrar, así que la caja del
+            sistema decía más dinero del que había. */}
+        {puede('treasury.manage') && cuentas.length > 0 && (
+          <Button variant="outline" size="sm" onClick={() => setEgresando(true)}
+            className="text-xs font-bold"
+            leftIcon={<ArrowDownCircle className="w-3.5 h-3.5" />}>
+            Registrar egreso
+          </Button>
+        )}
+
+        <ExportarBoton<MovimientoTesoreria>
+          filas={movVisibles}
+          nombre="movimientos-tesoreria"
+          titulo="Movimientos de tesorería"
+          filtros={sedeAislada ? 'Una sede' : 'Sedes activas'}
+          columnas={[
+            { titulo: 'Fecha', valor: (m) => m.fecha.slice(0, 10) },
+            { titulo: 'Cuenta', valor: (m) => m.cuenta },
+            { titulo: 'Tipo', valor: (m) => m.direccion },
+            { titulo: 'Concepto', valor: (m) => m.concepto },
+            { titulo: 'Referencia', valor: (m) => m.referencia ?? '' },
+            { titulo: 'Conciliado', valor: (m) => (m.conciliado ? 'Sí' : 'No') },
+            { titulo: 'Ref. extracto', valor: (m) => m.refExtracto ?? '' },
+            { titulo: 'Monto', valor: (m) => m.monto, numerica: true },
+          ]}
+        />
+      </div>
+
+      {/* La cartera es del cliente, no de una sede: solo se desglosan los
+          movimientos, que sí ocurren en una tienda. */}
+      <ContadorPorSede
+        sedeAislada={sedeAislada}
+        onAislar={aislar}
+        filas={movVisibles}
+        sustantivo="Movimientos"
+        etiquetaSinSede="Sin sede"
+      />
 
       {error && (
         <div className="p-3.5 bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-lg font-medium">{error}</div>
@@ -243,12 +300,12 @@ export const TesoreriaPage: React.FC = () => {
               </tr>
             </thead>
             <tbody>
-              {movimientos.length === 0 && (
+              {movVisibles.length === 0 && (
                 <tr><td colSpan={6} className="px-5 py-12 text-center text-slate-400">
                   Todavía no hay movimientos de tesorería.
                 </td></tr>
               )}
-              {movimientos.map((m) => (
+              {movVisibles.map((m) => (
                 <tr key={m.id} className="border-t border-slate-100 hover:bg-slate-50/70">
                   <td className="px-5 py-3 text-slate-500 whitespace-nowrap">{fecha(m.fecha)}</td>
                   <td className="px-4 py-3">
@@ -353,6 +410,14 @@ export const TesoreriaPage: React.FC = () => {
           </div>
         </form>
       </Modal>
+
+      {egresando && (
+        <RegistrarEgreso
+          cuentas={cuentas}
+          onCerrar={() => setEgresando(false)}
+          onRegistrado={() => { setEgresando(false); void cargar(); }}
+        />
+      )}
     </div>
   );
 };

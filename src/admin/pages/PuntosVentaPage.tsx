@@ -3,10 +3,12 @@ import {
   ArrowLeft, Building2, Clock, ImagePlus, MapPin, Phone, Plus, Search, Store, X,
 } from 'lucide-react';
 import { puntoVentaService, type PuntoVenta } from '../../services/puntosVentaAdmin';
+import { ExportarBoton } from '../ExportarBoton';
 import { useAdminAuth } from '../AdminAuthContext';
 import { Button } from '../../components/common/Button';
 import { Input } from '../../components/common/Input';
 import { FotoPunto } from '../../components/common/FotoPunto';
+import { IconoModulo } from '../IconosDeModulo';
 
 /**
  * El formulario guarda los campos numéricos como TEXTO.
@@ -396,7 +398,9 @@ export const PuntosVentaPage: React.FC = () => {
     <div className="space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">Puntos de venta</h1>
+          <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2.5">
+            <IconoModulo nombre="Store" /> Puntos de venta
+          </h1>
           <p className="text-sm text-slate-500 font-medium">
             Las tiendas que el cliente ve para retirar. Es la misma información en los dos portales.
           </p>
@@ -429,13 +433,40 @@ export const PuntosVentaPage: React.FC = () => {
         </div>
       )}
 
-      <div className="relative max-w-md">
-        <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-        <input
-          value={busqueda}
-          onChange={(e) => setBusqueda(e.target.value)}
-          placeholder="Buscar por nombre, ciudad o dirección…"
-          className="w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 py-2.5 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#004F9F]/20 focus:border-[#004F9F]"
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative flex-1 min-w-[15rem] max-w-md">
+          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+          <input
+            value={busqueda}
+            onChange={(e) => setBusqueda(e.target.value)}
+            placeholder="Buscar por nombre, ciudad o dirección…"
+            className="w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 py-2.5 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#004F9F]/20 focus:border-[#004F9F]"
+          />
+        </div>
+
+        {/* El directorio de tiendas se pide fuera del sistema: para el sitio
+            web, para un volante, para el call center. Sale con coordenadas y
+            horario, que es lo que nadie tiene a mano. */}
+        <ExportarBoton<PuntoVenta>
+          filas={filtrados}
+          nombre="puntos-de-venta"
+          titulo="Puntos de venta"
+          filtros={busqueda.trim() ? `Búsqueda: ${busqueda.trim()}` : 'Todos'}
+          columnas={[
+            { titulo: 'Nombre', valor: (p) => p.nombre },
+            { titulo: 'Ciudad', valor: (p) => p.ciudad },
+            { titulo: 'Dirección', valor: (p) => p.direccion },
+            { titulo: 'Teléfono', valor: (p) => p.telefono },
+            { titulo: 'Horario', valor: (p) => p.horario },
+            { titulo: 'Estudio de color', valor: (p) => (p.tieneEstudioColor ? 'Sí' : 'No') },
+            { titulo: 'Asesor técnico', valor: (p) => (p.tieneAsesorTecnico ? 'Sí' : 'No') },
+            { titulo: 'Retiro express', valor: (p) => (p.tieneRetiroExpress ? 'Sí' : 'No') },
+            { titulo: 'Horas de alistamiento', valor: (p) => p.horasAlistamiento, numerica: true },
+            { titulo: 'Latitud', valor: (p) => p.latitud, numerica: true },
+            { titulo: 'Longitud', valor: (p) => p.longitud, numerica: true },
+            { titulo: 'Estado', valor: (p) => (p.activo ? 'ACTIVO' : 'INACTIVO') },
+            { titulo: 'Referencia', valor: (p) => p.referencia },
+          ]}
         />
       </div>
 
