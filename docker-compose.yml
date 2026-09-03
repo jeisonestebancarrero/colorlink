@@ -1,0 +1,46 @@
+# Proyecto aislado: no comparte red, volúmenes ni puertos con odoo15/odoo18/ancla.
+name: electica-vl
+
+services:
+  colorlink:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      args:
+        # Se leen de 'electica Vl/.env' (cargado automáticamente por Compose).
+        VITE_SUPABASE_URL: ${VITE_SUPABASE_URL:?falta VITE_SUPABASE_URL en .env}
+        VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY:?falta VITE_SUPABASE_ANON_KEY en .env}
+    image: electica-vl/colorlink:latest
+    container_name: electicavl_colorlink
+    restart: unless-stopped
+    ports:
+      # Solo localhost. 8090 verificado libre (odoo usa 8069/8070, ancla 3000/5555).
+      - "127.0.0.1:8090:80"
+    networks:
+      - electicavl_net
+
+  # ------------------------------------------------------------
+  # Portal INTERNO. Imagen, bundle y puerto separados del portal
+  # del cliente: son dos aplicaciones distintas que solo comparten
+  # la base de datos.
+  # ------------------------------------------------------------
+  admin:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.admin
+      args:
+        VITE_SUPABASE_URL: ${VITE_SUPABASE_URL:?falta VITE_SUPABASE_URL en .env}
+        VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY:?falta VITE_SUPABASE_ANON_KEY en .env}
+    image: electica-vl/colorlink-admin:latest
+    container_name: electicavl_admin
+    restart: unless-stopped
+    ports:
+      # 8091 verificado libre.
+      - "127.0.0.1:8091:80"
+    networks:
+      - electicavl_net
+
+networks:
+  electicavl_net:
+    name: electicavl_net
+    driver: bridge

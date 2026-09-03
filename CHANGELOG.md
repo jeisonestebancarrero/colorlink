@@ -38,6 +38,18 @@ del portal interno, ni siquiera su pantalla de acceso.
   iniciaban sesión con ellas.
 - Las pruebas que usaban pedidos sembrados ahora **crean el suyo y lo borran**.
 
+### Despliegue dentro del repositorio
+- `docker-compose.yml`, `docker/` y `.dockerignore` **estaban fuera del
+  repositorio**, un nivel por encima. Si se perdía esa carpeta, se perdía cómo
+  se despliega el sistema.
+- Movidos dentro. El contexto de construcción pasa a ser la raíz del proyecto,
+  así que los `COPY COLOR-LINK/...` de los Dockerfile y las rutas del
+  `.dockerignore` se ajustaron. Verificado reconstruyendo y levantando antes de
+  retirar los originales: mismos contenedores, mismos puertos.
+- El `.env` del compose vive ahora en la raíz del repositorio y **sigue fuera de
+  git** (`.gitignore` excluye `.env*`). Las dos variables que necesita están
+  documentadas en `.env.example`.
+
 ### Contraseñas
 - El administrador puede **escribir** la contraseña provisional de otra persona,
   o dejar que se genere. En los dos casos **la cuenta queda obligada a
@@ -132,9 +144,6 @@ completo, correos automáticos desde la base, y 2FA para el personal interno.
    no hay pantalla para resolverla.
 4. **Cambiar las contraseñas sembradas.** `pintuco2025*` estuvo publicada en el
    paquete de la tienda. Darlas por comprometidas.
-5. **Los archivos de despliegue viven fuera de este repositorio**
-   (`../docker-compose.yml` y `../docker/`). Si se pierde esa carpeta, se pierde
-   cómo se despliega.
 
 ### Datos que faltan de Pintuco
 - Precios y costos reales (hoy estimados por categoría) y stock real.
@@ -162,12 +171,18 @@ completo, correos automáticos desde la base, y 2FA para el personal interno.
 ## Cómo se despliega
 
 `npm run build` **no despliega nada**: los contenedores hornean el `dist` al
-construir la imagen. Desde la carpeta que contiene este repositorio:
+construir la imagen. Desde la raíz de este repositorio:
 
 ```bash
 docker compose build admin colorlink
 docker compose up -d admin colorlink
 ```
+
+Hace falta un `.env` en la raíz con `VITE_SUPABASE_URL` y
+`VITE_SUPABASE_ANON_KEY` (ver `.env.example`). No está en git: el compose lo
+lee al construir y esas dos variables se hornean en el bundle del navegador,
+que es correcto — la `anon key` está diseñada para ser pública y toda la
+autorización la aplica Row Level Security.
 
 Para comprobar qué se está sirviendo de verdad:
 
