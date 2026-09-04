@@ -29,7 +29,6 @@ services:
   - name: colorlink-tienda
     type: web
     runtime: static
-    plan: free
     buildCommand: npm ci && npm run build
     staticPublishPath: ./dist
     envVars:
@@ -61,7 +60,6 @@ services:
   - name: colorlink-portal
     type: web
     runtime: static
-    plan: free
     buildCommand: npm ci && npm run build:admin
     # El build del portal genera `admin.html`, NO `index.html`: su entrada está
     # declarada así en vite.admin.config.ts. Por eso la reescritura de abajo
