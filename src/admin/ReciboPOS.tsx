@@ -34,7 +34,6 @@ interface Factura {
   customer_phone: string | null;
   customer_address: string | null;
   customer_city: string | null;
-  subtotal_cop: string | number;
   discount_cop: string | number;
   taxable_base_cop: string | number;
   tax_cop: string | number;
@@ -74,7 +73,7 @@ export const ReciboPOS: React.FC<{ facturaId: string; onCerrar: () => void }> = 
         .select(
           'invoice_number, issued_at, issuer_name, issuer_nit, issuer_address, issuer_city, ' +
             'issuer_phone, issuer_regime, customer_name, customer_document, customer_email, ' +
-            'customer_phone, customer_address, customer_city, subtotal_cop, discount_cop, ' +
+            'customer_phone, customer_address, customer_city, discount_cop, ' +
             'taxable_base_cop, tax_cop, shipping_cop, total_cop, payment_method, footer, ' +
             'invoice_items ( description, code, presentation, quantity, unit_price_cop, tax_rate, tax_cop, total_cop )'
         )

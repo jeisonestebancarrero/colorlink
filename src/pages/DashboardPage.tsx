@@ -5,6 +5,7 @@ import { useCart } from '../context/CartContext';
 import { useColorPalette, useProducts, useSolutionKits } from '../hooks/useCatalog';
 import { StatusBadge } from '../components/common/Badge';
 import { Button } from '../components/common/Button';
+import { AvisoVinculaciones } from '../components/common/AvisoVinculaciones';
 import {
   ShoppingBag,
   ShoppingCart,
@@ -144,6 +145,11 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
 
   return (
     <div className="space-y-8 pb-16">
+      {/* Alguien espera una decisión que solo este usuario puede tomar: va
+          antes que cualquier banner comercial. Se dibuja solo si hay
+          solicitudes pendientes. */}
+      <AvisoVinculaciones onNavigate={onNavigate} />
+
       {/* Top Value Banner */}
       <div className="bg-linear-to-r from-blue-950 via-[#004F9F] to-blue-900 rounded-2xl text-white p-6 sm:p-8 shadow-lg overflow-hidden relative border border-blue-900/40">
         <div className="relative z-10 max-w-2xl space-y-3">

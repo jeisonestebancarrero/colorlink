@@ -22,6 +22,8 @@ import { Modal } from '../../components/common/Modal';
 import { IconoModulo } from '../IconosDeModulo';
 import { AvatarCliente } from '../AvatarCliente';
 import { FormularioCliente } from '../FormularioCliente';
+import { SolicitudesDeVinculacion } from '../../components/common/SolicitudesDeVinculacion';
+import { accesoService } from '../../services/admin';
 
 /**
  * Clientes: empresas y personas naturales.
@@ -237,6 +239,18 @@ export const ClientesPage: React.FC<ClientesPageProps> = ({
   const [personas, setPersonas] = useState<ClientePersona[]>([]);
   const [busqueda, setBusqueda] = useState('');
   const [filtro, setFiltro] = useState<'TODOS' | 'EMPRESAS' | 'PERSONAS'>('TODOS');
+
+  /* Solo el administrador de la plataforma resuelve vinculaciones ajenas: es
+     lo que exige `resolve_join_request`. Pintar el bloque a todo el personal
+     sería ofrecer un botón que el servidor rechaza. */
+  const [esAdmin, setEsAdmin] = useState(false);
+  useEffect(() => {
+    let vigente = true;
+    accesoService.miAcceso()
+      .then((a) => { if (vigente) setEsAdmin(a.isAdmin); })
+      .catch(() => undefined);
+    return () => { vigente = false; };
+  }, []);
   /* Tarjetas por defecto: ver arriba. Se recuerda la elección, porque quien
      prefiere la tabla la prefiere siempre. */
   const [vista, setVista] = useState<'tarjetas' | 'tabla'>(
@@ -686,6 +700,11 @@ export const ClientesPage: React.FC<ClientesPageProps> = ({
           {error}
         </p>
       )}
+
+      {/* Vinculaciones que nadie más puede destrabar: una empresa cuyo dueño
+          no vuelve a entrar deja a su gente esperando para siempre, y soporte
+          no tenía dónde resolverlo. */}
+      {esAdmin && <SolicitudesDeVinculacion contexto="portal" onCambio={() => void cargar(busqueda)} />}
 
       {/* ── Filtro de tipo y forma de ver ──────────────────────────────── */}
       <div className="flex flex-wrap items-center justify-between gap-3">

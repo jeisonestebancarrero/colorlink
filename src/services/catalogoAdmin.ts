@@ -601,3 +601,220 @@ export const proveedorService = {
     }
   },
 };
+
+/* ══════════════════════════════════════════════════════════════════
+   KITS DE SOLUCIÓN
+   ══════════════════════════════════════════════════════════════════
+   Un kit es catálogo, no una entidad aparte: se arma con los productos y
+   presentaciones que YA existen y están activos.
+
+   Por qué el paso guarda `variant_id` y no una etiqueta escrita a mano: cinco
+   de los once pasos sembrados llevaban etiquetas y precios inventados
+   —«Pack Completo Obra» a $64.700, «2 Cuñetes» cotizados como uno— y la
+   tienda los mostraba tal cual. Con la presentación enlazada, el precio sale
+   del catálogo y no puede volver a separarse.
+
+   Y no hay copia intermedia: la tienda lee las MISMAS tablas, así que lo que
+   se cambie aquí lo ve el cliente en cuanto recarga. Si se archiva un kit,
+   desaparece; si sube el precio de una presentación, el kit lo refleja solo.
+   ══════════════════════════════════════════════════════════════════ */
+
+export interface PasoKit {
+  id?: string;
+  stepNumber: number;
+  fase: string;
+  productId: string;
+  variantId: string | null;
+  /** Solo lectura: se muestran para armar el paso. */
+  productoNombre?: string;
+  presentacion?: string;
+  precioCop?: number;
+  cantidad85m2: number;
+  descripcionRol: string;
+  /**
+   * Imagen propia del paso. Si va vacía, la tienda cae a la del producto: un
+   * paso sin foto propia no debe salir con el hueco roto.
+   */
+  imagen?: string | null;
+  /** Solo lectura: la del producto, para saber qué se ve si no se sube nada. */
+  imagenProducto?: string | null;
+}
+
+export interface KitCatalogo {
+  id: string;
+  nombre: string;
+  subtitulo: string | null;
+  descripcion: string | null;
+  problema: string | null;
+  garantia: string | null;
+  descuento: number;
+  imagen: string | null;
+  categoriaId: string | null;
+  estado: 'ACTIVO' | 'INACTIVO';
+  pasos: PasoKit[];
+  /** Suma de los pasos con el precio real del catálogo, antes del descuento. */
+  totalSinDescuento: number;
+}
+
+/** Las fases válidas salen del enum `solution_phase` de la base. */
+export const FASES_KIT = ['Preparación', 'Sellado', 'Acabado', 'Aplicación', 'Herramienta'] as const;
+
+interface FilaKit {
+  id: string; name: string; subtitle: string | null; description: string | null;
+  problem_target: string | null; warranty: string | null;
+  discount_percent: string | number; image_url: string | null;
+  category_id: string | null; status: 'ACTIVO' | 'INACTIVO';
+  solution_products: Array<{
+    id: string; step_number: number; phase: string | null;
+    product_id: string; variant_id: string | null;
+    quantity_for_85m2: string | number | null; role_description: string | null;
+    image_url: string | null;
+    products: { name: string; image_url: string | null } | null;
+    product_variants: { label: string; price_cop: string | number } | null;
+  }> | null;
+}
+
+export const kitsService = {
+  /**
+   * Sube la imagen de un kit o de uno de sus pasos.
+   *
+   * Va al mismo bucket `productos` que usa el catálogo: es imagen de catálogo
+   * y no tiene sentido repartir permisos y políticas entre dos sitios.
+   */
+  async subirImagen(archivo: File, nombre: string): Promise<string> {
+    return catalogoService.subirImagen(archivo, `kit-${nombre}`);
+  },
+
+  async listar(): Promise<KitCatalogo[]> {
+    const { data, error } = await supabase
+      .from('solutions')
+      .select(
+        'id, name, subtitle, description, problem_target, warranty, discount_percent, ' +
+        'image_url, category_id, status, ' +
+        'solution_products ( id, step_number, phase, product_id, variant_id, ' +
+        'quantity_for_85m2, role_description, image_url, ' +
+        'products(name, image_url), product_variants(label, price_cop) )'
+      )
+      .eq('is_kit', true)
+      .order('name');
+    if (error) throw errorLegible('listarKits', error);
+
+    return ((data as unknown as FilaKit[]) ?? []).map((k) => {
+      const pasos: PasoKit[] = [...(k.solution_products ?? [])]
+        .sort((a, b) => a.step_number - b.step_number)
+        .map((p) => ({
+          id: p.id,
+          stepNumber: p.step_number,
+          fase: p.phase ?? 'Acabado',
+          productId: p.product_id,
+          variantId: p.variant_id,
+          productoNombre: p.products?.name ?? '',
+          presentacion: p.product_variants?.label ?? '',
+          precioCop: num(p.product_variants?.price_cop ?? 0),
+          cantidad85m2: num(p.quantity_for_85m2 ?? 1),
+          descripcionRol: p.role_description ?? '',
+          imagen: p.image_url,
+          imagenProducto: p.products?.image_url ?? null,
+        }));
+
+      return {
+        id: k.id,
+        nombre: k.name,
+        subtitulo: k.subtitle,
+        descripcion: k.description,
+        problema: k.problem_target,
+        garantia: k.warranty,
+        descuento: num(k.discount_percent),
+        imagen: k.image_url,
+        categoriaId: k.category_id,
+        estado: k.status,
+        pasos,
+        totalSinDescuento: pasos.reduce(
+          (t, p) => t + (p.precioCop ?? 0) * p.cantidad85m2, 0,
+        ),
+      };
+    });
+  },
+
+  /** Crea o actualiza la cabecera del kit. Devuelve su id. */
+  async guardar(datos: {
+    id?: string; nombre: string; subtitulo?: string; descripcion?: string;
+    problema?: string; garantia?: string; descuento: number;
+    imagen?: string | null; categoriaId?: string | null;
+    estado: 'ACTIVO' | 'INACTIVO';
+  }): Promise<string> {
+    const fila = {
+      name: datos.nombre.trim(),
+      subtitle: datos.subtitulo?.trim() || null,
+      description: datos.descripcion?.trim() || null,
+      problem_target: datos.problema?.trim() || null,
+      warranty: datos.garantia?.trim() || null,
+      discount_percent: datos.descuento,
+      image_url: datos.imagen || null,
+      category_id: datos.categoriaId || null,
+      status: datos.estado,
+      is_kit: true,
+    };
+
+    if (datos.id) {
+      const { error } = await supabase.from('solutions').update(fila).eq('id', datos.id);
+      if (error) throw errorLegible('guardarKit', error);
+      return datos.id;
+    }
+    const { data, error } = await supabase.from('solutions').insert(fila).select('id').single();
+    if (error) throw errorLegible('crearKit', error);
+    return (data as { id: string }).id;
+  },
+
+  /**
+   * Guarda un paso.
+   *
+   * `variant_id` es OBLIGATORIO aquí, aunque la columna lo permita nulo: un
+   * paso sin presentación real es exactamente el que acaba mostrando un precio
+   * escrito a mano.
+   */
+  async guardarPaso(kitId: string, paso: PasoKit): Promise<void> {
+    if (!paso.variantId) {
+      throw new Error('Elige la presentación del producto: sin ella el kit no puede calcular el precio.');
+    }
+    const fila = {
+      solution_id: kitId,
+      step_number: paso.stepNumber,
+      phase: paso.fase,
+      product_id: paso.productId,
+      variant_id: paso.variantId,
+      quantity_for_85m2: paso.cantidad85m2,
+      role_description: paso.descripcionRol?.trim() || null,
+      image_url: paso.imagen || null,
+    };
+    const { error } = paso.id
+      ? await supabase.from('solution_products').update(fila).eq('id', paso.id)
+      : await supabase.from('solution_products').insert(fila);
+    if (error) throw errorLegible('guardarPasoKit', error);
+  },
+
+  async quitarPaso(pasoId: string): Promise<void> {
+    const { error } = await supabase.from('solution_products').delete().eq('id', pasoId);
+    if (error) throw errorLegible('quitarPasoKit', error);
+  },
+
+  /**
+   * Renumera los pasos de 1 en adelante.
+   *
+   * Borrar el paso 1 deja el kit empezando en «2», y en pantalla eso se lee
+   * como un error del sistema y no como un kit de dos pasos. Ya pasó con los
+   * datos sembrados.
+   */
+  async renumerar(kitId: string): Promise<void> {
+    const { data } = await supabase
+      .from('solution_products').select('id, step_number')
+      .eq('solution_id', kitId).order('step_number');
+    const filas = (data ?? []) as Array<{ id: string; step_number: number }>;
+    for (let i = 0; i < filas.length; i += 1) {
+      if (filas[i].step_number !== i + 1) {
+        await supabase.from('solution_products')
+          .update({ step_number: i + 1 }).eq('id', filas[i].id);
+      }
+    }
+  },
+};

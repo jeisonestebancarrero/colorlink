@@ -798,7 +798,7 @@ export const CreateProjectPage: React.FC<CreateProjectPageProps> = ({
             <div className="space-y-2">
               <FileUploader
                 photos={formData.photos}
-                onPhotosChange={(photos) => setFormData({ ...formData, photos })}
+                onChange={(photos) => setFormData({ ...formData, photos })}
                 maxPhotos={6}
               />
             </div>

@@ -1,0 +1,92 @@
+# ============================================================
+# ColorLink en Render
+# ============================================================
+# SON DOS SITIOS, NO UNO. La tienda del cliente y el portal interno se
+# compilan por separado y no comparten ni una línea de JavaScript: el cliente
+# no recibe el bundle del portal, ni siquiera su pantalla de acceso. Juntarlos
+# en un solo servicio tiraría esa separación por la borda.
+#
+# LA BASE DE DATOS NO VA AQUÍ. Vive en Supabase Cloud, y hay que crearla ANTES
+# de desplegar esto: las dos variables de abajo se leen EN TIEMPO DE
+# COMPILACIÓN (Vite las incrusta en el bundle), así que un sitio construido sin
+# ellas queda apuntando a ninguna parte y hay que reconstruirlo, no basta con
+# corregir la variable.
+#
+# LAS FUNCIONES DE BORDE TAMPOCO. Se despliegan con `supabase functions deploy`.
+# Olvidarlas es exactamente lo que tuvo a `wompi-webhook` —el webhook de
+# pagos— devolviendo 404 sin que nadie lo notara.
+#
+# ANTES DE DESPLEGAR, en Supabase → Authentication → URL Configuration hay que
+# añadir las dos URL de Render, y el mismo `redirect_uri` en Google Cloud
+# Console. Si no, el ingreso con Google funciona en local y falla en Render sin
+# decir por qué. Es el error clásico de esta migración.
+# ============================================================
+
+services:
+  # ----------------------------------------------------------
+  # Tienda del cliente
+  # ----------------------------------------------------------
+  - name: colorlink-tienda
+    type: web
+    runtime: static
+    plan: free
+    buildCommand: npm ci && npm run build
+    staticPublishPath: ./dist
+    envVars:
+      # `sync: false` = Render las pide al crear el blueprint y no las guarda
+      # en el repositorio. La anon key es pública por diseño —viaja al
+      # navegador y la autorización la aplica Row Level Security— pero la URL
+      # del proyecto cambia entre entornos y no debe quedar fija en git.
+      - key: VITE_SUPABASE_URL
+        sync: false
+      - key: VITE_SUPABASE_ANON_KEY
+        sync: false
+    routes:
+      # Aplicación de una sola página: cualquier ruta la resuelve el navegador.
+      # Sin esto, recargar en /mi-cuenta devuelve 404.
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    headers:
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff
+      - path: /*
+        name: Referrer-Policy
+        value: strict-origin-when-cross-origin
+
+  # ----------------------------------------------------------
+  # Portal interno
+  # ----------------------------------------------------------
+  - name: colorlink-portal
+    type: web
+    runtime: static
+    plan: free
+    buildCommand: npm ci && npm run build:admin
+    # El build del portal genera `admin.html`, NO `index.html`: su entrada está
+    # declarada así en vite.admin.config.ts. Por eso la reescritura de abajo
+    # apunta a admin.html; con index.html el portal daría 404 en todas sus
+    # rutas y el error no diría por qué.
+    staticPublishPath: ./dist-admin
+    envVars:
+      - key: VITE_SUPABASE_URL
+        sync: false
+      - key: VITE_SUPABASE_ANON_KEY
+        sync: false
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /admin.html
+    headers:
+      # Fuera de buscadores: es el portal que mueve inventario, facturas y
+      # dinero. Que aparezca en Google no lo hace inseguro —lo protege la
+      # sesión— pero no hay ningún motivo para publicarlo.
+      - path: /*
+        name: X-Robots-Tag
+        value: noindex, nofollow
+      - path: /*
+        name: X-Frame-Options
+        value: DENY
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff

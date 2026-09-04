@@ -19,6 +19,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { MisDireccionesYSedes } from '../components/common/MisDireccionesYSedes';
+import { SolicitudesDeVinculacion } from '../components/common/SolicitudesDeVinculacion';
 import { CambiarFoto } from '../components/common/CambiarFoto';
 import { avatarService } from '../services/avatares';
 
@@ -139,6 +140,12 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
           <span>Tus datos han sido actualizados satisfactoriamente.</span>
         </div>
       )}
+
+      {/* Quién pidió entrar a la cuenta empresarial.
+          Va ARRIBA del perfil a propósito: es lo único de esta pantalla que
+          otra persona está esperando. El bloque se dibuja solo si hay algo que
+          resolver, así que a un cliente particular no le aparece nunca. */}
+      <SolicitudesDeVinculacion contexto="cliente" />
 
       {/* Main Profile Info Card */}
       <div className="bg-white rounded-2xl border border-slate-200 p-6 sm:p-8 shadow-xs">

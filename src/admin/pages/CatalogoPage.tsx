@@ -1,8 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowLeft, ChevronDown, ChevronRight, FolderTree, ImagePlus, Package,
-  Palette, Plus, Search, Tag, X, Loader2,
-} from 'lucide-react';
+  Palette, Plus, Search, Tag, X, Loader2, Layers,} from 'lucide-react';
 import {
   catalogoService, colorService, categoriaService, formatearCOP,
   ESTADOS_CATALOGO, ETIQUETA_CATALOGO, COLOR_CATALOGO, FAMILIAS_COLOR,
@@ -18,6 +17,7 @@ import {
 import { Input } from '../../components/common/Input';
 import { Select } from '../../components/common/Select';
 import { IconoModulo } from '../IconosDeModulo';
+import { KitsPanel } from '../KitsPanel';
 
 // Valores tomados de los enums de la base (`product_environment`,
 // `product_finish`). Si aquí apareciera uno que la base no conoce, guardar
@@ -41,7 +41,7 @@ const SIN_CATEGORIA = 'Sin categoría';
 
 export const CatalogoPage: React.FC = () => {
   const { puede } = useAdminAuth();
-  const [pestana, setPestana] = useState<'productos' | 'categorias' | 'colores'>('productos');
+  const [pestana, setPestana] = useState<'productos' | 'categorias' | 'colores' | 'kits'>('productos');
   const [productos, setProductos] = useState<ProductoCatalogo[]>([]);
   const [colores, setColores] = useState<ColorCatalogo[]>([]);
   const [referencias, setReferencias] = useState<{
@@ -685,6 +685,7 @@ export const CatalogoPage: React.FC = () => {
           ['productos', 'Productos', Package],
           ['categorias', 'Categorías', FolderTree],
           ['colores', 'Colores', Palette],
+          ['kits', 'Kits', Layers],
         ] as const).map(
           ([clave, texto, Icono]) => (
             <button
@@ -703,6 +704,11 @@ export const CatalogoPage: React.FC = () => {
         )}
       </div>
 
+      {/* Los kits traen su propia pantalla: no se filtran por estado ni se
+          exportan como lista de precios. */}
+      {pestana === 'kits' && <KitsPanel />}
+
+      {pestana !== 'kits' && (
       <div className="flex flex-wrap gap-3">
         <div className="relative flex-1 min-w-[240px]">
           <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
@@ -804,8 +810,9 @@ export const CatalogoPage: React.FC = () => {
           )}
         </div>
       </div>
+      )}
 
-      {cargando ? (
+      {pestana === 'kits' ? null : cargando ? (
         <div className="bg-white rounded-xl border border-slate-200 shadow-2xs">
           <p className="text-sm text-slate-400 text-center py-14">Cargando catálogo…</p>
         </div>

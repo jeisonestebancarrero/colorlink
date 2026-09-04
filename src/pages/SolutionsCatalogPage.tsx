@@ -213,7 +213,7 @@ export const SolutionsCatalogPage: React.FC<SolutionsCatalogPageProps> = ({
           isOpen={!!selectedSolution}
           onClose={() => setSelectedSolution(null)}
           title={selectedSolution.name}
-          maxWidth="max-w-3xl"
+          maxWidth="3xl"
         >
           <div className="space-y-6 text-left">
             <div className="relative aspect-16/9 rounded-xl overflow-hidden bg-slate-100">

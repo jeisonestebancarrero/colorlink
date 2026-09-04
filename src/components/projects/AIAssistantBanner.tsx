@@ -56,7 +56,7 @@ export const AIAssistantBanner: React.FC<AIAssistantBannerProps> = ({
           <span className="text-xs text-blue-200">Nivel de atención:</span>
           <span
             className={`text-xs font-bold px-2.5 py-1 rounded-full uppercase tracking-wider border ${
-              analysis.attentionLevel === 'Urgente' || analysis.attentionLevel === 'Alta'
+              analysis.attentionLevel === 'Alta'
                 ? 'bg-rose-500/20 text-rose-200 border-rose-400/40'
                 : analysis.attentionLevel === 'Especializada'
                 ? 'bg-purple-500/20 text-purple-200 border-purple-400/40'

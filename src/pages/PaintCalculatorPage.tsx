@@ -78,7 +78,9 @@ export const PaintCalculatorPage: React.FC<PaintCalculatorPageProps> = ({ onNavi
    * obra, y este además caía en `spreadRateM2PerGal || 22`, que asignaba en
    * silencio el rendimiento de una pintura a una brocha.
    * Ahora hay un único motor, calculate_paint, que lee rendimiento y precio
-   * de la base y rechaza los productos sin rendimiento.
+   * de la base y rechaza los productos sin rendimiento. El otro se movió a la
+   * base el 4 de septiembre de 2026 (`diagnosticar_proyecto`) y usa el mismo
+   * rendimiento de ficha, así que las dos pantallas por fin coinciden.
    */
   const presentacionGalon =
     selectedProduct?.presentations.find((p) => p.label.includes('1 Galón')) ||

@@ -810,7 +810,8 @@ export const ProjectDetailPage: React.FC<ProjectDetailPageProps> = ({
       <TechnicalSupportModal
         isOpen={showTechModal}
         onClose={() => setShowTechModal(false)}
-        project={project}
+        projectId={project.id}
+        projectName={project.name}
       />
 
       {/* Photo Lightbox Modal */}
@@ -818,7 +819,7 @@ export const ProjectDetailPage: React.FC<ProjectDetailPageProps> = ({
         isOpen={!!selectedPhotoModal}
         onClose={() => setSelectedPhotoModal(null)}
         title="Visualización de Evidencia Fotográfica"
-        maxWidth="max-w-4xl"
+        maxWidth="4xl"
       >
         {selectedPhotoModal && (
           <div className="space-y-4">

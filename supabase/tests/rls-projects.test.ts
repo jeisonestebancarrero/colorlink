@@ -134,7 +134,31 @@ describe.skipIf(!disponible)('Proyectos · aislamiento y atomicidad', () => {
     expect((await q('project_surfaces')).length).toBe(1);
     expect((await q('project_pathologies')).length).toBe(2); // Humedad + Fisuras
     expect((await q('project_diagnoses')).length).toBe(1);
-    expect((await q('project_timeline_steps')).length).toBe(3);
+    // Siete, no los tres que manda el payload: la ruta de solución la arma el
+    // servidor desde el 4 de septiembre de 2026 y no depende del cliente.
+    expect((await q('project_timeline_steps')).length).toBe(7);
+  });
+
+  it('ATAQUE: el diagnóstico que manda el cliente se IGNORA', async () => {
+    // `PAYLOAD` incluye a propósito un diagnóstico falsificado: un producto
+    // inventado («p-1», «Koraza 5 Años») y un presupuesto de $500.000 puestos
+    // a mano. Hasta el 4 de septiembre de 2026 `create_project` guardaba eso
+    // tal cual, así que cualquiera con la consola abierta se firmaba su propio
+    // presupuesto. Ahora lo calcula la base y lo del cliente se descarta.
+    const [d] = await fetch(
+      `${API}/rest/v1/project_diagnoses?select=recommended_products,budget_summary,ai_summary&project_id=eq.${idProyectoCarlos}`,
+      { headers: auth(tCarlos) }
+    ).then((x) => x.json());
+
+    const productos = d.recommended_products as Array<{ code?: string; id?: string }>;
+    expect(productos.length).toBeGreaterThan(0);
+    expect(productos.some((p) => p.id === 'p-1')).toBe(false);
+    // Y lo que quedó son referencias reales del catálogo, con su código.
+    for (const prod of productos) {
+      expect(prod.code).toMatch(/^PNT-/);
+    }
+    expect(d.budget_summary.materialsSubtotal).toBeUndefined();
+    expect(Number(d.budget_summary.subtotalCop)).toBeGreaterThan(0);
   });
 
   it('la superficie y las patologías quedaron enlazadas al catálogo', async () => {

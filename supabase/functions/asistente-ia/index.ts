@@ -136,8 +136,13 @@ Deno.serve(async (req: Request) => {
     suyo.from('orders')
       .select('order_number, status, total_cop, estimated_delivery_date, shipping_city')
       .order('created_at', { ascending: false }).limit(5),
+    // Los nombres de estas columnas estaban MAL (`category`, `ambiente`,
+    // `acabado`, `rendimiento`): ninguna existe en `products`, así que la
+    // consulta fallaba y el catálogo llegaba VACÍO al modelo, con la nota de
+    // que «estos son TODOS los datos disponibles». No se había notado porque
+    // sin llave cargada este código nunca llegó a ejecutarse.
     suyo.from('products')
-      .select('name, category, ambiente, acabado, rendimiento')
+      .select('name, code, environment, finish, spread_rate_m2_per_gal')
       .eq('status', 'ACTIVO').limit(20),
     suyo.from('pickup_locations')
       .select('name, city, address, hours').eq('status', 'ACTIVO').limit(10),

@@ -12,7 +12,6 @@ import type {
   TechnicalService,
   TimelineStep,
 } from '../types';
-import { generatePreliminaryAnalysis } from './storage';
 
 /**
  * Servicio de proyectos respaldado por Supabase — FASE 5.
@@ -404,13 +403,14 @@ export const projectService = {
    * La escritura en las cinco tablas ocurre dentro de la función
    * public.create_project: o se crea todo, o nada.
    *
-   * ⚠️ TRANSITORIO: el análisis preliminar todavía lo calcula el navegador.
-   * La FASE 6 mueve ese motor al servidor y esta llamada dejará de enviarlo.
+   * EL DIAGNÓSTICO YA NO SE MANDA. Lo calcula `diagnosticar_proyecto` en la
+   * base (20260904100004) contra el catálogo real. Antes lo armaba el
+   * navegador con códigos y precios escritos a mano —ninguno existía en
+   * `products`— y el servidor guardaba lo que le llegara, así que cualquiera
+   * podía fijarse su propio nivel de atención y su presupuesto desde la
+   * consola. Aquí solo viajan los datos que el cliente sí escribió.
    */
   async createProject(formData: ProjectFormData): Promise<Project> {
-    const { analysis, recommendedProducts, budgetSummary, timeline } =
-      generatePreliminaryAnalysis(formData);
-
     const payload = {
       name: formData.name,
       description: formData.description,
@@ -436,26 +436,6 @@ export const projectService = {
         actionLabel: 'Ver expediente completo',
         actionType: 'validate_solution',
       },
-      diagnosis: {
-        solution_category: analysis.solutionCategory,
-        attention_level: analysis.attentionLevel,
-        requires_technical_visit: analysis.requiresTechnicalVisit,
-        key_considerations: analysis.keyConsiderations,
-        missing_information: analysis.missingInformation,
-        ai_summary: analysis.aiSummary,
-        technical_summary: analysis.technicalSummary ?? null,
-        disclaimer: analysis.disclaimer,
-        recommended_products: recommendedProducts,
-        budget_summary: budgetSummary,
-      },
-      timeline: timeline.map((t) => ({
-        step_number: t.stepNumber,
-        title: t.title,
-        description: t.description,
-        status: t.status,
-        step_date: t.date ?? null,
-        responsible: t.responsible ?? null,
-      })),
     };
 
     const { data: nuevoId, error } = await supabase.rpc('create_project', { _payload: payload });

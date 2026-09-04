@@ -127,7 +127,7 @@ describe.skipIf(!disponible)('Fidelidad catálogo: Supabase vs datos mock', () =
     const filas = await get(
       'colors?select=code,name,hex,rgb,family,recommended_product,description&status=eq.ACTIVO&is_palette=eq.true&order=code'
     );
-    const colores = filas.map(aColorSwatch);
+    const colores: ReturnType<typeof aColorSwatch>[] = filas.map(aColorSwatch);
 
     // La carta creció a propósito. Lo que esta prueba vigila no es el número
     // sino que ninguno de los tonos originales se haya perdido ni cambiado al
@@ -149,7 +149,7 @@ describe.skipIf(!disponible)('Fidelidad catálogo: Supabase vs datos mock', () =
     const filas = await get(
       'solutions?select=id,external_ref,name,description,image_url,badge,application,surface_summary,features,system_summary,durability_estimate,spread_rate_info,packagings,step_by_step_guide,color_swatches,subtitle,problem_target,ideal_for,warranty,discount_percent,tools_included,categories(name),solution_products(step_number,phase,role_description,quantity_for_85m2,image_url,presentation_label,unit_price_cop,products(external_ref,name),product_variants(price_cop))&is_kit=eq.true&status=eq.ACTIVO'
     );
-    const kits = filas.map(aSolutionKit);
+    const kits: ReturnType<typeof aSolutionKit>[] = filas.map(aSolutionKit);
     expect(kits).toHaveLength(PINTUCO_SOLUTION_KITS.length);
 
     for (const esperado of PINTUCO_SOLUTION_KITS) {
@@ -178,7 +178,7 @@ describe.skipIf(!disponible)('Fidelidad catálogo: Supabase vs datos mock', () =
     const filas = await get(
       'solutions?select=id,external_ref,name,description,image_url,badge,application,surface_summary,features,system_summary,durability_estimate,spread_rate_info,packagings,step_by_step_guide,color_swatches,subtitle,problem_target,ideal_for,warranty,discount_percent,tools_included,categories(name)&is_kit=eq.false&status=eq.ACTIVO'
     );
-    const soluciones = filas.map(aSolutionCatalogItem);
+    const soluciones: ReturnType<typeof aSolutionCatalogItem>[] = filas.map(aSolutionCatalogItem);
     expect(soluciones).toHaveLength(SOLUTIONS_CATALOG.length);
 
     for (const esperado of SOLUTIONS_CATALOG) {
@@ -200,7 +200,7 @@ describe.skipIf(!disponible)('Fidelidad catálogo: Supabase vs datos mock', () =
     const filas = await get(
       'pickup_locations?select=id,external_ref,name,city,address,phone,hours,has_color_studio,has_tech_advisor,has_express_pickup,stock_readiness_hours&status=eq.ACTIVO'
     );
-    const tiendas = filas.map(aPintucoStore);
+    const tiendas: ReturnType<typeof aPintucoStore>[] = filas.map(aPintucoStore);
     expect(tiendas).toHaveLength(PINTUCO_STORES.length);
 
     for (const esperado of PINTUCO_STORES) {

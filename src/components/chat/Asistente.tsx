@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
-  Bot, Send, X, Loader2, MessageSquare, CheckCircle2, ArrowLeft, Radio, Lock,
+  Bot, Send, X, Loader2, MessageSquare, CheckCircle2, ArrowLeft, Radio, Lock, Phone,
 } from 'lucide-react';
 import {
   responder, saludo, escalar, dijoElCliente, hayIA, NOMBRE,
@@ -13,6 +13,7 @@ import {
 } from '../../services/conversacion';
 import { AcuseDeLectura } from '../common/AcuseDeLectura';
 import { useMensajes } from '../../context/MensajesContext';
+import { LlamadaPintu } from './LlamadaPintu';
 
 /**
  * Asistente de la tienda: burbuja flotante.
@@ -34,6 +35,8 @@ export const Asistente: React.FC<{
 }> = ({ onNavigate }) => {
   const { user, isAuthenticated } = useAuth();
   const [abierto, setAbierto] = useState(false);
+  /** La llamada de voz vive aparte del hilo escrito: es otra forma de hablar. */
+  const [enLlamada, setEnLlamada] = useState(false);
   const [mensajes, setMensajes] = useState<MensajeAsistente[]>([]);
   const [texto, setTexto] = useState('');
   const [pensando, setPensando] = useState(false);
@@ -205,6 +208,32 @@ export const Asistente: React.FC<{
 
   return createPortal(
     <>
+      {/* La llamada. Cuando cuelga, lo hablado se queda en el hilo escrito: si
+          no, el cliente cuelga y pierde el número de pedido que le acaban de
+          decir en voz. */}
+      {enLlamada && (
+        <LlamadaPintu
+          onCerrar={() => setEnLlamada(false)}
+          onTranscripcion={(turnos) => {
+            if (turnos.length === 0) return;
+            setMensajes((m) => [
+              ...m,
+              {
+                id: `voz-sep-${Date.now()}`,
+                autor: 'ASISTENTE',
+                texto: 'Esto fue lo que hablamos por voz:',
+              },
+              ...turnos.map((t, i) => ({
+                id: `voz-${Date.now()}-${i}`,
+                autor: (t.autor === 'PINTU' ? 'ASISTENTE' : 'CLIENTE') as 'ASISTENTE' | 'CLIENTE',
+                texto: t.texto,
+              })),
+            ]);
+            setAbierto(true);
+          }}
+        />
+      )}
+
       {!abierto && (
         <div className="fixed bottom-6 right-6 z-[60] flex items-center gap-2.5">
           {/* Invitación, y solo UNA vez.
@@ -314,6 +343,18 @@ export const Asistente: React.FC<{
             </div>
 
             <div className="flex items-center gap-0.5 shrink-0">
+              {/* Llamar por voz. Solo con sesión: la llamada cuesta dinero real
+                  desde el primer segundo y no se le abre a un visitante. */}
+              {!hilo && isAuthenticated && conIA && (
+                <button
+                  onClick={() => setEnLlamada(true)}
+                  aria-label="Llamar a Pintu"
+                  title="Hablar con Pintu por voz"
+                  className="p-1.5 rounded-lg hover:bg-white/15 transition-colors cursor-pointer"
+                >
+                  <Phone className="w-4 h-4" />
+                </button>
+              )}
               {hilo && hiloAbierto && (
                 <button
                   onClick={async () => {

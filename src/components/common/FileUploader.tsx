@@ -6,6 +6,13 @@ import { Button } from './Button';
 interface FileUploaderProps {
   photos: ProjectPhoto[];
   onChange: (photos: ProjectPhoto[]) => void;
+  /**
+   * Tope de fotos por proyecto. `CreateProjectPage` ya lo venía pasando —con
+   * otro nombre y sin que existiera—, así que el límite estaba escrito en la
+   * intención pero no se aplicaba en ninguna parte: cada foto se sube a
+   * Storage y un proyecto podía cargar las que quisiera.
+   */
+  maxPhotos?: number;
 }
 
 const PRESET_DEMO_PHOTOS: Array<{ name: string; url: string; size: string; description: string }> = [
@@ -29,14 +36,19 @@ const PRESET_DEMO_PHOTOS: Array<{ name: string; url: string; size: string; descr
   },
 ];
 
-export const FileUploader: React.FC<FileUploaderProps> = ({ photos, onChange }) => {
+export const FileUploader: React.FC<FileUploaderProps> = ({ photos, onChange, maxPhotos = 6 }) => {
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleFiles = (files: FileList | null) => {
-    if (!files || files.length === 0) return;
+  const espacioLibre = Math.max(0, maxPhotos - photos.length);
 
-    const newPhotos: ProjectPhoto[] = Array.from(files).map((file, idx) => {
+  const handleFiles = (files: FileList | null) => {
+    if (!files || files.length === 0 || espacioLibre === 0) return;
+
+    // Se recortan las que sobren en lugar de rechazar la selección entera:
+    // quien arrastra ocho fotos prefiere que entren las seis primeras a que no
+    // entre ninguna sin explicación.
+    const newPhotos: ProjectPhoto[] = Array.from(files).slice(0, espacioLibre).map((file, idx) => {
       const url = URL.createObjectURL(file);
       const sizeMb = (file.size / (1024 * 1024)).toFixed(1);
       return {
@@ -93,7 +105,7 @@ export const FileUploader: React.FC<FileUploaderProps> = ({ photos, onChange }) 
 
   const handleAddPreset = (preset: typeof PRESET_DEMO_PHOTOS[0]) => {
     const exists = photos.some((p) => p.name === preset.name);
-    if (exists) return;
+    if (exists || espacioLibre === 0) return;
 
     const newPhoto: ProjectPhoto = {
       id: `preset-${Date.now()}`,
@@ -177,7 +189,7 @@ export const FileUploader: React.FC<FileUploaderProps> = ({ photos, onChange }) 
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <p className="text-xs font-semibold text-slate-700 uppercase tracking-wider">
-              Fotografías adjuntas ({photos.length})
+              Fotografías adjuntas ({photos.length} de {maxPhotos})
             </p>
             <span className="text-xs text-slate-500">
               Haz clic en la estrella para definir la foto principal
