@@ -3,6 +3,14 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Sin esto el navegador pinta un globo genérico en la pestaña, y con
+         varias pestañas abiertas la del sistema es indistinguible del resto.
+         Los archivos viven en `public/`, que Vite copia tal cual a la raíz del
+         sitio: si se importaran desde `assets/` llevarían un hash en el nombre
+         y estas rutas dejarían de resolver en cada compilación. -->
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+    <link rel="icon" type="image/png" sizes="180x180" href="/favicon.png" />
+    <link rel="apple-touch-icon" href="/favicon.png" />
     <title>ColorLink · Administración Pintuco</title>
     <meta name="description" content="Back-office de ColorLink: operación, administración y analítica Pintuco." />
     <meta name="robots" content="noindex, nofollow" />

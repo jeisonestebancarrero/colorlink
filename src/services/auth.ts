@@ -510,6 +510,8 @@ export const authService = {
     city?: string;
     clientType?: ClientType;
     company?: string;
+    countryCode?: string;
+    municipalityCode?: string;
   }): Promise<User> {
     const { error } = await supabase.rpc('complete_profile', {
       _first_name: datos.firstName ?? null,
@@ -518,6 +520,10 @@ export const authService = {
       _city: datos.city ?? null,
       _client_type: datos.clientType ?? null,
       _company: datos.company ?? null,
+      _country_code: datos.countryCode ?? null,
+      // Con el código de municipio el servidor IGNORA `_city` y usa el nombre
+      // oficial: es lo que impide que las dos columnas se contradigan.
+      _municipality_code: datos.municipalityCode ?? null,
     });
     if (error) throw toFriendlyError(error, 'completeProfile');
 
