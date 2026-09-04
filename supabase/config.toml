@@ -453,3 +453,19 @@ enabled = true
 # declarative_schema_path = "./schemas"
 # JSON string passed through to pg-delta SQL formatting.
 # format_options = "{\"keywordCase\":\"upper\",\"indent\":2,\"maxWidth\":80,\"commaStyle\":\"trailing\"}"
+
+# ============================================================
+# El webhook de Wompi entra SIN token de Supabase
+# ============================================================
+# Wompi es un tercero: no tiene ni puede tener una sesión de Supabase. Con la
+# verificación de JWT activa —que es lo que hay por defecto— la pasarela
+# rechazaba sus llamadas con 401 ANTES de que la función se ejecutara. El pago
+# se aprobaba en Wompi y nunca se confirmaba en el sistema.
+#
+# Que entre sin token NO lo deja abierto: la función verifica la FIRMA del
+# evento (`sha256` de las propiedades que lista `signature.properties` más el
+# secreto de eventos) y responde 401 si no coincide. Esa firma es lo único que
+# convierte una petición en una venta, y es una barrera más fuerte que un JWT
+# que Wompi no podría presentar de todos modos.
+[functions.wompi-webhook]
+verify_jwt = false
