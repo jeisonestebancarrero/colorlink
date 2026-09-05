@@ -33,14 +33,20 @@ export const ContrasenaDeLaCuenta: React.FC = () => {
   const [listo, setListo] = useState(false);
   const [ocupado, setOcupado] = useState(false);
 
-  // Se le pregunta al servidor. Mirar las identidades de `getUser()` engaña:
-  // al ponerle contraseña a una cuenta de Google, Supabase NO le agrega una
-  // identidad `email`, así que la sección diría «crea una contraseña» para
-  // siempre y nunca pediría la actual.
+  // Se mira si la cuenta tiene una identidad de tipo `email`, que es lo que
+  // Supabase entiende por «entra con correo y contraseña».
+  //
+  // El intento anterior fue preguntarle a la base por `encrypted_password`, y
+  // resultó peor: en la nube una cuenta que SOLO ha entrado con Google aparece
+  // con hash igualmente. La pantalla le exigía una contraseña actual que no
+  // existe y la dejaba sin forma de crearse una.
   useEffect(() => {
-    authService
-      .tengoPassword()
-      .then(setTieneClave)
+    supabase.auth
+      .getUser()
+      .then(({ data }) => {
+        const proveedores = (data.user?.identities ?? []).map((i) => i.provider);
+        setTieneClave(proveedores.includes('email'));
+      })
       .catch(() => setTieneClave(null));
   }, []);
 
@@ -62,7 +68,12 @@ export const ContrasenaDeLaCuenta: React.FC = () => {
           email: correo,
           password: actual,
         });
-        if (fallo) throw new Error('La contraseña actual no es correcta.');
+        if (fallo) {
+          throw new Error(
+            'La contraseña actual no es correcta. Si no la recuerdas, cierra ' +
+            'sesión y usa «¿Olvidaste tu contraseña?» al entrar.'
+          );
+        }
       }
 
       await authService.updatePassword(nueva);

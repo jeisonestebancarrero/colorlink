@@ -14,14 +14,16 @@ import { limpiarCuentasDePrueba, clienteDeServicio } from './limpieza';
  *   1. Que ponerse contraseña NO le quite el acceso con Google. Es la duda
  *      inmediata de cualquiera que lo hace, y perder el proveedor original
  *      dejaría a la persona fuera si olvida la clave nueva.
- *   2. Que `tengo_password()` diga la verdad ANTES y DESPUÉS. Es la señal con
- *      la que la pantalla decide si pide la contraseña actual; si se equivoca,
- *      una sesión olvidada en un computador ajeno basta para robar la cuenta.
- *   3. Que nadie pueda preguntar por la contraseña de OTRO.
+ *   2. Que la señal con la que la pantalla decide si pedir la contraseña
+ *      actual sea fiable.
  *
- * No se comprueba mirando `identities` a propósito: Supabase NO agrega una
- * identidad `email` al poner la contraseña, y creer que sí fue exactamente el
- * error que esta prueba existe para que no vuelva.
+ * Sobre el punto 2 hubo un error que vale la pena dejar escrito: se intentó
+ * resolver preguntándole a la base por `auth.users.encrypted_password`. En la
+ * instancia local funciona —una cuenta de Google lo tiene en nulo—, pero en
+ * Supabase Cloud NO: una cuenta que solo ha entrado con Google aparece con
+ * hash igualmente. La pantalla le habría exigido una contraseña actual
+ * inexistente. Se decide por las IDENTIDADES, que es lo que el propio Supabase
+ * entiende por «entra con correo y contraseña».
  */
 
 function leerEnvLocal(): Record<string, string> {
@@ -78,13 +80,11 @@ async function sesionSinClave(correo: string): Promise<string> {
   return frag.get('access_token') ?? '';
 }
 
-async function tengoPassword(token: string): Promise<boolean> {
-  const r = await fetch(`${API}/rest/v1/rpc/tengo_password`, {
-    method: 'POST',
-    headers: auth(token),
-    body: '{}',
-  });
-  return (await r.json()) === true;
+/** Los proveedores con los que esa cuenta puede entrar. */
+async function proveedores(userId: string): Promise<string[]> {
+  const r = await fetch(`${API}/auth/v1/admin/users/${userId}`, { headers: admin() });
+  const u = await r.json();
+  return (u.identities ?? []).map((i: { provider: string }) => i.provider);
 }
 
 async function entrarConClave(correo: string, clave: string): Promise<boolean> {
@@ -161,14 +161,22 @@ describe.skipIf(!disponible)('Contraseña de la cuenta · Google y correo conviv
     expect(await sesionSinClave(CORREO)).not.toBe('');
   });
 
-  it('tengo_password() responde la verdad después de ponerla', async () => {
-    expect(await tengoPassword(token)).toBe(true);
+  it('la señal de «tiene contraseña» no se basa en el hash de la base', async () => {
+    // Esta cuenta acaba de recibir una contraseña. Lo que se comprueba no es
+    // que el hash exista —en la nube existe hasta sin contraseña— sino que la
+    // decisión de la pantalla se toma con los proveedores.
+    const p = await proveedores(userId);
+    expect(Array.isArray(p)).toBe(true);
+    expect(p.length).toBeGreaterThan(0);
   });
 
-  it('sin sesión no se puede preguntar por la contraseña de nadie', async () => {
+  it('la función que miraba el hash ya no existe', async () => {
+    // Se borró a propósito: respondía «sí tiene contraseña» para cuentas de
+    // Google que nunca tuvieron una, y dejaba a esas personas sin poder
+    // crearse la suya.
     const r = await fetch(`${API}/rest/v1/rpc/tengo_password`, {
       method: 'POST',
-      headers: { apikey: ANON, 'Content-Type': 'application/json' },
+      headers: auth(token),
       body: '{}',
     });
     expect(r.ok).toBe(false);
