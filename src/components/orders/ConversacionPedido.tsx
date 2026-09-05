@@ -181,7 +181,11 @@ export const ConversacionPedido: React.FC<Props> = ({ orderId, numero }) => {
                 }`}>
                   {!mio && (
                     <p className="text-[10px] font-extrabold uppercase tracking-wider text-[#004F9F] mb-0.5">
-                      {m.autor ?? 'Pintuco'}
+                      {/* Con el nombre se sabe con quién se está hablando, y la
+                          marca detrás dice desde dónde. «Pintuco» a secas no lo
+                          decía, y con dos personas escribiendo tampoco se
+                          distinguían entre sí. */}
+                      {m.autor ? `${m.autor} · Pintuco` : 'Pintuco'}
                     </p>
                   )}
                   <p className="text-sm whitespace-pre-wrap break-words">{m.cuerpo}</p>

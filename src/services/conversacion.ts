@@ -61,13 +61,14 @@ function fallo(contexto: string, mensaje: string): Error {
 
 export const conversacionPedidoService = {
   async mensajes(orderId: string): Promise<MensajePedido[]> {
+    // Se lee por función y no por la tabla porque el JOIN con `profiles`
+    // devolvía el nombre en NULO: el cliente no puede leer el perfil de otra
+    // persona —RLS se lo impide, y hace bien—, así que todos los mensajes del
+    // equipo aparecían como «Pintuco» y quien compra no sabía con quién
+    // hablaba. La función devuelve solo el NOMBRE DE PILA de quien escribió en
+    // un pedido suyo; ni apellido, ni correo, ni teléfono.
     const [{ data, error }, sesion] = await Promise.all([
-      supabase
-        .from('conversation_messages')
-        .select('id, kind, body, created_at, read_at, author_id, '
-          + 'profiles:author_id ( first_name, last_name )')
-        .eq('order_id', orderId)
-        .order('created_at'),
+      supabase.rpc('mensajes_del_pedido', { _order_id: orderId }),
       supabase.auth.getUser(),
     ]);
     if (error) throw fallo('mensajes', error.message);
@@ -78,7 +79,7 @@ export const conversacionPedidoService = {
       id: string; kind: string; body: string; created_at: string;
       read_at: string | null;
       author_id: string | null;
-      profiles: { first_name: string; last_name: string } | null;
+      autor: string | null;
     }>).map((m) => ({
       id: m.id,
       cuerpo: m.body,
@@ -88,9 +89,7 @@ export const conversacionPedidoService = {
       // base. Lo que queda son mensajes y eventos de trazabilidad.
       tipo: m.kind === 'EVENTO' ? 'EVENTO' : 'MENSAJE',
       quien: !m.author_id ? 'SISTEMA' : m.author_id === yo ? 'YO' : 'PINTUCO',
-      autor: m.profiles
-        ? `${m.profiles.first_name ?? ''} ${m.profiles.last_name ?? ''}`.trim() || null
-        : null,
+      autor: m.autor ?? null,
     }));
   },
 
