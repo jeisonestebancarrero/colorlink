@@ -233,7 +233,7 @@ Deno.serve(async (req: Request) => {
           message: /invalid cmd|535|Username and Password/i.test(detalle)
             ? 'Gmail rechazó las credenciales. Revisa que sea una CONTRASEÑA DE APLICACIÓN (no la del correo) y que la cuenta tenga verificación en dos pasos.'
             : /timeout|connect/i.test(detalle)
-              ? 'No se pudo conectar al servidor de correo. Revisa el servidor y el puerto (587 para Gmail).'
+              ? 'No se pudo conectar al servidor de correo. Revisa el servidor y el puerto (465 para Gmail).'
               : 'No fue posible enviar el correo. Verifica el servidor, el usuario y la contraseña de aplicación en Configuración.',
           detalle,
         },

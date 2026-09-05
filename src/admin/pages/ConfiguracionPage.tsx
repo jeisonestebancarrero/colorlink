@@ -27,7 +27,7 @@ export const ConfiguracionPage: React.FC = () => {
   const [aviso, setAviso] = useState<{ tipo: 'ok' | 'error'; texto: string } | null>(null);
 
   const [formSmtp, setFormSmtp] = useState({
-    host: '', port: 587, secure: true, user: '', password: '',
+    host: '', port: 465, secure: true, user: '', password: '',
     fromName: '', fromEmail: '', destinoPrueba: '',
   });
 
@@ -40,7 +40,7 @@ export const ConfiguracionPage: React.FC = () => {
         setFormSmtp((f) => ({
           ...f,
           host: s.host ?? 'smtp.gmail.com',
-          port: s.port ?? 587,
+          port: s.port ?? 465,
           user: s.user ?? '',
           fromEmail: s.from_email ?? '',
         }));
@@ -188,7 +188,7 @@ export const ConfiguracionPage: React.FC = () => {
           Para Gmail necesitas una <strong>contraseña de aplicación</strong>, no la de tu
           cuenta: activa la verificación en dos pasos y genera una en
           Google → Seguridad → Contraseñas de aplicaciones. Servidor
-          <code className="mx-1 font-mono">smtp.gmail.com</code>, puerto <code className="font-mono">587</code>.
+          <code className="mx-1 font-mono">smtp.gmail.com</code>, puerto <code className="font-mono">465</code>.
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
