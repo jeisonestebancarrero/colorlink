@@ -16,6 +16,7 @@ import {
 } from '../ContadorPorSede';
 import { ExportarBoton } from '../ExportarBoton';
 import { IconoModulo } from '../IconosDeModulo';
+import { EntregaPorCodigo } from '../EntregaPorCodigo';
 
 /**
  * Despacho y rastreo.
@@ -153,6 +154,12 @@ export const DespachoPage: React.FC<DespachoPageProps> = ({
             Alistamiento, guías y seguimiento. El cliente ve cada avance en su pedido.
           </p>
         </div>
+
+      {/* El retiro en tienda entra por aquí, no por la ficha del pedido: en el
+          mostrador nadie busca primero el pedido en una lista, tiene al cliente
+          enfrente con un código en la mano. Y así el código deja de ser
+          decorativo y pasa a ser lo que autoriza la entrega. */}
+      <EntregaPorCodigo onEntregado={() => void cargar()} />
 
       {/* Exporta EXACTAMENTE lo que se ve: los filtros y la sede activa ya
           están aplicados en la lista. */}

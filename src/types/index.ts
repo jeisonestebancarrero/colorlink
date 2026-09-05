@@ -14,6 +14,9 @@ export interface User {
   email: string;
   phone: string;
   city: string;
+  /** Documento de la persona. Se usa para ofrecer «yo recibo» en el carrito. */
+  documentType?: string;
+  documentNumber?: string;
   createdAt: string;
   avatar?: string;
 }

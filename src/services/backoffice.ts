@@ -543,6 +543,40 @@ const aDespacho = (f: FilaEnvio): Despacho => ({
 });
 
 export const despachoService = {
+  /**
+   * Entrega un retiro en tienda verificando el código que trae el cliente.
+   *
+   * Quien atiende NO elige el pedido: escribe el código y el servidor decide
+   * cuál es. Por eso no puede equivocarse de pedido, ni entregar uno que
+   * todavía se está alistando.
+   */
+  async entregarPorCodigo(codigo: string): Promise<{
+    numero: string; recibe: string | null; documento: string | null; total: number;
+  }> {
+    const { data, error } = await supabase.rpc('entregar_por_codigo', { _codigo: codigo });
+    if (error) {
+      const m = error.message ?? '';
+      if (/CODIGO_NO_VALIDO/.test(m)) {
+        throw new Error('Ese código no corresponde a ningún pedido listo para retiro en esta sede.');
+      }
+      if (/YA_ENTREGADO/.test(m)) throw new Error('Ese pedido ya fue retirado.');
+      if (/CANCELADO/.test(m)) {
+        throw new Error('Ese pedido está cancelado. No entregues la mercancía.');
+      }
+      // El del mostrador tiene al cliente enfrente: el motivo va completo y
+      // sin rodeos, porque de esto depende que la mercancía salga o no.
+      if (/SIN_PAGO/.test(m)) throw new Error(m.replace(/^.*SIN_PAGO:\s*/, ''));
+      if (/NO_ESTA_LISTO/.test(m)) {
+        throw new Error(m.replace(/^.*NO_ESTA_LISTO:\s*/, ''));
+      }
+      if (/CODIGO_CORTO/.test(m)) throw new Error('Escribe el código completo que trae el cliente.');
+      if (/FORBIDDEN/.test(m)) throw new Error('No tienes permiso para entregar pedidos.');
+      throw new Error('No fue posible entregar el pedido.');
+    }
+    const d = data as { numero: string; recibe: string | null; documento: string | null; total: number };
+    return d;
+  },
+
   async listar(estado?: EstadoEnvio | 'TODOS'): Promise<Despacho[]> {
     let consulta = supabase
       .from('shipments')

@@ -52,6 +52,8 @@ interface ProfileRow {
   company_id: string | null;
   avatar_url: string | null;
   created_at: string;
+  document_type: string | null;
+  document_number: string | null;
   companies: { name: string } | null;
 }
 
@@ -65,7 +67,8 @@ export interface ResultadoRegistro {
 let proveedoresCache: Record<string, boolean> | null = null;
 
 const PROFILE_SELECT =
-  'id, email, first_name, last_name, phone, city, client_type, company_id, avatar_url, created_at, companies(name)';
+  'id, email, first_name, last_name, phone, city, client_type, company_id, avatar_url, created_at, '
+  + 'document_type, document_number, companies(name)';
 
 /**
  * Traduce errores técnicos a mensajes presentables (MÓDULO 44).
@@ -107,6 +110,8 @@ function toUser(row: ProfileRow): User {
     email: row.email ?? '',
     phone: row.phone ?? '',
     city: row.city ?? '',
+    documentType: row.document_type ?? undefined,
+    documentNumber: row.document_number ?? undefined,
     // El frontend espera 'YYYY-MM-DD', igual que en los datos demo.
     createdAt: row.created_at.split('T')[0],
     avatar: row.avatar_url ?? undefined,

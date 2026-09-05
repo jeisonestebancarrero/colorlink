@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { MapPin, Building2, Plus, Check, Phone, User, IdCard } from 'lucide-react';
 import { useCart } from '../../context/CartContext';
+import { useAuth } from '../../context/AuthContext';
 import { SelectorUbicacion } from '../common/SelectorUbicacion';
 import { ubicacionService } from '../../services/ubicaciones';
 
@@ -297,15 +298,53 @@ export const DestinoEnvioSelector: React.FC = () => {
  */
 export const QuienRecibeFormulario: React.FC = () => {
   const { quienRecibe, setQuienRecibe, erroresEntrega } = useCart();
+  const { user } = useAuth();
 
   const campo = (k: keyof typeof quienRecibe, v: string) =>
     setQuienRecibe({ ...quienRecibe, [k]: v });
 
+  /**
+   * «Yo recibo».
+   *
+   * Antes había que escribir el nombre, el documento y el teléfono en CADA
+   * pedido, aunque quien compra sea quien recoge —que es el caso normal—. Tres
+   * campos repetidos en cada compra es de las cosas que hacen abandonar un
+   * carrito, y encima invitan a escribir cualquier cosa para pasar de pantalla:
+   * justo lo contrario de lo que el dato busca.
+   *
+   * Lo que el perfil no tenga se deja en blanco y se escribe una sola vez.
+   */
+  const yoRecibo = () =>
+    setQuienRecibe({
+      ...quienRecibe,
+      nombre: `${user?.firstName ?? ''} ${user?.lastName ?? ''}`.trim(),
+      tipoDocumento: user?.documentType || quienRecibe.tipoDocumento,
+      numeroDocumento: user?.documentNumber ?? '',
+      telefono: user?.phone ?? '',
+    });
+
+  const esMiNombre =
+    !!user &&
+    quienRecibe.nombre.trim().toLowerCase() ===
+      `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim().toLowerCase() &&
+    quienRecibe.nombre.trim() !== '';
+
   return (
     <div className="pt-2.5 border-t border-slate-100 space-y-2">
-      <p className="text-[11px] font-bold text-slate-700 uppercase tracking-wide">
-        Quién recibe el pedido *
-      </p>
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <p className="text-[11px] font-bold text-slate-700 uppercase tracking-wide">
+          Quién recibe el pedido *
+        </p>
+        {user && !esMiNombre && (
+          <button
+            type="button"
+            onClick={yoRecibo}
+            className="text-[11px] font-bold text-[#004F9F] hover:underline cursor-pointer"
+          >
+            Yo recibo
+          </button>
+        )}
+      </div>
 
       <div className="space-y-1">
         <div className="relative">
