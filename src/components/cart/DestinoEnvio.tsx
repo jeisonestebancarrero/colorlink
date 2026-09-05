@@ -319,9 +319,15 @@ export const QuienRecibeFormulario: React.FC = () => {
       ...quienRecibe,
       nombre: `${user?.firstName ?? ''} ${user?.lastName ?? ''}`.trim(),
       tipoDocumento: user?.documentType || quienRecibe.tipoDocumento,
-      numeroDocumento: user?.documentNumber ?? '',
-      telefono: user?.phone ?? '',
+      // Si el perfil no lo tiene, se deja lo que ya estuviera escrito en vez de
+      // borrarlo: pulsar «yo recibo» no puede hacerte perder lo que ya pusiste.
+      numeroDocumento: user?.documentNumber || quienRecibe.numeroDocumento,
+      telefono: user?.phone || quienRecibe.telefono,
     });
+
+  // Quien entra con Google no trae documento, y el registro por correo tampoco
+  // lo guardaba siempre. Sin decirlo, «yo recibo» parece que falla.
+  const faltaDocumentoEnPerfil = !!user && !user.documentNumber;
 
   const esMiNombre =
     !!user &&
@@ -410,8 +416,17 @@ export const QuienRecibeFormulario: React.FC = () => {
       </div>
 
       <p className="text-[11px] text-slate-500 leading-snug">
-        El documento se guarda sin puntos y al teléfono se le agrega el
-        indicativo (+57) automáticamente. Quien entrega verifica el documento.
+        {esMiNombre && faltaDocumentoEnPerfil ? (
+          <>
+            Tu cuenta todavía no tiene documento guardado. Escríbelo una vez y
+            queda en tu perfil para las próximas compras.
+          </>
+        ) : (
+          <>
+            El documento se guarda sin puntos y al teléfono se le agrega el
+            indicativo (+57) automáticamente. Quien entrega verifica el documento.
+          </>
+        )}
       </p>
     </div>
   );

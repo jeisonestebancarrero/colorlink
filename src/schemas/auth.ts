@@ -35,6 +35,20 @@ export const loginSchema = z.object({
 export const TIPOS_DOCUMENTO = ['CC', 'CE', 'PASAPORTE', 'PEP'] as const;
 
 /**
+ * Cómo se nombra cada tipo en pantalla.
+ *
+ * Vive junto a la lista y no en una pantalla: estaba solo en el registro, y
+ * cuando el modal de «completa tu perfil» tuvo que pedir el documento habría
+ * habido dos copias que se desincronizan en cuanto alguien agregue un tipo.
+ */
+export const ETIQUETA_DOCUMENTO: Record<string, string> = {
+  CC: 'Cédula de ciudadanía',
+  CE: 'Cédula de extranjería',
+  PASAPORTE: 'Pasaporte',
+  PEP: 'Permiso especial de permanencia',
+};
+
+/**
  * El registro tiene dos formas y por eso el esquema es una unión: exigirle
  * NIT a una persona natural, o cédula a una empresa, obligaría a inventar
  * datos para poder continuar.

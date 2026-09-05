@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { Building2, Phone, UserRound } from 'lucide-react';
+import { Building2, Phone, UserRound, IdCard } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { authService } from '../../services/api';
 import type { ClientType } from '../../types';
 import { Modal } from './Modal';
 import { Input } from './Input';
 import { Select } from './Select';
+import { TIPOS_DOCUMENTO, ETIQUETA_DOCUMENTO } from '../../schemas/auth';
 import {
   SelectorUbicacion,
   UBICACION_VACIA,
@@ -48,6 +49,8 @@ export const CompleteProfileModal: React.FC = () => {
     lastName: user?.lastName ?? '',
     company: user?.company ?? '',
     phone: user?.phone ?? '',
+    documentType: user?.documentType ?? 'CC',
+    documentNumber: user?.documentNumber ?? '',
     clientType: (user?.clientType ?? 'Constructor') as ClientType,
   });
 
@@ -78,6 +81,11 @@ export const CompleteProfileModal: React.FC = () => {
       return setError('La empresa o razón social es obligatoria para cuentas empresariales.');
     }
     if (!datos.phone.trim()) return setError('El teléfono de contacto es obligatorio.');
+    // Sin documento no se puede facturar, y esta es la única pantalla por la
+    // que pasa quien entró con Google.
+    if (datos.documentNumber.replace(/\D/g, '').length < 5) {
+      return setError('El número de documento es obligatorio para poder facturarte.');
+    }
 
     // El barrio no se pide aquí: para atender el perfil basta la ciudad, y la
     // dirección exacta se pregunta al despachar.
@@ -98,6 +106,8 @@ export const CompleteProfileModal: React.FC = () => {
         // Sin municipio elegido no se manda nada: la RPC hace `coalesce` y
         // enviar vacío no borra, pero mandar solo lo que la persona respondió
         // deja claro en el registro de auditoría qué cambió de verdad.
+        documentType: datos.documentType,
+        documentNumber: datos.documentNumber.trim(),
         ...(ubicacion.municipalityCode
           ? {
               countryCode: ubicacion.countryCode,
@@ -176,6 +186,31 @@ export const CompleteProfileModal: React.FC = () => {
           placeholder="+57 (300) 000-0000"
           required
         />
+
+        {/* El documento se pide en CUALQUIER registro. Google no lo entrega, y
+            sin él no se puede facturar: la cuenta quedaría comprando sin poder
+            recibir su factura, y el dato terminaría pidiéndose por teléfono en
+            el mostrador, que es donde se escribe mal.
+            Solo aparece si falta: una vez guardado no se cambia desde aquí. */}
+        {!user?.documentNumber && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Select
+              label="Tipo de documento"
+              options={TIPOS_DOCUMENTO.map((t) => ({ value: t, label: ETIQUETA_DOCUMENTO[t] }))}
+              value={datos.documentType}
+              onChange={(e) => setDatos({ ...datos, documentType: e.target.value })}
+            />
+            <Input
+              label="Número de documento"
+              value={datos.documentNumber}
+              onChange={(e) => setDatos({ ...datos, documentNumber: e.target.value })}
+              leftIcon={<IdCard className="w-4 h-4" />}
+              inputMode="numeric"
+              placeholder="1020304050"
+              required
+            />
+          </div>
+        )}
 
         <SelectorUbicacion
           valor={ubicacion}

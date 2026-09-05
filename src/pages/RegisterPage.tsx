@@ -11,7 +11,7 @@ import {
   type ValorUbicacion, type ErroresUbicacion,
 } from '../components/common/SelectorUbicacion';
 import { GoogleButton, SeparadorAcceso } from '../components/common/GoogleButton';
-import { TIPOS_DOCUMENTO } from '../schemas/auth';
+import { TIPOS_DOCUMENTO, ETIQUETA_DOCUMENTO } from '../schemas/auth';
 import {
   User,
   Building2,
@@ -36,13 +36,6 @@ interface RegisterPageProps {
 type TipoCuenta = 'PERSONA' | 'EMPRESA';
 
 const CLIENTES_EMPRESA = ['Constructor', 'Empresa', 'Profesional', 'Distribuidor'] as const;
-
-const ETIQUETA_DOCUMENTO: Record<string, string> = {
-  CC: 'Cédula de ciudadanía',
-  CE: 'Cédula de extranjería',
-  PASAPORTE: 'Pasaporte',
-  PEP: 'Permiso especial de permanencia',
-};
 
 /**
  * Registro bifurcado.

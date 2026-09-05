@@ -454,11 +454,17 @@ export const authService = {
     // modal de "completa tu perfil" apenas terminaba de registrarse.
     const faltaEmpresa = user.clientType !== 'Particular' && user.company.trim() === '';
 
+    // El documento entra en la cuenta: sin él no se puede facturar, y el
+    // registro con Google no lo pide porque Google no lo entrega. Si no se
+    // exige aquí, esas cuentas se quedan sin documento para siempre y el dato
+    // termina pidiéndose por teléfono en el mostrador, que es donde se escribe
+    // mal.
     return (
       faltaEmpresa ||
       user.phone.trim() === '' ||
       user.city.trim() === '' ||
-      user.firstName.trim() === ''
+      user.firstName.trim() === '' ||
+      !(user.documentNumber ?? '').trim()
     );
   },
 
@@ -517,6 +523,8 @@ export const authService = {
     company?: string;
     countryCode?: string;
     municipalityCode?: string;
+    documentType?: string;
+    documentNumber?: string;
   }): Promise<User> {
     const { error } = await supabase.rpc('complete_profile', {
       _first_name: datos.firstName ?? null,
@@ -529,6 +537,8 @@ export const authService = {
       // Con el código de municipio el servidor IGNORA `_city` y usa el nombre
       // oficial: es lo que impide que las dos columnas se contradigan.
       _municipality_code: datos.municipalityCode ?? null,
+      _document_type: datos.documentType ?? null,
+      _document_number: datos.documentNumber ?? null,
     });
     if (error) throw toFriendlyError(error, 'completeProfile');
 

@@ -55,6 +55,8 @@ interface AuthContextType {
     company?: string;
     countryCode?: string;
     municipalityCode?: string;
+    documentType?: string;
+    documentNumber?: string;
   }) => Promise<void>;
 }
 
@@ -208,6 +210,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     company?: string;
     countryCode?: string;
     municipalityCode?: string;
+    documentType?: string;
+    documentNumber?: string;
   }) => {
     const actualizado = await authService.completeProfile(datos);
     setUser(actualizado);

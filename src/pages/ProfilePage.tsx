@@ -17,6 +17,7 @@ import {
   Save,
   LogOut,
   Sparkles,
+  IdCard,
 } from 'lucide-react';
 import { MisDireccionesYSedes } from '../components/common/MisDireccionesYSedes';
 import { SolicitudesDeVinculacion } from '../components/common/SolicitudesDeVinculacion';
@@ -227,6 +228,31 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
                 onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                 required
               />
+
+              {/* El documento se muestra pero NO se edita aquí.
+                  No es un dato de contacto: identifica a la persona en la
+                  factura, y por él responde la empresa ante la DIAN. Lo corrige
+                  quien administra clientes, que deja rastro de quién lo cambió
+                  y avisa al cliente. El servidor lo impide igual —hay un
+                  disparador—, así que esto solo lo explica. */}
+              <div className="sm:col-span-2">
+                <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wide mb-1.5">
+                  Documento
+                </label>
+                <div className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50">
+                  <IdCard className="w-4 h-4 text-slate-400 shrink-0" />
+                  <span className="text-sm font-semibold text-slate-700">
+                    {user?.documentNumber
+                      ? `${user.documentType ?? 'CC'} ${user.documentNumber}`
+                      : 'Sin documento registrado'}
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">
+                  {user?.documentNumber
+                    ? 'Aparece en tus facturas. Si está mal, escríbenos y lo corregimos.'
+                    : 'Tu cuenta no tiene documento. Lo necesitamos para facturar: escríbenos o dilo al recoger tu primer pedido.'}
+                </p>
+              </div>
               <div className="sm:col-span-2">
                 <Input
                   label="Ciudad"
