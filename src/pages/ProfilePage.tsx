@@ -21,6 +21,7 @@ import {
 import { MisDireccionesYSedes } from '../components/common/MisDireccionesYSedes';
 import { SolicitudesDeVinculacion } from '../components/common/SolicitudesDeVinculacion';
 import { CambiarFoto } from '../components/common/CambiarFoto';
+import { ContrasenaDeLaCuenta } from '../components/common/ContrasenaDeLaCuenta';
 import { avatarService } from '../services/avatares';
 
 interface ProfilePageProps {
@@ -326,6 +327,11 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
           podía cambiar; y sin poder registrar una segunda sede, la pregunta
           del carrito "¿a cuál sede va?" nunca aparecía. */}
       <MisDireccionesYSedes />
+
+      {/* Sin esto, quien entra con Google no tiene forma de crearse una
+          contraseña, y el portal interno —que solo acepta correo y clave— le
+          queda cerrado aunque tenga rol. */}
+      <ContrasenaDeLaCuenta />
 
       {/* Account Security Info */}
       <div className="bg-blue-50/60 border border-blue-100 rounded-2xl p-5 flex items-start gap-3">

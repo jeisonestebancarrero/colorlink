@@ -513,7 +513,56 @@ export interface EstadoSmtp {
   configured_at: string | null;
 }
 
+/**
+ * El entorno de correo: a qué dirección llama la base para que salga un correo,
+ * con qué llave, y a dónde apuntan los enlaces que van DENTRO del mensaje.
+ *
+ * Es distinto del SMTP. El SMTP es el buzón por el que sale; esto es el
+ * cableado que hace que la base llegue hasta él. Sin esto, `enviar_correo`
+ * descarta los mensajes antes de intentar nada y quedan en `email_log` como
+ * OMITIDO — que es exactamente lo que pasaba en el servidor de producción.
+ */
+export interface EstadoEntornoCorreo {
+  functions_url: string | null;
+  site_url: string | null;
+  /** La llave nunca se devuelve: solo si hay una guardada. */
+  tiene_llave: boolean;
+  emails_enabled: boolean;
+  allowlist: string[];
+  updated_at: string | null;
+}
+
 export const configService = {
+  async entornoCorreo(): Promise<EstadoEntornoCorreo> {
+    const { data, error } = await supabase.rpc('estado_entorno_correo');
+    if (error) throw errorLegible('entornoCorreo', error);
+    return data as EstadoEntornoCorreo;
+  },
+
+  /**
+   * Guarda el entorno. La llave vacía CONSERVA la que hay: es la única forma
+   * de tocar el resto del formulario sin volver a escribirla, y la pantalla no
+   * puede reenviarla porque nunca la recibió.
+   */
+  async guardarEntornoCorreo(datos: {
+    functionsUrl?: string;
+    serviceKey?: string;
+    siteUrl?: string;
+    emailsEnabled?: boolean;
+    allowlist?: string[];
+  }): Promise<EstadoEntornoCorreo> {
+    const { data, error } = await supabase.rpc('configurar_entorno_correo', {
+      _functions_url: datos.functionsUrl ?? null,
+      _service_key: datos.serviceKey ?? null,
+      _site_url: datos.siteUrl ?? null,
+      _emails_enabled: datos.emailsEnabled ?? null,
+      _allowlist: datos.allowlist ?? null,
+      _cambiar_allowlist: datos.allowlist !== undefined,
+    });
+    if (error) throw errorLegible('guardarEntornoCorreo', error);
+    return data as EstadoEntornoCorreo;
+  },
+
   async empresa(): Promise<DatosEmpresa | null> {
     const { data, error } = await supabase
       .from('app_settings')

@@ -4,6 +4,7 @@ import { aplicacionService, usuarioService, ETIQUETA_ROL, type AccesoUsuario, ty
 import { Button } from '../components/common/Button';
 import { Input } from '../components/common/Input';
 import { SedesDelUsuarioPanel } from './SedesDelUsuarioPanel';
+import { RolesDelUsuarioPanel } from './RolesDelUsuarioPanel';
 
 /**
  * Accesos de una persona concreta.
@@ -21,6 +22,7 @@ export const AccesoUsuarioPanel: React.FC<{
   usuario: UsuarioAdmin;
   onCerrar: () => void;
 }> = ({ usuario, onCerrar }) => {
+  const [roles, setRoles] = useState<string[]>(usuario.roles);
   const [accesos, setAccesos] = useState<AccesoUsuario[]>([]);
   const [cargando, setCargando] = useState(true);
   const [guardando, setGuardando] = useState<string | null>(null);
@@ -35,9 +37,9 @@ export const AccesoUsuarioPanel: React.FC<{
   const [restableciendo, setRestableciendo] = useState<'correo' | 'temporal' | null>(null);
   const [confirmandoTemporal, setConfirmandoTemporal] = useState(false);
 
-  const cargar = async () => {
+  const cargar = async (conRoles: string[] = roles) => {
     try {
-      setAccesos(await aplicacionService.deUsuario(usuario.id, usuario.roles));
+      setAccesos(await aplicacionService.deUsuario(usuario.id, conRoles));
     } catch (e) {
       setError(e instanceof Error ? e.message : 'No fue posible cargar los accesos.');
     } finally {
@@ -158,7 +160,7 @@ export const AccesoUsuarioPanel: React.FC<{
             </h2>
             <p className="text-xs text-slate-500 font-medium truncate">{usuario.email}</p>
             <div className="flex flex-wrap gap-1 mt-2">
-              {usuario.roles.map((r) => (
+              {roles.map((r) => (
                 <span key={r} className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-800 border border-blue-200">
                   {ETIQUETA_ROL[r] ?? r}
                 </span>
@@ -188,15 +190,30 @@ export const AccesoUsuarioPanel: React.FC<{
             <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-lg font-medium">{error}</div>
           )}
 
+          {/* Antes los roles solo se veían. Cambiarlos —un ascenso, un cambio
+              de área, una salida— obligaba a entrar a la base de datos. */}
+          <div className="rounded-xl border border-slate-200 p-3.5">
+            <RolesDelUsuarioPanel
+              userId={usuario.id}
+              rolesActuales={roles}
+              onCambio={(nuevos) => {
+                setRoles(nuevos);
+                // El acceso base cambia con el rol: hay que releerlo, y con
+                // los roles NUEVOS —el estado todavía no se actualizó—.
+                void cargar(nuevos);
+              }}
+            />
+          </div>
+
           {/* Sedes permitidas. Va junto a los accesos porque es lo mismo:
               acota qué puede ver, solo que por ubicación en lugar de por
               módulo. Solo para personal interno: un cliente no opera sedes. */}
-          {!usuario.roles.every((r) => r.startsWith('CLIENTE')) && (
+          {!roles.every((r) => r.startsWith('CLIENTE')) && (
             <div className="rounded-xl border border-slate-200 p-3.5">
               <SedesDelUsuarioPanel
                 userId={usuario.id}
                 nombre={usuario.nombre || usuario.email}
-                esAdministrador={usuario.roles.includes('ADMINISTRADOR')}
+                esAdministrador={roles.includes('ADMINISTRADOR')}
               />
             </div>
           )}

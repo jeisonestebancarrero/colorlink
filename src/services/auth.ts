@@ -421,6 +421,20 @@ export const authService = {
     if (error) throw toFriendlyError(error, 'confirmarCodigoYCambiarPassword');
   },
 
+  /**
+   * ¿Esta cuenta ya tiene contraseña?
+   *
+   * Se pregunta al servidor y NO se deduce de las identidades que devuelve
+   * `getUser()`: al ponerle contraseña a una cuenta de Google, Supabase no le
+   * agrega identidad de tipo `email`. Deducirlo de ahí haría que la pantalla
+   * ofreciera «crea una contraseña» eternamente y nunca pidiera la actual.
+   */
+  async tengoPassword(): Promise<boolean> {
+    const { data, error } = await supabase.rpc('tengo_password');
+    if (error) throw toFriendlyError(error, 'tengoPassword');
+    return data === true;
+  },
+
   /** Fija una contraseña nueva. Requiere sesión activa o enlace de recuperación. */
   async updatePassword(newPassword: string): Promise<void> {
     const parsed = passwordSchema.safeParse(newPassword);

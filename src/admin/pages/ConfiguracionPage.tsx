@@ -3,6 +3,7 @@ import { Building2, Mail, Send, CheckCircle2, AlertTriangle } from 'lucide-react
 import { configService, type DatosEmpresa, type EstadoSmtp } from '../../services/admin';
 import { Button } from '../../components/common/Button';
 import { Input } from '../../components/common/Input';
+import { EntornoCorreoPanel } from '../EntornoCorreoPanel';
 import { PasarelaPanel } from '../PasarelaPanel';
 import { AsistentePanel } from '../AsistentePanel';
 import { IconoModulo } from '../IconosDeModulo';
@@ -225,6 +226,12 @@ export const ConfiguracionPage: React.FC = () => {
           </div>
         </div>
       </form>
+
+      {/* El cableado va DESPUÉS del buzón, que es el orden en que se entiende:
+          primero por dónde sale el correo, después qué hace que la base llegue
+          hasta ahí. Sin esto último no sale ni uno, por bien configurado que
+          esté el SMTP. */}
+      <EntornoCorreoPanel />
 
       {/* ---- Pasarela de pagos ---- */}
       <PasarelaPanel />
