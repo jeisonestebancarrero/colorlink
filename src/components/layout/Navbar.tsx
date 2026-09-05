@@ -689,6 +689,20 @@ export const Navbar: React.FC<NavbarProps> = ({
                       <Building2 className="w-4 h-4 text-slate-400" />
                       <span>Mis Proyectos y Obras B2B</span>
                     </button>
+                    {/* Faltaba, y es lo que más se busca desde este menú: en un
+                        teléfono la barra de módulos no se ve y este desplegable
+                        es el único camino a los pedidos. */}
+                    <button
+                      onClick={() => {
+                        setShowUserMenu(false);
+                        onNavigate('orders');
+                      }}
+                      className="w-full px-4 py-2 text-left text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer font-medium"
+                    >
+                      <ClipboardList className="w-4 h-4 text-slate-400" />
+                      <span>Mis Pedidos</span>
+                    </button>
+
                     <button
                       onClick={() => {
                         setShowUserMenu(false);

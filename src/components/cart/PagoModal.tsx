@@ -85,7 +85,10 @@ export const PagoModal: React.FC<{
           'amount-in-cents': String(i.centavos ?? 0),
           reference: i.referencia ?? '',
           'signature:integrity': i.firma,
-          'redirect-url': `${window.location.origin}/mis-pedidos`,
+          // `/mis-pedidos` NO existe como ruta: la buena es `/pedidos`. Quien
+          // pagaba en la pasarela volvía a la portada, sin ver su pedido y sin
+          // saber si el pago había quedado.
+          'redirect-url': `${window.location.origin}/pedidos`,
         };
         for (const [k, v] of Object.entries(campos)) {
           const input = document.createElement('input');

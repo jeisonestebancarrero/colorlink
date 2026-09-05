@@ -69,6 +69,17 @@ export function construir(
 ): { asunto: string; html: string; texto: string } {
   const { emisor, destinatario, punto, pedido, pago, sitio } = ctx;
 
+  /**
+   * El enlace al pedido.
+   *
+   * Apuntaba a `/mis-pedidos`, y esa ruta NO EXISTE en la tienda: la buena es
+   * `/pedidos`. Quien recibía el correo y pulsaba el botón caía en la portada,
+   * sin pedido y sin ninguna pista de por qué. Y ya que se corrige, lleva al
+   * pedido concreto en vez de al listado: el correo habla de UN pedido.
+   */
+  const enlacePedido = (numero?: string) =>
+    numero ? `${sitio}/pedidos/${encodeURIComponent(numero)}` : `${sitio}/pedidos`;
+
   switch (plantilla) {
     // ── Bienvenida ─────────────────────────────────────────────────────
     case 'BIENVENIDA': {
@@ -117,14 +128,14 @@ export function construir(
 
       return {
         asunto: `Pedido ${p.numero} recibido — ${cop(p.total)}`,
-        texto: `Recibimos tu pedido ${p.numero} por ${cop(p.total)}. Consúltalo en ${sitio}/mis-pedidos`,
+        texto: `Recibimos tu pedido ${p.numero} por ${cop(p.total)}. Consúltalo en ${enlacePedido(p.numero)}`,
         html: envolver({
           titulo: `Pedido ${p.numero}`,
           preencabezado: `Tu pedido por ${cop(p.total)} quedó registrado.`,
           contenido,
           emisor,
           punto,
-          accion: { texto: 'Ver mi pedido', url: `${sitio}/mis-pedidos` },
+          accion: { texto: 'Ver mi pedido', url: enlacePedido(p.numero) },
         }),
       };
     }
@@ -155,7 +166,7 @@ export function construir(
           contenido,
           emisor,
           punto,
-          accion: { texto: 'Seguir mi pedido', url: `${sitio}/mis-pedidos` },
+          accion: { texto: 'Seguir mi pedido', url: enlacePedido(p.numero) },
         }),
       };
     }
@@ -186,7 +197,7 @@ export function construir(
           contenido,
           emisor,
           punto: p.esEnvio ? null : punto,
-          accion: { texto: 'Ver el seguimiento', url: `${sitio}/mis-pedidos` },
+          accion: { texto: 'Ver el seguimiento', url: enlacePedido(p.numero) },
         }),
       };
     }
