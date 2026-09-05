@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Building2, Mail, Send, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { Building2, Mail, Send, CheckCircle2, AlertTriangle, Upload, ImageOff } from 'lucide-react';
 import { configService, type DatosEmpresa, type EstadoSmtp } from '../../services/admin';
 import { Button } from '../../components/common/Button';
 import { Input } from '../../components/common/Input';
@@ -24,6 +24,7 @@ export const ConfiguracionPage: React.FC = () => {
   const [guardandoEmpresa, setGuardandoEmpresa] = useState(false);
   const [guardandoSmtp, setGuardandoSmtp] = useState(false);
   const [probando, setProbando] = useState(false);
+  const [subiendoLogo, setSubiendoLogo] = useState(false);
   const [aviso, setAviso] = useState<{ tipo: 'ok' | 'error'; texto: string } | null>(null);
 
   const [formSmtp, setFormSmtp] = useState({
@@ -152,7 +153,6 @@ export const ConfiguracionPage: React.FC = () => {
           {campo('company_city', 'Ciudad')}
           {campo('company_phone', 'Teléfono')}
           {campo('company_email', 'Correo de contacto')}
-          {campo('logo_url', 'URL del logotipo')}
           {campo('invoice_prefix', 'Prefijo de factura')}
           <Input
             label="IVA por defecto (%)"
@@ -161,6 +161,87 @@ export const ConfiguracionPage: React.FC = () => {
             onChange={(ev) => setEmpresa((s) => (s ? { ...s, default_tax_rate: Number(ev.target.value) } : s))}
           />
           {campo('invoice_footer', 'Pie de la factura')}
+        </div>
+
+        {/* El logotipo se sale de la retícula: necesita ver lo que hay puesto.
+            Un campo de texto con una URL no dice si la imagen carga, y este
+            logotipo sale en las facturas y en los correos —los sitios donde
+            un cuadro roto se nota más y se corrige más tarde—. */}
+        <div className="pt-2 border-t border-slate-100">
+          <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wide mb-2">
+            Logotipo — sale en la factura, los correos y la tienda
+          </label>
+          <div className="flex flex-col sm:flex-row sm:items-start gap-4">
+            <div className="w-24 h-24 shrink-0 rounded-xl border border-slate-200 bg-slate-50 flex items-center justify-center overflow-hidden">
+              {empresa?.logo_url ? (
+                <img
+                  src={empresa.logo_url}
+                  alt="Logotipo actual"
+                  className="max-w-full max-h-full object-contain"
+                  onError={(ev) => { (ev.target as HTMLImageElement).style.display = 'none'; }}
+                />
+              ) : (
+                <ImageOff className="w-6 h-6 text-slate-300" />
+              )}
+            </div>
+
+            <div className="flex-1 min-w-0 space-y-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <label
+                  className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-300 text-xs font-bold cursor-pointer transition-colors ${
+                    subiendoLogo ? 'opacity-60 pointer-events-none' : 'hover:bg-slate-50 text-slate-700'
+                  }`}
+                >
+                  <Upload className="w-4 h-4" />
+                  {subiendoLogo ? 'Subiendo…' : 'Subir imagen'}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={async (ev) => {
+                      const archivo = ev.target.files?.[0];
+                      // Se limpia el input para que elegir el MISMO archivo
+                      // otra vez vuelva a disparar el cambio.
+                      ev.target.value = '';
+                      if (!archivo) return;
+                      setAviso(null);
+                      setSubiendoLogo(true);
+                      try {
+                        const url = await configService.subirLogo(archivo);
+                        setEmpresa((st) => (st ? { ...st, logo_url: url } : st));
+                        setAviso({ tipo: 'ok', texto: 'Logotipo subido. Falta guardar la empresa.' });
+                      } catch (e) {
+                        setAviso({
+                          tipo: 'error',
+                          texto: e instanceof Error ? e.message : 'No fue posible subir el logotipo.',
+                        });
+                      } finally {
+                        setSubiendoLogo(false);
+                      }
+                    }}
+                  />
+                </label>
+
+                {empresa?.logo_url && (
+                  <button
+                    type="button"
+                    onClick={() => setEmpresa((st) => (st ? { ...st, logo_url: '' } : st))}
+                    className="text-xs font-semibold text-slate-500 hover:text-rose-600"
+                  >
+                    Quitar
+                  </button>
+                )}
+              </div>
+
+              {/* La URL sigue estando: a veces el logotipo ya vive en un
+                  servidor de la empresa y no hay por qué duplicarlo. */}
+              {campo('logo_url', 'O pega la dirección de una imagen')}
+              <p className="text-[11px] text-slate-500">
+                PNG, JPG o SVG, hasta 2 MB. Al subir queda puesto aquí, pero el
+                cambio no es firme hasta que guardes la empresa.
+              </p>
+            </div>
+          </div>
         </div>
 
         <div className="flex justify-end pt-1">

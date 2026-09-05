@@ -628,6 +628,41 @@ export const configService = {
     return (data as unknown as DatosEmpresa) ?? null;
   },
 
+  /**
+   * Sube el logotipo de la empresa y devuelve su URL pública.
+   *
+   * Antes el campo solo aceptaba una URL, así que había que subir la imagen a
+   * otro sitio primero. En la práctica eso significa que nadie lo cambia, o
+   * que el logotipo acaba colgando de un servidor ajeno que un día deja de
+   * responder —y desaparece de las facturas y de los correos, que es donde
+   * más se nota—.
+   *
+   * El nombre lleva marca de tiempo: reutilizarlo haría que el navegador y la
+   * CDN siguieran mostrando el logotipo viejo y pareciera que no se guardó.
+   */
+  async subirLogo(archivo: File): Promise<string> {
+    if (!archivo.type.startsWith('image/')) {
+      throw new Error('El logotipo tiene que ser una imagen (PNG, JPG o SVG).');
+    }
+    // Un logotipo son unos pocos kilobytes. Un archivo de varios megas es casi
+    // siempre una foto subida por error, y acabaría cargándose en cada correo
+    // y en cada factura.
+    if (archivo.size > 2 * 1024 * 1024) {
+      throw new Error('El logotipo no puede pesar más de 2 MB.');
+    }
+
+    const extension = (archivo.name.split('.').pop() ?? 'png').toLowerCase();
+    const ruta = `logo-${Date.now()}.${extension}`;
+
+    const { error } = await supabase.storage
+      .from('marca')
+      .upload(ruta, archivo, { contentType: archivo.type, upsert: false });
+    if (error) throw errorLegible('subirLogo', error);
+
+    const { data } = supabase.storage.from('marca').getPublicUrl(ruta);
+    return data.publicUrl;
+  },
+
   async guardarEmpresa(datos: Partial<DatosEmpresa>): Promise<void> {
     const { error } = await supabase.from('app_settings').update(datos).eq('id', 1);
     if (error) throw errorLegible('guardarEmpresa', error);
