@@ -191,14 +191,34 @@ Deno.serve(async (req: Request) => {
     if (!r.ok) {
       const detalle = await r.text();
       console.error('[asistente-ia] proveedor', r.status, detalle.slice(0, 300));
-      // El mensaje del proveedor NO se devuelve al navegador: suele incluir
+
+      // El mensaje del proveedor NO se le devuelve a un cliente: suele incluir
       // pistas sobre la cuenta y la facturación.
+      //
+      // A un ADMINISTRADOR sí. Sin esto, «la llave no sirve» es todo lo que se
+      // sabe, y las causas son muy distintas entre sí —llave revocada, cuenta
+      // sin saldo, proyecto sin acceso al modelo— con arreglos igual de
+      // distintos. Quedaba adivinar. Lo que se manda va con cualquier cosa con
+      // forma de llave tachada, por si el proveedor la repite en su respuesta.
+      let paraAdmin: string | undefined;
+      try {
+        const { data: esAdmin } = await suyo.rpc('is_admin');
+        if (esAdmin === true) {
+          paraAdmin = detalle
+            .replace(/(sk-|ek_|org-)[A-Za-z0-9_-]{6,}/g, '$1<oculto>')
+            .slice(0, 400);
+        }
+      } catch {
+        /* si no se puede saber quién es, no se le cuenta nada */
+      }
+
       return respuesta({
         success: false,
         error: {
           code: r.status === 401 ? 'LLAVE_INVALIDA'
             : r.status === 429 ? 'SIN_CUPO' : 'PROVEEDOR_FALLO',
           message: 'El asistente con IA no está disponible en este momento.',
+          ...(paraAdmin ? { detalle: paraAdmin, estadoProveedor: r.status } : {}),
         },
       }, 200);
     }
