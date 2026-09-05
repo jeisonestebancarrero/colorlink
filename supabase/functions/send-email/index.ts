@@ -320,7 +320,28 @@ async function armarDesdePlantilla(
     logo: conf?.logo_url,
   };
 
-  const sitio = Deno.env.get('SITE_URL') ?? 'http://127.0.0.1:8090';
+  // La dirección pública de la tienda sale de `internal_config`, que es lo que
+  // el portal deja editar en «Entorno de correo».
+  //
+  // Antes se leía SOLO de la variable de entorno de la función, y en el
+  // servidor nuevo esa variable no existía: todos los enlaces de todos los
+  // correos —«ver mi pedido», «explorar la tienda»— salieron apuntando a
+  // `http://127.0.0.1:8090`, o sea al computador de quien los recibía. Peor
+  // aún, había dos fuentes para el mismo dato y la que se podía configurar no
+  // era la que se usaba: cambiarla en el portal no surtía ningún efecto.
+  //
+  // Se conserva la variable de entorno como respaldo por si la configuración
+  // todavía no se ha llenado.
+  const { data: entorno } = await admin
+    .from('internal_config')
+    .select('site_url')
+    .eq('id', 1)
+    .maybeSingle();
+
+  const sitio =
+    (entorno?.site_url ?? '').trim() ||
+    Deno.env.get('SITE_URL') ||
+    'http://127.0.0.1:8090';
 
   // ── Bienvenida: no hay pedido, solo la persona ──────────────────────
   if (cuerpo.template === 'BIENVENIDA') {
