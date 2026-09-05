@@ -527,6 +527,8 @@ export interface EstadoEntornoCorreo {
   site_url: string | null;
   /** La llave nunca se devuelve: solo si hay una guardada. */
   tiene_llave: boolean;
+  /** Solo la FORMA de la llave, para poder avisar si es la que no sirve. */
+  formato_llave: 'JWT' | 'SB_SECRET' | 'SB_PUBLISHABLE' | 'DESCONOCIDO' | null;
   emails_enabled: boolean;
   allowlist: string[];
   updated_at: string | null;
@@ -561,6 +563,34 @@ export const configService = {
     });
     if (error) throw errorLegible('guardarEntornoCorreo', error);
     return data as EstadoEntornoCorreo;
+  },
+
+  /**
+   * Prueba el camino REAL: la base llama a la función con su llave.
+   *
+   * El otro botón de prueba llama a la función desde el navegador, así que
+   * comprueba el SMTP pero se salta justo lo que falla al desplegar. Podía
+   * llegar esa prueba y no llegar ni un correo automático.
+   */
+  async probarCorreoPorLaBase(destino: string): Promise<string> {
+    const { data, error } = await supabase.rpc('probar_correo_por_la_base', { _destino: destino });
+    if (error) throw errorLegible('probarCorreoPorLaBase', error);
+    return (data as { desde: string }).desde;
+  },
+
+  /** Las últimas anotaciones de la bitácora, para ver en qué paró la prueba. */
+  async bitacoraCorreo(desde?: string): Promise<
+    { template: string | null; status: string; error: string | null; created_at: string }[]
+  > {
+    let q = supabase
+      .from('email_log')
+      .select('template,status,error,created_at')
+      .order('created_at', { ascending: false })
+      .limit(5);
+    if (desde) q = q.gte('created_at', desde);
+    const { data, error } = await q;
+    if (error) throw errorLegible('bitacoraCorreo', error);
+    return (data ?? []) as { template: string | null; status: string; error: string | null; created_at: string }[];
   },
 
   async empresa(): Promise<DatosEmpresa | null> {

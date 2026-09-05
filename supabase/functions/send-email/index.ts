@@ -125,28 +125,18 @@ Deno.serve(async (req: Request) => {
     );
   }
 
-  // ── Composición desde plantilla ──────────────────────────────────────
-  if (cuerpo.template) {
-    try {
-      const armado = await armarDesdePlantilla(admin, cuerpo);
-      cuerpo.subject = armado.asunto;
-      cuerpo.html = armado.html;
-      cuerpo.text = armado.texto;
-    } catch (e) {
-      const detalle = e instanceof Error ? e.message : String(e);
-      console.error('[send-email] plantilla', detalle);
-      return respuesta(
-        { success: false, error: { code: 'TEMPLATE_FAILED', message: detalle } },
-        422,
-      );
-    }
-  }
-
+  // El registro se abre ANTES de componer la plantilla.
+  //
+  // Estaba después, y por eso un fallo al armar el correo no dejaba rastro:
+  // la función respondía 422 y se iba sin escribir nada. Desde fuera se veía
+  // un correo que sencillamente no existía —ni enviado, ni fallido, ni
+  // omitido—, y no había por dónde empezar a mirar. Cualquier cosa que se
+  // intenta enviar tiene que quedar anotada, sobre todo si sale mal.
   const { data: registro } = await admin
     .from('email_log')
     .insert({
       to_email: cuerpo.to,
-      subject: cuerpo.subject,
+      subject: cuerpo.subject ?? '(pendiente de plantilla)',
       template: cuerpo.template ?? null,
       order_id: cuerpo.orderId ?? null,
       project_id: cuerpo.projectId ?? null,
@@ -154,6 +144,32 @@ Deno.serve(async (req: Request) => {
     })
     .select('id')
     .single();
+
+  // ── Composición desde plantilla ──────────────────────────────────────
+  if (cuerpo.template) {
+    try {
+      const armado = await armarDesdePlantilla(admin, cuerpo);
+      cuerpo.subject = armado.asunto;
+      cuerpo.html = armado.html;
+      cuerpo.text = armado.texto;
+      if (registro) {
+        await admin.from('email_log').update({ subject: armado.asunto }).eq('id', registro.id);
+      }
+    } catch (e) {
+      const detalle = e instanceof Error ? e.message : String(e);
+      console.error('[send-email] plantilla', detalle);
+      if (registro) {
+        await admin
+          .from('email_log')
+          .update({ status: 'FALLIDO', error: `plantilla: ${detalle}` })
+          .eq('id', registro.id);
+      }
+      return respuesta(
+        { success: false, error: { code: 'TEMPLATE_FAILED', message: detalle } },
+        422,
+      );
+    }
+  }
 
   try {
     // Gmail muestra la contraseña de aplicación en cuatro bloques separados
