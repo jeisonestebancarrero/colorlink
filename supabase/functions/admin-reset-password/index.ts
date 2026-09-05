@@ -22,12 +22,7 @@
  * que el administrador haya superado su propio segundo factor.
  */
 import { createClient } from 'jsr:@supabase/supabase-js@2';
-
-const CORS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-};
+import { CORS } from '../_shared/cors.ts';
 
 const respuesta = (cuerpo: unknown, status = 200) =>
   new Response(JSON.stringify(cuerpo), {

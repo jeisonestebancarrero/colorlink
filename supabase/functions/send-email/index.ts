@@ -16,12 +16,7 @@ import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { SMTPClient } from 'https://deno.land/x/denomailer@1.6.0/mod.ts';
 import { construir, type Plantilla } from '../_shared/correos.ts';
 import { LOGO_BASE64, LOGO_CID } from '../_shared/logo.ts';
-
-const CORS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-};
+import { CORS } from '../_shared/cors.ts';
 
 interface Peticion {
   to: string;
@@ -292,7 +287,6 @@ Deno.serve(async (req: Request) => {
     );
   }
 });
-
 
 /**
  * Arma el correo leyendo el pedido, sus líneas, el punto de retiro y los datos
