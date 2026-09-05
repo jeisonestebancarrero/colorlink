@@ -242,9 +242,13 @@ export const Navbar: React.FC<NavbarProps> = ({
 
       {/* 2. MAIN BRAND & SMART OMNISEARCH ROW */}
       <div className="px-4 sm:px-6 lg:px-8 border-b border-slate-100 bg-white">
-        <div className="flex items-center justify-between h-16 gap-4">
+        <div className="flex items-center justify-between h-16 gap-2 sm:gap-4">
           {/* Mobile Menu Button + Official Logo */}
-          <div className="flex items-center gap-3">
+          {/* `min-w-0` es lo que permite que el logotipo se encoja. Sin él, un
+              elemento flexible no baja de lo que ocupa su contenido —así lo
+              define el valor `auto` de `min-width`— y empuja la página entera
+              hacia la derecha por mucho `truncate` que lleve dentro. */}
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
             <button
               onClick={onOpenMobileMenu}
               className="lg:hidden p-2 text-slate-700 hover:text-slate-900 hover:bg-slate-100 rounded-lg cursor-pointer"
@@ -256,7 +260,9 @@ export const Navbar: React.FC<NavbarProps> = ({
             {/* Identidad de marca. El logotipo oficial se configura desde
                 Administración → Configuración, o se deja en
                 assets/brand/pintuco-logo.svg. */}
-            <BrandLogo onClick={() => onNavigate('dashboard')} />
+            {/* Sin la palabra en teléfono: aquí compite con el carrito, los
+                mensajes, los avisos y la cuenta, y saldría cortada. */}
+            <BrandLogo onClick={() => onNavigate('dashboard')} palabraEnMovil={false} />
           </div>
 
           {/* Center: Intelligent Omnisearch with Intent Recognition */}
@@ -440,7 +446,9 @@ export const Navbar: React.FC<NavbarProps> = ({
           </div>
 
           {/* Right Action Controls */}
-          <div className="flex items-center gap-2 sm:gap-3">
+          {/* `shrink-0`: estos controles no se encogen. Un carrito a medio
+              dibujar no es un carrito. Quien cede es el logotipo. */}
+          <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
             {/* Active Project Quick Button */}
             {activeProject && (
               <button
@@ -456,7 +464,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             {/* Shopping Cart Button */}
             <button
               onClick={() => setIsCartOpen(true)}
-              className="relative bg-[#004F9F] hover:bg-[#003875] text-white px-3.5 py-2 rounded-xl transition-all flex items-center gap-2 cursor-pointer shadow-md shadow-[#004F9F]/20 font-bold text-xs"
+              className="relative bg-[#004F9F] hover:bg-[#003875] text-white px-2.5 sm:px-3.5 py-2 rounded-xl transition-all flex items-center gap-1.5 sm:gap-2 cursor-pointer shadow-md shadow-[#004F9F]/20 font-bold text-xs shrink-0"
               aria-label="Abrir Carrito"
             >
               <ShoppingCart className="w-4 h-4" />

@@ -26,10 +26,10 @@ import {
   TrendingUp,
 } from 'lucide-react';
 import { Button } from '../components/common/Button';
+import { BrandLogo } from '../components/common/BrandLogo';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 import { useColorPalette, useProducts, useSolutionKits } from '../hooks/useCatalog';
-import logoPintuco from '../../assets/brand/pintuco-logo.jpeg';
 
 interface LandingPageProps {
   onNavigate: (page: string, param?: string) => void;
@@ -138,29 +138,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
       {/* 2. MAIN HEADER */}
       <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
-          <div
-            onClick={() => onNavigate('landing')}
-            className="flex items-center gap-3 cursor-pointer select-none group"
-          >
-            {/* Logotipo oficial. Su fondo azul propio se enmarca en el mismo
-                azul para que no quede un recorte flotando sobre el blanco. */}
-            <div className="w-10 h-10 rounded-xl bg-[#002D5C] flex items-center justify-center overflow-hidden shadow-md group-hover:scale-105 transition-transform shrink-0">
-              <img src={logoPintuco} alt="Pintuco" className="w-full h-full object-contain p-0.5" />
-            </div>
-            <div>
-              <div className="flex items-center gap-1.5">
-                <span className="text-xl font-black tracking-tight text-slate-900 leading-none">
-                  COLOR<span className="text-[#004F9F]">LINK</span>
-                </span>
-                <span className="text-[10px] font-black uppercase tracking-wider bg-yellow-400 text-slate-950 px-1.5 py-0.5 rounded shadow-2xs">
-                  PINTUCO
-                </span>
-              </div>
-              <span className="text-[10px] text-slate-500 font-semibold tracking-tight">
-                Tienda Oficial & Ecosistema Digital
-              </span>
-            </div>
-          </div>
+          {/* El logotipo estaba copiado a mano aquí, con su propio marcado.
+              Por eso los arreglos hechos en el componente —entre ellos que se
+              encoja en un teléfono— no llegaban a esta pantalla, que es
+              justamente la primera que ve alguien que no ha entrado. */}
+          <BrandLogo onClick={() => onNavigate('landing')} />
 
           {/* Center Navigation Links */}
           <nav className="hidden lg:flex items-center gap-1 text-xs font-bold text-slate-700">
@@ -197,23 +179,29 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
           </nav>
 
           {/* Right CTAs */}
-          <div className="flex items-center gap-2.5">
+          {/* En un teléfono las dos llamadas pedían 248 px de los 354 de la
+              barra y echaban la página entera hacia un lado. Se acortan en vez
+              de esconderse: entrar y comprar son las dos cosas a las que viene
+              quien abre esta página, y ninguna puede desaparecer. */}
+          <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
             <Button
               variant="ghost"
               size="sm"
               onClick={() => onNavigate('login')}
-              className="text-slate-700 text-xs font-bold"
+              className="text-slate-700 text-xs font-bold px-2 sm:px-3"
             >
-              Iniciar sesión
+              <span className="sm:hidden">Entrar</span>
+              <span className="hidden sm:inline">Iniciar sesión</span>
             </Button>
             <Button
               variant="pintuco"
               size="sm"
               onClick={() => onNavigate('store')}
-              leftIcon={<ShoppingBag className="w-3.5 h-3.5" />}
-              className="text-xs font-bold shadow-md shadow-[#004F9F]/20"
+              leftIcon={<ShoppingBag className="w-3.5 h-3.5 hidden sm:block" />}
+              className="text-xs font-bold shadow-md shadow-[#004F9F]/20 px-2.5 sm:px-3"
             >
-              Explorar Tienda
+              <span className="sm:hidden">Tienda</span>
+              <span className="hidden sm:inline">Explorar Tienda</span>
             </Button>
           </div>
         </div>
