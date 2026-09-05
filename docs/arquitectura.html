@@ -1,0 +1,834 @@
+<title>ColorLink · Ecosistema Pintuco</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+  :root {
+    --azul:      #004F9F;
+    --azul-hondo:#002D5C;
+    --amarillo:  #FFB81C;
+    --papel:     #F4F6F9;
+    --superficie:#FFFFFF;
+    --tinta:     #16202E;
+    --apagado:   #63748C;
+    --linea:     #DCE3EC;
+    --bien:      #1B7F5A;
+    --alerta:    #A8611A;
+
+    --display: 'Archivo', 'Helvetica Neue', Arial, sans-serif;
+    --texto:   'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    --dato:    'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+  }
+  :root:not([data-theme="light"]) { }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --azul:      #6BA9E8;
+      --azul-hondo:#0A1826;
+      --amarillo:  #FFC94A;
+      --papel:     #0D1620;
+      --superficie:#141F2C;
+      --tinta:     #E4EAF2;
+      --apagado:   #92A3B8;
+      --linea:     #26364A;
+      --bien:      #56C79A;
+      --alerta:    #E0A462;
+    }
+  }
+  :root[data-theme="dark"] {
+    --azul:      #6BA9E8;
+    --azul-hondo:#0A1826;
+    --amarillo:  #FFC94A;
+    --papel:     #0D1620;
+    --superficie:#141F2C;
+    --tinta:     #E4EAF2;
+    --apagado:   #92A3B8;
+    --linea:     #26364A;
+    --bien:      #56C79A;
+    --alerta:    #E0A462;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    background: var(--papel);
+    color: var(--tinta);
+    font-family: var(--texto);
+    font-size: 16px;
+    line-height: 1.62;
+    margin: 0;
+    -webkit-font-smoothing: antialiased;
+  }
+  .marco { max-width: 1120px; margin: 0 auto; padding: 0 24px 96px; }
+
+  /* ── Cabecera ─────────────────────────────────────────── */
+  .portada {
+    background: var(--azul-hondo);
+    color: #fff;
+    margin-bottom: 56px;
+    border-bottom: 5px solid var(--amarillo);
+  }
+  .portada .interior {
+    max-width: 1120px; margin: 0 auto; padding: 44px 24px 40px;
+    display: flex; gap: 28px; align-items: flex-start; flex-wrap: wrap;
+  }
+  .sello {
+    width: 78px; height: 78px; border-radius: 16px; overflow: hidden;
+    background: #002244; display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; padding: 5px;
+  }
+  .sello img { width: 100%; height: 100%; object-fit: contain; }
+  .titulo-bloque { flex: 1; min-width: 280px; }
+  .marca {
+    font-family: var(--display); font-weight: 800; font-size: clamp(2.1rem, 5vw, 3rem);
+    letter-spacing: -0.025em; line-height: 1; margin: 0 0 10px; color: #fff;
+    text-wrap: balance;
+  }
+  .marca span { color: var(--amarillo); }
+  .bajada { color: #B9CFE8; font-size: 1.02rem; max-width: 62ch; margin: 0; }
+  .kicker {
+    font-family: var(--display); font-size: 0.68rem; font-weight: 700;
+    letter-spacing: 0.16em; text-transform: uppercase; color: var(--amarillo);
+    margin: 0 0 12px;
+  }
+
+  /* ── Cifras ───────────────────────────────────────────── */
+  .cifras {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(126px, 1fr));
+    gap: 1px; background: rgba(255,255,255,0.14);
+    max-width: 1120px; margin: 0 auto; border-top: 1px solid rgba(255,255,255,0.14);
+  }
+  .cifra { background: var(--azul-hondo); padding: 18px 20px; }
+  .cifra b {
+    display: block; font-family: var(--dato); font-weight: 600; font-size: 1.5rem;
+    color: #fff; font-variant-numeric: tabular-nums; line-height: 1.1;
+  }
+  .cifra span {
+    display: block; font-size: 0.72rem; color: #8FAFCE; margin-top: 3px;
+    letter-spacing: 0.03em;
+  }
+
+  /* ── Secciones ────────────────────────────────────────── */
+  section { margin: 0 0 60px; scroll-margin-top: 20px; }
+  h2 {
+    font-family: var(--display); font-weight: 700; font-size: 1.62rem;
+    letter-spacing: -0.018em; margin: 0 0 6px; color: var(--tinta);
+    text-wrap: balance; padding-left: 16px; position: relative;
+  }
+  /* Franja de color: el borde de una carta de colores. */
+  h2::before {
+    content: ''; position: absolute; left: 0; top: 0.22em; bottom: 0.16em; width: 5px;
+    border-radius: 3px;
+    background: linear-gradient(var(--azul) 0 33%, var(--amarillo) 33% 66%, var(--azul-hondo) 66% 100%);
+  }
+  h2 + .entrada { padding-left: 16px; }
+  .entrada { color: var(--apagado); max-width: 68ch; margin: 0 0 22px; }
+  h3 {
+    font-family: var(--display); font-weight: 600; font-size: 1.02rem;
+    margin: 30px 0 8px; color: var(--tinta); letter-spacing: -0.008em;
+  }
+  p { max-width: 70ch; }
+  a { color: var(--azul); }
+
+  /* ── Tablas ───────────────────────────────────────────── */
+  .tabla-marco { overflow-x: auto; border: 1px solid var(--linea); border-radius: 10px; background: var(--superficie); }
+  table { width: 100%; border-collapse: collapse; font-size: 0.88rem; min-width: 460px; }
+  th {
+    text-align: left; font-family: var(--display); font-weight: 600; font-size: 0.7rem;
+    letter-spacing: 0.09em; text-transform: uppercase; color: var(--apagado);
+    padding: 11px 16px; border-bottom: 1px solid var(--linea); white-space: nowrap;
+  }
+  td { padding: 11px 16px; border-bottom: 1px solid var(--linea); vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  td code, .mono { font-family: var(--dato); font-size: 0.84em; }
+  .num { font-family: var(--dato); font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+  /* ── Fichas ───────────────────────────────────────────── */
+  .rejilla { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(232px, 1fr)); }
+  .ficha {
+    background: var(--superficie); border: 1px solid var(--linea);
+    border-radius: 10px; padding: 16px 18px;
+  }
+  .ficha h4 {
+    font-family: var(--display); font-size: 0.86rem; font-weight: 600;
+    margin: 0 0 5px; color: var(--tinta);
+  }
+  .ficha p { font-size: 0.85rem; color: var(--apagado); margin: 0; max-width: none; }
+  .ficha .mono { color: var(--azul); font-size: 0.75rem; display: block; margin-bottom: 6px; }
+
+  /* ── Nota destacada ───────────────────────────────────── */
+  .nota {
+    border-left: 3px solid var(--azul); background: var(--superficie);
+    padding: 14px 18px; border-radius: 0 8px 8px 0; margin: 20px 0;
+    border-top: 1px solid var(--linea); border-right: 1px solid var(--linea);
+    border-bottom: 1px solid var(--linea);
+  }
+  .nota p { margin: 0; font-size: 0.9rem; }
+  .nota strong { color: var(--tinta); }
+
+  /* ── Diagramas ────────────────────────────────────────── */
+  .diagrama {
+    background: var(--superficie); border: 1px solid var(--linea); border-radius: 10px;
+    padding: 18px; overflow-x: auto; margin: 18px 0;
+  }
+  .diagrama pre.mermaid { margin: 0; background: transparent; text-align: center; }
+  .pie {
+    font-size: 0.76rem; color: var(--apagado); margin: 8px 0 0; padding-left: 2px;
+    max-width: 74ch;
+  }
+
+  /* ── Etiquetas ────────────────────────────────────────── */
+  .pastilla {
+    display: inline-block; font-family: var(--dato); font-size: 0.7rem;
+    padding: 2px 8px; border-radius: 20px; border: 1px solid var(--linea);
+    color: var(--apagado); background: var(--papel); white-space: nowrap;
+  }
+  .pastilla.si { color: var(--bien); border-color: color-mix(in srgb, var(--bien) 40%, transparent); }
+  .pastilla.ojo { color: var(--alerta); border-color: color-mix(in srgb, var(--alerta) 40%, transparent); }
+
+  ul { padding-left: 20px; max-width: 70ch; }
+  li { margin-bottom: 7px; }
+  li::marker { color: var(--azul); }
+
+  footer {
+    border-top: 1px solid var(--linea); padding-top: 20px; margin-top: 8px;
+    font-size: 0.8rem; color: var(--apagado);
+  }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+
+<header class="portada">
+  <div class="interior">
+    <div class="sello"><img src="data:image/jpeg;base64,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" alt="Pintuco"></div>
+    <div class="titulo-bloque">
+      <p class="kicker">Documentación técnica · Septiembre 2026</p>
+      <h1 class="marca">COLOR<span>LINK</span></h1>
+      <p class="bajada">
+        Ecosistema digital para Pintuco: una tienda para el cliente y un portal
+        de operación para la empresa, sobre una sola base de datos que decide
+        quién ve qué.
+      </p>
+    </div>
+  </div>
+  <div class="cifras">
+    <div class="cifra"><b>69</b><span>tablas</span></div>
+    <div class="cifra"><b>163</b><span>políticas de acceso</span></div>
+    <div class="cifra"><b>155</b><span>funciones en la base</span></div>
+    <div class="cifra"><b>53</b><span>disparadores</span></div>
+    <div class="cifra"><b>7</b><span>funciones de borde</span></div>
+    <div class="cifra"><b>18</b><span>módulos internos</span></div>
+    <div class="cifra"><b>542</b><span>pruebas</span></div>
+  </div>
+</header>
+
+<div class="marco">
+
+<section>
+  <h2>Qué es, en una frase</h2>
+  <p class="entrada">
+    Dos aplicaciones distintas y una sola verdad.
+  </p>
+  <p>
+    <strong>La tienda</strong> es donde el cliente compra pintura, simula colores,
+    calcula cuántos galones necesita y sigue su pedido. <strong>El portal
+    interno</strong> es donde Pintuco alista, despacha, factura, cobra y contabiliza.
+    No son dos sistemas conectados: son dos ventanas a la misma base de datos.
+  </p>
+  <p>
+    Eso importa porque elimina la sincronización. Cuando alguien en la tienda
+    cambia el estado de un pedido, el cliente lo ve en su pantalla sin que nadie
+    empuje nada; cuando el catálogo cambia, cambia para los dos a la vez.
+  </p>
+</section>
+
+<section>
+  <h2>Qué arquitectura es, y por qué esa</h2>
+  <p class="entrada">
+    No es un monolito con su servidor, ni microservicios. Es una arquitectura
+    <strong>sin servidor propio, con la lógica dentro de la base de datos</strong>.
+  </p>
+  <p>
+    Dicho con los nombres que se usan en la industria: dos aplicaciones de página
+    única servidas como archivos estáticos, sobre una plataforma como servicio
+    (Supabase), con las reglas de negocio implementadas en PostgreSQL y unas pocas
+    funciones sin servidor para lo que necesita secretos. Se la llama a veces
+    <em>arquitectura centrada en la base</em> o <em>base de datos gruesa</em>.
+  </p>
+
+  <h3>Por qué no microservicios</h3>
+  <p>
+    Un pedido toca pedido, inventario, cobro, factura, tesorería y contabilidad.
+    En microservicios eso son seis servicios y una transacción repartida: si falla
+    el cuarto paso hay que deshacer los tres anteriores a mano, con colas y
+    compensaciones. Aquí es <strong>una transacción de Postgres</strong>: pasa
+    entera o no pasa. Emitir una factura y no dejar su asiento contable es
+    imposible por construcción, no por disciplina del equipo.
+  </p>
+  <p>
+    Los microservicios resuelven un problema que este sistema no tiene: equipos
+    grandes que necesitan desplegar por separado, y partes que escalan a ritmos
+    muy distintos. Adoptarlos aquí sería pagar la complejidad sin cobrar el
+    beneficio.
+  </p>
+
+  <h3>Por qué tampoco un monolito clásico con su API</h3>
+  <p>
+    Un servidor propio en Node o Java tendría que <strong>volver a implementar la
+    autorización</strong> que PostgreSQL ya hace con sus 163 políticas — y esa
+    duplicación es donde aparecen los agujeros: la regla se corrige en un sitio y
+    se olvida en el otro. Además habría un proceso que mantener despierto,
+    actualizar y vigilar.
+  </p>
+  <p>
+    La consecuencia práctica: <strong>no hay ninguna consulta en el navegador que
+    pueda saltarse un permiso</strong>. No porque el código del navegador sea
+    cuidadoso, sino porque la base no devuelve filas que no correspondan.
+  </p>
+
+  <h3>Por qué la lógica vive en la base</h3>
+  <ul>
+    <li><strong>Dos aplicaciones, una regla.</strong> La tienda y el portal escriben
+      en las mismas tablas. Si la regla estuviera en el código, habría que
+      escribirla dos veces y mantenerla sincronizada.</li>
+    <li><strong>Lo que debe ocurrir siempre, ocurre siempre.</strong> Asignar el
+      asesor, mover tesorería, generar el comprobante contable o mandar el correo
+      son disparadores: se cumplen aunque el dato entre por una vía que nadie
+      previó.</li>
+    <li><strong>Se puede demostrar.</strong> Las 542 pruebas corren contra una base
+      real. Comprobar «un cliente no ve el pedido de otro» es una consulta, no una
+      inspección de código.</li>
+  </ul>
+
+  <h3>Lo que se paga por esta decisión</h3>
+  <p>
+    Toda arquitectura tiene un costo, y conviene decirlo antes de que lo pregunten:
+  </p>
+  <div class="tabla-marco">
+    <table>
+      <thead><tr><th>Costo</th><th>Cómo se mitiga</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>Buena parte del negocio está escrita en SQL, y no todo equipo lo domina</td>
+          <td>157 migraciones versionadas, con el porqué de cada decisión escrito al lado</td>
+        </tr>
+        <tr>
+          <td>Acoplamiento a Supabase</td>
+          <td>Lo específico de Supabase es Auth y almacenamiento; el resto es PostgreSQL puro, que se lleva a cualquier proveedor</td>
+        </tr>
+        <tr>
+          <td>Lo que necesita secretos no cabe en la base</td>
+          <td>Para eso están las 7 funciones de borde: correo, IA y pasarela</td>
+        </tr>
+        <tr>
+          <td>Sin servidor propio no hay renderizado para buscadores</td>
+          <td>La tienda es una aplicación de compra, no un blog; si algún día hace falta, se agrega solo esa capa</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="nota">
+    <p>
+      <strong>En una frase para la presentación:</strong> el sistema no tiene
+      servidor que mantener, y la seguridad no depende de que el programador se
+      acuerde de comprobarla — la aplica el motor de base de datos en cada consulta.
+    </p>
+  </div>
+</section>
+
+<section>
+  <h2>Cómo está armado</h2>
+  <p class="entrada">
+    Nada del negocio vive en el navegador. Las reglas están en la base de datos,
+    que es el único sitio por el que pasan todos los caminos.
+  </p>
+  <div class="diagrama">
+<pre class="mermaid">
+graph TB
+    subgraph N["EN EL NAVEGADOR"]
+        T["Tienda<br/>colorlink-tienda"]
+        P["Portal interno<br/>colorlink-portal"]
+    end
+    subgraph S["SUPABASE"]
+        A["Auth<br/>sesiones y Google"]
+        D[("PostgreSQL 17.6<br/>69 tablas · 163 políticas")]
+        E["Funciones de borde<br/>7 en Deno"]
+        ST["Almacenamiento<br/>imágenes"]
+    end
+    subgraph X["SERVICIOS EXTERNOS"]
+        O["OpenAI"]
+        G["Gmail SMTP"]
+        W["Wompi"]
+    end
+    T --> A
+    P --> A
+    T --> D
+    P --> D
+    T --> E
+    P --> E
+    D -.->|"pg_net"| E
+    E --> O
+    E --> G
+    W -.->|"webhook"| E
+    T --> ST
+    P --> ST
+</pre>
+  </div>
+  <p class="pie">
+    La línea punteada de la base hacia las funciones es la que manda los correos
+    automáticos: la propia base llama por HTTP cuando pasa algo que hay que avisar.
+  </p>
+</section>
+
+<section>
+  <h2>Con qué está hecho</h2>
+  <div class="tabla-marco">
+    <table>
+      <thead>
+        <tr><th>Capa</th><th>Tecnología</th><th>Versión</th><th>Por qué</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Interfaz</td><td>React + TypeScript</td><td class="num">19.0 · 5.8</td><td>Tipado estricto: los errores salen al compilar, no en la demostración</td></tr>
+        <tr><td>Compilación</td><td>Vite</td><td class="num">6.2</td><td>Dos paquetes separados desde un solo repositorio</td></tr>
+        <tr><td>Estilos</td><td>Tailwind CSS</td><td class="num">4.1</td><td>Sin hojas de estilo sueltas que se contradigan</td></tr>
+        <tr><td>Base de datos</td><td>PostgreSQL</td><td class="num">17.6</td><td>Las reglas de negocio viven aquí, no en el navegador</td></tr>
+        <tr><td>Plataforma</td><td>Supabase</td><td class="num">—</td><td>Auth, almacenamiento y funciones sobre ese mismo Postgres</td></tr>
+        <tr><td>Funciones de borde</td><td>Deno + TypeScript</td><td class="num">—</td><td>Lo que necesita secretos: correo, IA, pagos</td></tr>
+        <tr><td>Validación</td><td>Zod</td><td class="num">4.5</td><td>El mismo esquema valida en pantalla y antes de guardar</td></tr>
+        <tr><td>Pruebas</td><td>Vitest</td><td class="num">4.1</td><td>542 pruebas contra una base real, no simulada</td></tr>
+        <tr><td>Publicación</td><td>Render (estático)</td><td class="num">—</td><td>Archivos en CDN: sin servidor que se duerma</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="rejilla" style="margin-top:16px">
+    <div class="ficha"><h4>50.119 líneas</h4><p>TypeScript y React en 162 archivos</p></div>
+    <div class="ficha"><h4>29.999 líneas</h4><p>SQL en 157 migraciones versionadas</p></div>
+    <div class="ficha"><h4>10.818 líneas</h4><p>Pruebas en 41 archivos</p></div>
+    <div class="ficha"><h4>2.247 líneas</h4><p>Funciones de borde en Deno</p></div>
+  </div>
+</section>
+
+<section>
+  <h2>El modelo de datos</h2>
+  <p class="entrada">
+    69 tablas. Estas quince son el corazón: de un cliente a su pedido, del pedido
+    a la factura, y de la factura al asiento contable.
+  </p>
+  <div class="diagrama">
+<pre class="mermaid">
+erDiagram
+    profiles ||--o{ orders : "hace"
+    profiles }o--o| companies : "pertenece a"
+    profiles ||--o{ user_roles : "tiene"
+    orders ||--|{ order_items : "contiene"
+    orders ||--o{ payments : "se cobra con"
+    orders ||--o| invoices : "genera"
+    orders ||--o{ conversation_messages : "conversa en"
+    orders ||--o{ shipments : "se despacha en"
+    orders }o--o| pickup_locations : "se retira en"
+    orders }o--o| profiles_asesor : "atiende"
+    order_items }o--|| product_variants : "es"
+    product_variants }o--|| products : "presenta"
+    products }o--|| categories : "clasifica"
+    products ||--o{ inventory : "hay en"
+    inventory }o--|| pickup_locations : "sede"
+    invoices ||--|{ invoice_items : "detalla"
+    invoices ||--o{ treasury_movements : "recauda"
+    payments ||--o{ treasury_movements : "ingresa"
+    invoices ||--o{ journal_entries : "contabiliza"
+    journal_entries ||--|{ journal_lines : "partida doble"
+</pre>
+  </div>
+  <p class="pie">
+    <code>profiles_asesor</code> es la misma tabla <code>profiles</code>: un pedido
+    apunta al asesor que lo atiende. Se dibuja aparte para que se lea la relación.
+  </p>
+
+  <h3>Los otros dominios</h3>
+  <div class="rejilla">
+    <div class="ficha"><span class="mono">Catálogo</span><h4>Producto y color</h4><p>11 productos · 25 presentaciones · 120 colores · 11 kits de solución</p></div>
+    <div class="ficha"><span class="mono">Geografía</span><h4>DIVIPOLA oficial</h4><p>33 departamentos · 1.122 municipios · barrios por municipio</p></div>
+    <div class="ficha"><span class="mono">Diagnóstico</span><h4>Patologías de muro</h4><p>11 patologías · 47 superficies · recomendaciones por caso</p></div>
+    <div class="ficha"><span class="mono">Contabilidad</span><h4>Partida doble</h4><p>25 cuentas · comprobantes automáticos por factura y recaudo</p></div>
+    <div class="ficha"><span class="mono">Acceso</span><h4>Roles y permisos</h4><p>13 roles · 25 permisos · 18 vistas configurables por rol y por persona</p></div>
+    <div class="ficha"><span class="mono">Operación</span><h4>Inventario y sedes</h4><p>7 puntos de venta · movimientos con trazabilidad · recepciones de compra</p></div>
+  </div>
+</section>
+
+<section>
+  <h2>Quién ve qué: la seguridad no está en la pantalla</h2>
+  <p class="entrada">
+    Es la decisión de arquitectura más importante del sistema, y la que conviene
+    explicar en la presentación.
+  </p>
+  <p>
+    Esconder un botón no protege nada: quien sepa abrir las herramientas del
+    navegador lo encuentra. Aquí el permiso lo aplica <strong>PostgreSQL</strong>,
+    con 163 políticas de seguridad a nivel de fila. Un cliente que pidiera todos
+    los pedidos del sistema recibiría <em>los suyos</em>, porque la base no le
+    devuelve otros — no porque la pantalla no se los muestre.
+  </p>
+  <div class="tabla-marco">
+    <table>
+      <thead><tr><th>Capa</th><th>Qué decide</th><th>Se puede saltar</th></tr></thead>
+      <tbody>
+        <tr><td>Pantalla</td><td>Qué menús se dibujan</td><td><span class="pastilla ojo">sí, es solo comodidad</span></td></tr>
+        <tr><td>Permiso por columna</td><td>Qué campos se pueden escribir</td><td><span class="pastilla si">no</span></td></tr>
+        <tr><td>Política de fila</td><td>Qué filas se pueden leer o tocar</td><td><span class="pastilla si">no</span></td></tr>
+        <tr><td>Función con dueño</td><td>Operaciones que exigen más de una tabla</td><td><span class="pastilla si">no</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="nota">
+    <p>
+      <strong>Ejemplo real.</strong> El documento de identidad de un cliente no lo
+      puede cambiar ni él mismo: el rol <code>authenticated</code> tiene permiso de
+      escritura sobre seis columnas del perfil, y el documento no está entre ellas.
+      Postgres rechaza el intento antes de llegar a ninguna política. Lo corrige
+      quien administra clientes, y queda registrado quién lo hizo.
+    </p>
+  </div>
+  <h3>Además, por sede</h3>
+  <p>
+    Cada persona del equipo puede quedar acotada a unas sedes. Sin sedes asignadas
+    ve todas; con sedes asignadas ve solo esas. Quien atiende en Barranquilla no
+    puede entregar un pedido de Medellín, y la restricción vive en la política de
+    la tabla, no en un filtro de la pantalla.
+  </p>
+</section>
+
+<section>
+  <h2>El recorrido de un pedido</h2>
+  <p class="entrada">
+    De la compra al asiento contable, con lo que ocurre solo marcado aparte.
+  </p>
+  <div class="diagrama">
+<pre class="mermaid">
+sequenceDiagram
+    autonumber
+    participant C as Cliente
+    participant T as Tienda
+    participant D as Base de datos
+    participant I as Portal interno
+    C->>T: Arma el carrito y confirma
+    T->>D: create_order_from_cart
+    D-->>D: Asigna asesor de la sede
+    D-->>C: Correo · pedido recibido
+    C->>T: Paga
+    T->>D: Confirma el pago
+    D-->>D: Movimiento de ingreso en tesorería
+    D-->>C: Correo · pago confirmado
+    I->>D: Alistar y marcar preparando
+    D-->>C: Correo · cambio de estado
+    I->>D: Emitir factura
+    D-->>D: Comprobante en partida doble
+    C->>I: Llega a la tienda con su código
+    I->>D: entregar_por_codigo
+    D-->>D: Pedido entregado
+</pre>
+  </div>
+  <p class="pie">
+    Los pasos que la base hace sola —asignar asesor, mover tesorería, generar el
+    comprobante contable, mandar los correos— son disparadores: nadie tiene que
+    acordarse de ejecutarlos.
+  </p>
+
+  <h3>Los siete estados</h3>
+  <p>
+    <span class="pastilla">PENDIENTE</span> →
+    <span class="pastilla">CONFIRMADO</span> →
+    <span class="pastilla">PREPARANDO</span> →
+    <span class="pastilla">ENVIADO</span> ó
+    <span class="pastilla">LISTO PARA RETIRO</span> →
+    <span class="pastilla">ENTREGADO</span>
+    &nbsp;·&nbsp; <span class="pastilla ojo">CANCELADO</span>
+  </p>
+  <p>
+    No se pueden saltar pasos ni resucitar un pedido entregado: la máquina de
+    estados está en la base. Y ningún pedido avanza sin estar cobrado.
+  </p>
+
+  <h3>El código de retiro</h3>
+  <p>
+    Al comprar, el cliente recibe un código de seis caracteres. En el mostrador se
+    escribe ese código y <strong>el sistema decide cuál es el pedido</strong>: quien
+    atiende no lo elige de una lista, así que no puede equivocarse de pedido. Si el
+    pedido no está pagado, la pantalla lo dice sin rodeos y no entrega.
+  </p>
+</section>
+
+<section>
+  <h2>Casos de uso por rol</h2>
+  <p class="entrada">
+    13 roles configurables. Cada uno ve un portal distinto, armado con las 18
+    vistas disponibles.
+  </p>
+  <div class="tabla-marco">
+    <table>
+      <thead><tr><th>Rol</th><th>Qué hace en el sistema</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Cliente</strong></td><td>Compra, simula color, calcula galones, diagnostica un muro, sigue su pedido y escribe a su asesor</td></tr>
+        <tr><td><strong>Cliente empresa</strong></td><td>Lo anterior más compras a nombre de su empresa, con cupo de crédito y varias sedes</td></tr>
+        <tr><td><strong>Asesor comercial</strong></td><td>Atiende los pedidos que se le asignan solos, responde el chat, agenda visitas</td></tr>
+        <tr><td><strong>Despacho y logística</strong></td><td>Alista, genera guías y <strong>entrega con el código de retiro</strong></td></tr>
+        <tr><td><strong>Inventario y bodega</strong></td><td>Existencias por sede, movimientos y recepciones de compra</td></tr>
+        <tr><td><strong>Facturación y cartera</strong></td><td>Emite el documento equivalente POS y controla lo que se debe</td></tr>
+        <tr><td><strong>Tesorería</strong></td><td>Recaudos, egresos y conciliación contra el extracto</td></tr>
+        <tr><td><strong>Contabilidad</strong></td><td>Comprobantes en partida doble; la mayoría se generan solos</td></tr>
+        <tr><td><strong>Técnico de campo</strong></td><td>Visitas técnicas y asistencia sobre proyectos de obra</td></tr>
+        <tr><td><strong>Servicio al cliente</strong></td><td>Conversaciones y solicitudes de vinculación a empresas</td></tr>
+        <tr><td><strong>Gerencia y analítica</strong></td><td>Ventas, márgenes y comportamiento por sede</td></tr>
+        <tr><td><strong>Administrador</strong></td><td>Todo lo anterior más roles, permisos, catálogo y configuración</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section>
+  <h2>Las interfaces de programación</h2>
+  <p class="entrada">
+    Tres clases, y la diferencia entre ellas es dónde vive el secreto.
+  </p>
+
+  <h3>1 · Funciones dentro de la base <span class="pastilla">155</span></h3>
+  <p>
+    Se llaman directamente desde la aplicación y corren dentro de PostgreSQL. Como
+    están dentro, pueden hacer en una sola operación lo que de otro modo serían
+    varias idas y venidas — y no hay forma de ejecutar la mitad.
+  </p>
+  <div class="rejilla">
+    <div class="ficha"><span class="mono">create_order_from_cart</span><h4>Convierte el carrito en pedido</h4><p>Congela precios, descuenta inventario y crea el cobro, todo o nada</p></div>
+    <div class="ficha"><span class="mono">issue_pos_invoice</span><h4>Emite la factura</h4><p>Despeja el IVA hacia atrás: en Colombia el precio de góndola ya lo incluye</p></div>
+    <div class="ficha"><span class="mono">entregar_por_codigo</span><h4>Entrega verificada</h4><p>Comprueba código, sede, pago y estado antes de dar por entregado</p></div>
+    <div class="ficha"><span class="mono">diagnosticar_proyecto</span><h4>Diagnóstico de muro</h4><p>Cruza patología y superficie contra el catálogo real, sin inventar productos</p></div>
+    <div class="ficha"><span class="mono">grant_role · revoke_role</span><h4>Reparto de accesos</h4><p>Exigen ser administrador y se niegan a dejar el sistema sin ninguno</p></div>
+    <div class="ficha"><span class="mono">registrar_recaudo</span><h4>Cobro manual</h4><p>Rechaza cobrar de más: un sobrepago descuadra la cartera en silencio</p></div>
+  </div>
+
+  <h3>2 · Funciones de borde <span class="pastilla">7</span></h3>
+  <p>
+    Corren fuera de la base, en Deno, y existen por una sola razón: <strong>guardan
+    secretos que no pueden llegar al navegador</strong>. Una llave de OpenAI dentro
+    del paquete JavaScript la lee cualquiera y factura al dueño hasta que la cancele.
+  </p>
+  <div class="tabla-marco">
+    <table>
+      <thead><tr><th>Función</th><th>Para qué</th><th>Quién la llama</th></tr></thead>
+      <tbody>
+        <tr><td><code>asistente-voz</code></td><td>Emite el permiso temporal de la llamada</td><td>La tienda</td></tr>
+        <tr><td><code>asistente-ia</code></td><td>Responde con el catálogo real como contexto</td><td>La tienda</td></tr>
+        <tr><td><code>send-email</code></td><td>Arma la plantilla y la manda por SMTP</td><td>La base y el portal</td></tr>
+        <tr><td><code>wompi-webhook</code></td><td>Recibe la confirmación del pago</td><td>La pasarela</td></tr>
+        <tr><td><code>admin-create-user</code></td><td>Da de alta personal interno</td><td>El portal</td></tr>
+        <tr><td><code>admin-reset-password</code></td><td>Restablece el acceso de otra persona</td><td>El portal</td></tr>
+        <tr><td><code>admin-reset-mfa</code></td><td>Reinicia el segundo factor</td><td>El portal</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>3 · Servicios externos <span class="pastilla">4</span></h3>
+  <div class="tabla-marco">
+    <table>
+      <thead><tr><th>Servicio</th><th>Punto de entrada</th><th>Para qué</th></tr></thead>
+      <tbody>
+        <tr><td>OpenAI</td><td><code>/v1/realtime/client_secrets</code></td><td>Permiso temporal para la llamada de voz</td></tr>
+        <tr><td>OpenAI</td><td><code>/v1/realtime/calls</code></td><td>La conversación de voz por WebRTC</td></tr>
+        <tr><td>OpenAI</td><td><code>/v1/chat/completions</code></td><td>El asistente escrito</td></tr>
+        <tr><td>Google</td><td>OAuth 2.0 · OpenID</td><td>Entrar con Google</td></tr>
+        <tr><td>Gmail</td><td><code>smtp.gmail.com:465</code></td><td>Salida del correo</td></tr>
+        <tr><td>Wompi</td><td>Widget + webhook firmado</td><td>Cobro en línea</td></tr>
+        <tr><td>OpenStreetMap</td><td>Teselas de mapa</td><td>Ubicación de los puntos de retiro</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section>
+  <h2>Cómo se hizo el asistente de voz</h2>
+  <p class="entrada">
+    Pintu atiende una llamada hablada, con voz de asesor y avatar que se mueve con
+    lo que dice. La parte difícil no fue la voz: fue que no invente.
+  </p>
+  <div class="diagrama">
+<pre class="mermaid">
+sequenceDiagram
+    autonumber
+    participant N as Navegador
+    participant F as Función de borde
+    participant O as OpenAI Realtime
+    participant D as Base de datos
+    N->>F: Quiero llamar
+    F->>D: ¿Quién es? ¿Qué hay en catálogo?
+    F->>O: Pide un permiso temporal
+    O-->>F: Permiso de un solo uso
+    F-->>N: Permiso + nombre del cliente
+    Note over N: La llave real nunca sale de la función
+    N->>O: Conexión de audio directa
+    O-->>N: Voz de Pintu
+    O->>N: "Necesito buscar un producto"
+    N->>D: Consulta el catálogo real
+    D-->>N: Datos
+    N->>O: Esto es lo que hay
+    O-->>N: Respuesta con datos ciertos
+</pre>
+  </div>
+
+  <h3>Las tres decisiones que lo sostienen</h3>
+  <ul>
+    <li><strong>La llave nunca llega al navegador.</strong> La función de borde pide
+      a OpenAI un permiso temporal de un solo uso. Si alguien lo intercepta, caduca
+      en minutos y no sirve para nada más.</li>
+    <li><strong>Al modelo no se le pregunta por hechos.</strong> No sabe precios ni
+      estados de pedido: cuando hace falta un dato, <em>pide una herramienta</em> y
+      la consulta la resuelve la base. Un modelo suelto sobre un catálogo de pinturas
+      afirma un rendimiento con total seguridad y se equivoca.</li>
+    <li><strong>La llamada tiene tope.</strong> Cinco minutos, con aviso al cuarto, y
+      se cuelga sola tras 45 segundos de silencio. Cada segundo se factura.</li>
+  </ul>
+  <div class="nota">
+    <p>
+      <strong>Lo que Pintu no hace:</strong> no cotiza —deriva a un asesor—, no revela
+      datos de otro pedido —exige el número y comprueba que sea del cliente— y no
+      habla de nada que no esté en el catálogo. Saluda por el nombre de pila porque
+      la función se lo pasa desde la base, no porque el modelo lo adivine.
+    </p>
+  </div>
+</section>
+
+<section>
+  <h2>Cómo se hizo el ingreso con Google</h2>
+  <p class="entrada">
+    Sin contraseñas que guardar, y sin que la aplicación llegue a ver las credenciales.
+  </p>
+  <div class="diagrama">
+<pre class="mermaid">
+sequenceDiagram
+    autonumber
+    participant C as Cliente
+    participant T as Tienda
+    participant S as Supabase Auth
+    participant G as Google
+    C->>T: Entrar con Google
+    T->>S: Inicia el flujo con verificador
+    S-->>C: Redirige a Google
+    C->>G: Se identifica en Google
+    G-->>S: Código de un solo uso
+    S->>G: Canjea el código
+    G-->>S: Identidad verificada
+    S-->>T: Sesión con vencimiento
+    T->>C: Completa tu perfil
+    Note over T,C: Google no entrega teléfono,<br/>ciudad ni documento
+</pre>
+  </div>
+  <p>
+    El intercambio usa <strong>PKCE</strong>: la tienda genera un verificador y solo
+    manda su huella. Quien intercepte el código no puede canjearlo sin el verificador,
+    que nunca viajó por la red.
+  </p>
+  <p>
+    Google entrega correo, nombre y foto. No entrega teléfono, ciudad ni documento —y
+    sin documento no se puede facturar—, así que al entrar por primera vez aparece una
+    sola pantalla que los pide. La ciudad se elige del diccionario oficial DIVIPOLA,
+    no se escribe: con texto libre el perfil quedaría fuera del catálogo y el sistema
+    no podría decidir qué tienda cubre esa dirección.
+  </p>
+</section>
+
+<section>
+  <h2>Cómo se conectan las dos aplicaciones</h2>
+  <p class="entrada">
+    No hay una interfaz entre el portal y la tienda. Están conectadas por la base.
+  </p>
+  <p>
+    Cada aplicación se compila por separado y se publica en su propia dirección, pero
+    las dos abren la misma conexión a Postgres con la misma llave pública. Lo que las
+    diferencia no es la llave: es <strong>quién inició sesión</strong>. Las políticas
+    de la base leen el rol de esa persona y devuelven una cosa u otra.
+  </p>
+  <div class="tabla-marco">
+    <table>
+      <thead><tr><th></th><th>Tienda</th><th>Portal interno</th></tr></thead>
+      <tbody>
+        <tr><td>Entrada</td><td>Correo, contraseña o Google</td><td>Solo correo y contraseña</td></tr>
+        <tr><td>Segundo factor</td><td>Opcional</td><td><strong>Obligatorio</strong></td></tr>
+        <tr><td>Registro</td><td>Abierto</td><td>No existe: las cuentas las crea un administrador</td></tr>
+        <tr><td>Buscadores</td><td>Indexable</td><td>Fuera de Google</td></tr>
+        <tr><td>Si entra quien no debe</td><td>—</td><td>Se le cierra la sesión sola</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="nota">
+    <p>
+      <strong>El portal no se autoservicia a propósito.</strong> No tiene registro ni
+      ingreso con Google: mueve inventario, factura y mueve dinero. Las cuentas las
+      crea alguien, con nombre y apellido, y queda registrado quién las creó.
+    </p>
+  </div>
+</section>
+
+<section>
+  <h2>Los correos que salen solos</h2>
+  <p class="entrada">
+    Nadie los manda. Los dispara la base cuando pasa algo que el cliente tiene que saber.
+  </p>
+  <div class="rejilla">
+    <div class="ficha"><span class="mono">BIENVENIDA</span><h4>Cuenta creada</h4><p>Al registrarse o al darlo de alta el personal interno</p></div>
+    <div class="ficha"><span class="mono">PEDIDO_CREADO</span><h4>Pedido recibido</h4><p>Con el detalle de líneas y la fecha de retiro</p></div>
+    <div class="ficha"><span class="mono">PAGO_RECIBIDO</span><h4>Pago confirmado</h4><p>Se dispara desde el webhook de la pasarela</p></div>
+    <div class="ficha"><span class="mono">PEDIDO_ESTADO</span><h4>Cambio de estado</h4><p>Alistando, listo para retirar, en camino, entregado</p></div>
+  </div>
+  <p style="margin-top:16px">
+    Cada intento queda anotado en una bitácora con su resultado —enviado, fallido u
+    omitido— y su motivo. Un correo que no sale deja rastro; sin eso, el fallo es
+    invisible hasta que un cliente reclama.
+  </p>
+  <p>
+    Hay además una red de seguridad: los dominios de prueba nunca reciben nada, y se
+    puede acotar el envío a una lista de destinatarios mientras se prueba.
+  </p>
+</section>
+
+<section>
+  <h2>Cómo se comprueba que funciona</h2>
+  <p class="entrada">
+    542 pruebas contra una base de datos real, no simulada.
+  </p>
+  <p>
+    Las pruebas crean sus propios usuarios, empresas y pedidos, comprueban lo suyo y
+    lo borran. No dependen de datos sembrados: una prueba que se apoya en datos de
+    demostración falla el día que alguien limpia la base, por algo que no tiene que
+    ver con lo que comprobaba.
+  </p>
+  <p>
+    Buena parte de ellas comprueban <strong>lo que el sistema debe impedir</strong>:
+    que un cliente no vea el pedido de otro, que no se pueda revocar al último
+    administrador, que un pago no se cuente dos veces si la pasarela reenvía el
+    evento, que no se entregue mercancía sin cobrar.
+  </p>
+</section>
+
+<footer>
+  <p>
+    ColorLink · Documentación técnica generada el 5 de septiembre de 2026.
+    Las cifras salen de contar el sistema, no de estimarlo.
+    Pintuco y su isotipo son marcas registradas de su titular.
+  </p>
+</footer>
+
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mermaid/11.4.1/mermaid.min.js"></script>
+<script>
+  // Los diagramas están escritos en mermaid dentro de <pre class="mermaid">.
+  // El tema se elige según el del sistema para que las líneas y el texto se
+  // lean tanto en claro como en oscuro.
+  (function () {
+    var oscuro = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    if (window.mermaid) {
+      window.mermaid.initialize({
+        startOnLoad: true,
+        theme: oscuro ? 'dark' : 'default',
+        securityLevel: 'strict',
+        fontFamily: "'IBM Plex Sans', system-ui, sans-serif"
+      });
+    }
+  })();
+</script>
