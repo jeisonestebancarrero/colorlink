@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import { mensajeDeLaFuncion } from './errorDeFuncion';
 
 /**
  * Servicios de administración — aplicación interna.
@@ -523,36 +524,6 @@ export interface EstadoEntornoCorreo {
   emails_enabled: boolean;
   allowlist: string[];
   updated_at: string | null;
-}
-
-/**
- * El mensaje que la función de verdad devolvió.
- *
- * `functions.invoke` entrega el error con la respuesta HTTP dentro, pero su
- * cuerpo puede haber sido leído ya: `.json()` entonces revienta y quien lo
- * llama se queda con un mensaje genérico. Eso hacía que un «Destinatario y
- * asunto son obligatorios» —perfectamente claro— llegara a la pantalla como
- * «No fue posible enviar el correo». Se clona antes de leer, y si aun así no
- * se puede, se intenta como texto plano.
- */
-async function mensajeDeLaFuncion(error: unknown, generico: string): Promise<string> {
-  const ctx = (error as { context?: Response }).context;
-  if (!ctx || typeof ctx.clone !== 'function') {
-    return error instanceof Error && error.message ? error.message : generico;
-  }
-  try {
-    const cuerpo = await ctx.clone().json();
-    if (cuerpo?.error?.message) return cuerpo.error.message as string;
-    if (cuerpo?.message) return cuerpo.message as string;
-  } catch {
-    try {
-      const texto = (await ctx.clone().text()).trim();
-      if (texto) return texto.slice(0, 300);
-    } catch {
-      /* se cae al genérico */
-    }
-  }
-  return generico;
 }
 
 export const configService = {

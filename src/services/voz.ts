@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import { mensajeDeLaFuncion } from './errorDeFuncion';
 
 /**
  * Pintu por voz: la llamada.
@@ -335,7 +336,13 @@ export async function iniciarLlamada(op: OpcionesLlamada): Promise<ManejadorLlam
 
   // 1. El token efímero. La llave real nunca llega aquí.
   const { data: resp, error: errFn } = await supabase.functions.invoke(FUNCION, { body: {} });
-  if (errFn) throw new Error('No fue posible abrir la llamada.');
+  if (errFn) {
+    // El motivo llega en el cuerpo de la respuesta, y antes se descartaba: la
+    // pantalla decía «No fue posible abrir la llamada» tanto si faltaba la
+    // llave del proveedor como si la sesión había caducado. Son problemas
+    // distintos y con arreglos distintos.
+    throw new Error(await mensajeDeLaFuncion(errFn, 'No fue posible abrir la llamada.'));
+  }
   const cuerpo = resp as {
     success: boolean;
     data?: { token: string; nombre?: string };
