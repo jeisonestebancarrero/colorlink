@@ -62,7 +62,41 @@ Deno.serve(async (req: Request) => {
   // usuario detrás y no debe haberlo: el aviso de "pedido listo" no puede
   // depender de que alguien tenga una pestaña abierta.
   const token = authHeader.replace(/^Bearer\s+/i, '');
-  const esServicio = token === serviceKey;
+
+  /**
+   * El rol que DECLARA el token.
+   *
+   * Un JWT lleva su carga en claro —está firmado, no cifrado— y esta función
+   * corre con `verify_jwt`, así que el gateway YA comprobó la firma antes de
+   * dejar pasar la llamada. Leer el rol de ahí es fiable: nadie puede
+   * fabricarse un token que diga `service_role` sin la llave de firma.
+   */
+  const rolDelToken = (t: string): string | null => {
+    try {
+      const carga = t.split('.')[1];
+      if (!carga) return null;
+      const base64 = carga.replace(/-/g, '+').replace(/_/g, '/');
+      const relleno = base64 + '='.repeat((4 - (base64.length % 4)) % 4);
+      return (JSON.parse(atob(relleno)) as { role?: string }).role ?? null;
+    } catch {
+      return null;
+    }
+  };
+
+  // Antes esto era SOLO `token === serviceKey`, y era demasiado frágil.
+  //
+  // Un proyecto puede tener más de una llave de servicio válida, y la que el
+  // administrador copia del panel no tiene por qué ser byte a byte la misma
+  // que Supabase le inyecta a la función. Cuando no coincidían, la función
+  // buscaba un usuario detrás de una llave de servicio, no lo encontraba y
+  // respondía 401 «Sesión requerida». Como quien llamaba era la base —que
+  // encola y no espera respuesta—, el fallo no dejaba rastro en ningún lado:
+  // ni correo, ni error, ni registro. Costó encontrarlo leyendo la cola de
+  // pg_net.
+  //
+  // Se conserva la comparación exacta como primer camino, más rápido y sin
+  // decodificar nada, y el rol del token como el que de verdad decide.
+  const esServicio = token === serviceKey || rolDelToken(token) === 'service_role';
 
   let user: { id: string } | null = null;
   if (!esServicio) {
