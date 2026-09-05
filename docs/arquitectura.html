@@ -325,11 +325,38 @@
     </table>
   </div>
 
+  <h3>«¿Entonces no hicieron backend?»</h3>
+  <p>
+    Es la pregunta que suele salir, y la respuesta es que <strong>sí hay backend;
+    lo que no hay es un servidor</strong>. Son cosas distintas que se confunden
+    porque casi siempre vienen juntas.
+  </p>
+  <div class="tabla-marco">
+    <table>
+      <thead><tr><th>Pieza de un backend</th><th>Dónde está aquí</th><th>Tamaño</th></tr></thead>
+      <tbody>
+        <tr><td>Modelo de datos</td><td>69 tablas en PostgreSQL</td><td class="num">157 migraciones</td></tr>
+        <tr><td>Lógica de negocio</td><td>155 funciones y 53 disparadores</td><td class="num">29.999 líneas SQL</td></tr>
+        <tr><td>Autorización</td><td>163 políticas de fila y permisos por columna</td><td class="num">incluidas arriba</td></tr>
+        <tr><td>Integraciones y secretos</td><td>7 funciones de borde en Deno</td><td class="num">2.247 líneas</td></tr>
+        <tr><td>Capa HTTP · rutas y controladores</td><td><strong>No se escribió</strong>: se genera del esquema</td><td class="num">0 líneas</td></tr>
+        <tr><td>Servidor que mantener</td><td><strong>No existe</strong></td><td class="num">—</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>
+    Lo que en un proyecto tradicional serían rutas, controladores y serializadores
+    —la parte que más código ocupa y menos negocio contiene— aquí no se escribe.
+    Todo lo demás sí: <strong>más de 32.000 líneas de backend</strong>, solo que
+    escritas en SQL y en funciones sin servidor, no en un proceso de Node o Java.
+  </p>
+
   <div class="nota">
     <p>
-      <strong>En una frase para la presentación:</strong> el sistema no tiene
-      servidor que mantener, y la seguridad no depende de que el programador se
-      acuerde de comprobarla — la aplica el motor de base de datos en cada consulta.
+      <strong>En una frase para la presentación:</strong> el backend está en la
+      base de datos. No hay servidor que mantener, y la seguridad no depende de que
+      el programador se acuerde de comprobarla — la aplica el motor de base de datos
+      en cada consulta.
     </p>
   </div>
 </section>
@@ -585,25 +612,96 @@ sequenceDiagram
 <section>
   <h2>Las interfaces de programación</h2>
   <p class="entrada">
-    Tres clases, y la diferencia entre ellas es dónde vive el secreto.
+    Diecinueve en total, en tres grupos. La distinción que importa: solo siete
+    las escribimos nosotros.
   </p>
 
-  <h3>1 · Funciones dentro de la base <span class="pastilla">155</span></h3>
-  <p>
-    Se llaman directamente desde la aplicación y corren dentro de PostgreSQL. Como
-    están dentro, pueden hacer en una sola operación lo que de otro modo serían
-    varias idas y venidas — y no hay forma de ejecutar la mitad.
-  </p>
-  <div class="rejilla">
-    <div class="ficha"><span class="mono">create_order_from_cart</span><h4>Convierte el carrito en pedido</h4><p>Congela precios, descuenta inventario y crea el cobro, todo o nada</p></div>
-    <div class="ficha"><span class="mono">issue_pos_invoice</span><h4>Emite la factura</h4><p>Despeja el IVA hacia atrás: en Colombia el precio de góndola ya lo incluye</p></div>
-    <div class="ficha"><span class="mono">entregar_por_codigo</span><h4>Entrega verificada</h4><p>Comprueba código, sede, pago y estado antes de dar por entregado</p></div>
-    <div class="ficha"><span class="mono">diagnosticar_proyecto</span><h4>Diagnóstico de muro</h4><p>Cruza patología y superficie contra el catálogo real, sin inventar productos</p></div>
-    <div class="ficha"><span class="mono">grant_role · revoke_role</span><h4>Reparto de accesos</h4><p>Exigen ser administrador y se niegan a dejar el sistema sin ninguno</p></div>
-    <div class="ficha"><span class="mono">registrar_recaudo</span><h4>Cobro manual</h4><p>Rechaza cobrar de más: un sobrepago descuadra la cartera en silencio</p></div>
+  <div class="cifras" style="background:var(--linea); margin:0 0 24px; border:1px solid var(--linea); border-radius:10px; overflow:hidden">
+    <div class="cifra" style="background:var(--superficie)">
+      <b style="color:var(--azul)">5</b>
+      <span style="color:var(--apagado)">de plataforma · generadas</span>
+    </div>
+    <div class="cifra" style="background:var(--superficie)">
+      <b style="color:var(--azul)">7</b>
+      <span style="color:var(--apagado)">propias · funciones de borde</span>
+    </div>
+    <div class="cifra" style="background:var(--superficie)">
+      <b style="color:var(--azul)">7</b>
+      <span style="color:var(--apagado)">externas · de terceros</span>
+    </div>
   </div>
 
-  <h3>2 · Funciones de borde <span class="pastilla">7</span></h3>
+  <h3>Grupo 1 · Las que conectan el sitio con la base <span class="pastilla">5</span></h3>
+  <p>
+    Aquí está la respuesta a «¿qué API conecta la tienda con Supabase?»:
+    <strong>ninguna que hayamos escrito</strong>. Supabase la genera a partir del
+    esquema de la base. Al crear una tabla, su punto de entrada existe al
+    instante; al cambiarle una columna, la interfaz cambia sola. No hay un
+    servidor intermedio que programar, versionar ni mantener sincronizado.
+  </p>
+  <div class="diagrama">
+<pre class="mermaid">
+graph LR
+    A["Tienda / Portal<br/>navegador"] -->|"REST"| P["PostgREST"]
+    A -->|"RPC"| P
+    A -->|"WebSocket"| R["Realtime"]
+    A -->|"HTTPS"| U["Auth"]
+    A -->|"HTTPS"| S["Storage"]
+    P --> D[("PostgreSQL<br/>163 políticas")]
+    R --> D
+    U --> D
+    S --> D
+</pre>
+  </div>
+  <p class="pie">
+    Las cinco desembocan en la misma base, así que las mismas 163 políticas
+    deciden en todas. Cambiar de interfaz no cambia lo que se puede ver.
+  </p>
+  <div class="tabla-marco">
+    <table>
+      <thead>
+        <tr><th>Interfaz</th><th>Qué hace</th><th>Uso real hoy</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>REST</strong><br><span class="mono">/rest/v1/…</span></td>
+          <td>Leer y escribir tablas. Se genera del esquema: 69 tablas y 9 vistas quedan expuestas sin escribir una línea</td>
+          <td class="num">21 tablas usadas<br>44 llamadas</td>
+        </tr>
+        <tr>
+          <td><strong>RPC</strong><br><span class="mono">/rest/v1/rpc/…</span></td>
+          <td>Llamar funciones de la base. Es por donde pasa casi todo el negocio</td>
+          <td class="num">88 funciones<br>95 llamadas</td>
+        </tr>
+        <tr>
+          <td><strong>Auth</strong><br><span class="mono">/auth/v1/…</span></td>
+          <td>Sesiones, registro, Google, segundo factor y recuperación</td>
+          <td class="num">11 operaciones</td>
+        </tr>
+        <tr>
+          <td><strong>Realtime</strong><br><span class="mono">WebSocket</span></td>
+          <td>Empuja los cambios al navegador sin recargar</td>
+          <td class="num">4 canales</td>
+        </tr>
+        <tr>
+          <td><strong>Storage</strong><br><span class="mono">/storage/v1/…</span></td>
+          <td>Imágenes de catálogo, marca y puntos de venta</td>
+          <td class="num">3 depósitos</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="nota">
+    <p>
+      <strong>Los cuatro canales en vivo</strong> son los que hacen que el cliente
+      vea avanzar su pedido sin recargar: <code>seguimiento-cliente</code>,
+      <code>campana-mensajes</code>, <code>bandeja-conversaciones</code> y
+      <code>despachos</code>. Cuando alguien del portal cambia un estado, la base
+      avisa al navegador del cliente por WebSocket.
+    </p>
+  </div>
+
+  <h3>Grupo 2 · Las que sí escribimos <span class="pastilla">7</span></h3>
   <p>
     Corren fuera de la base, en Deno, y existen por una sola razón: <strong>guardan
     secretos que no pueden llegar al navegador</strong>. Una llave de OpenAI dentro
@@ -624,10 +722,10 @@ sequenceDiagram
     </table>
   </div>
 
-  <h3>3 · Servicios externos <span class="pastilla">4</span></h3>
+  <h3>Grupo 3 · Las de terceros <span class="pastilla">7</span></h3>
   <div class="tabla-marco">
     <table>
-      <thead><tr><th>Servicio</th><th>Punto de entrada</th><th>Para qué</th></tr></thead>
+      <thead><tr><th>Proveedor</th><th>Punto de entrada</th><th>Para qué</th></tr></thead>
       <tbody>
         <tr><td>OpenAI</td><td><code>/v1/realtime/client_secrets</code></td><td>Permiso temporal para la llamada de voz</td></tr>
         <tr><td>OpenAI</td><td><code>/v1/realtime/calls</code></td><td>La conversación de voz por WebRTC</td></tr>
@@ -638,6 +736,20 @@ sequenceDiagram
         <tr><td>OpenStreetMap</td><td>Teselas de mapa</td><td>Ubicación de los puntos de retiro</td></tr>
       </tbody>
     </table>
+  </div>
+
+  <h3>Y las 155 funciones de la base</h3>
+  <p>
+    No son una interfaz aparte: se llaman por la RPC del grupo 1. Vale la pena
+    nombrar algunas porque son donde vive el negocio.
+  </p>
+  <div class="rejilla">
+    <div class="ficha"><span class="mono">create_order_from_cart</span><h4>Convierte el carrito en pedido</h4><p>Congela precios, descuenta inventario y crea el cobro, todo o nada</p></div>
+    <div class="ficha"><span class="mono">issue_pos_invoice</span><h4>Emite la factura</h4><p>Despeja el IVA hacia atrás: en Colombia el precio de góndola ya lo incluye</p></div>
+    <div class="ficha"><span class="mono">entregar_por_codigo</span><h4>Entrega verificada</h4><p>Comprueba código, sede, pago y estado antes de dar por entregado</p></div>
+    <div class="ficha"><span class="mono">diagnosticar_proyecto</span><h4>Diagnóstico de muro</h4><p>Cruza patología y superficie contra el catálogo real, sin inventar productos</p></div>
+    <div class="ficha"><span class="mono">grant_role · revoke_role</span><h4>Reparto de accesos</h4><p>Exigen ser administrador y se niegan a dejar el sistema sin ninguno</p></div>
+    <div class="ficha"><span class="mono">registrar_recaudo</span><h4>Cobro manual</h4><p>Rechaza cobrar de más: un sobrepago descuadra la cartera en silencio</p></div>
   </div>
 </section>
 
