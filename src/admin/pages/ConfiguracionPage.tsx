@@ -220,6 +220,7 @@ export const ConfiguracionPage: React.FC = () => {
                 placeholder="tu.correo@ejemplo.com" />
             </div>
             <Button type="button" variant="outline" onClick={probar} isLoading={probando}
+              disabled={!formSmtp.destinoPrueba.trim()}
               leftIcon={<Send className="w-4 h-4" />}>
               Enviar prueba
             </Button>

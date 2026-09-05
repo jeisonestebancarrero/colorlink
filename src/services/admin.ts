@@ -176,18 +176,9 @@ export const usuarioService = {
     const { data, error } = await supabase.functions.invoke('admin-create-user', { body: datos });
 
     if (error) {
-      // El cuerpo de error de la función trae el mensaje presentable.
-      let mensaje = 'No fue posible crear el usuario.';
-      const ctx = (error as { context?: Response }).context;
-      if (ctx && typeof ctx.json === 'function') {
-        try {
-          const cuerpo = await ctx.json();
-          mensaje = cuerpo?.error?.message ?? mensaje;
-        } catch {
-          /* se conserva el mensaje genérico */
-        }
-      }
-      throw new Error(mensaje);
+      // Mismo defecto que en el correo de prueba: el mensaje presentable venía
+      // en el cuerpo y se perdía al leerlo dos veces.
+      throw new Error(await mensajeDeLaFuncion(error, 'No fue posible crear el usuario.'));
     }
 
     const r = data as {
@@ -534,6 +525,36 @@ export interface EstadoEntornoCorreo {
   updated_at: string | null;
 }
 
+/**
+ * El mensaje que la función de verdad devolvió.
+ *
+ * `functions.invoke` entrega el error con la respuesta HTTP dentro, pero su
+ * cuerpo puede haber sido leído ya: `.json()` entonces revienta y quien lo
+ * llama se queda con un mensaje genérico. Eso hacía que un «Destinatario y
+ * asunto son obligatorios» —perfectamente claro— llegara a la pantalla como
+ * «No fue posible enviar el correo». Se clona antes de leer, y si aun así no
+ * se puede, se intenta como texto plano.
+ */
+async function mensajeDeLaFuncion(error: unknown, generico: string): Promise<string> {
+  const ctx = (error as { context?: Response }).context;
+  if (!ctx || typeof ctx.clone !== 'function') {
+    return error instanceof Error && error.message ? error.message : generico;
+  }
+  try {
+    const cuerpo = await ctx.clone().json();
+    if (cuerpo?.error?.message) return cuerpo.error.message as string;
+    if (cuerpo?.message) return cuerpo.message as string;
+  } catch {
+    try {
+      const texto = (await ctx.clone().text()).trim();
+      if (texto) return texto.slice(0, 300);
+    } catch {
+      /* se cae al genérico */
+    }
+  }
+  return generico;
+}
+
 export const configService = {
   async entornoCorreo(): Promise<EstadoEntornoCorreo> {
     const { data, error } = await supabase.rpc('estado_entorno_correo');
@@ -647,6 +668,12 @@ export const configService = {
   },
 
   async enviarPrueba(destinatario: string): Promise<void> {
+    // Se comprueba aquí y no solo en el servidor: pulsar el botón con el campo
+    // vacío es un viaje de ida y vuelta para recibir un error evitable.
+    if (!destinatario.trim()) {
+      throw new Error('Escribe a qué correo quieres enviar la prueba.');
+    }
+
     const { data, error } = await supabase.functions.invoke('send-email', {
       body: {
         to: destinatario,
@@ -659,17 +686,9 @@ export const configService = {
     });
 
     if (error) {
-      let mensaje = 'No fue posible enviar el correo de prueba.';
-      const ctx = (error as { context?: Response }).context;
-      if (ctx && typeof ctx.json === 'function') {
-        try {
-          const cuerpo = await ctx.json();
-          mensaje = cuerpo?.error?.message ?? mensaje;
-        } catch {
-          /* mensaje genérico */
-        }
-      }
-      throw new Error(mensaje);
+      throw new Error(
+        await mensajeDeLaFuncion(error, 'No fue posible enviar el correo de prueba.'),
+      );
     }
     const r = data as { success: boolean; error?: { message: string } };
     if (!r.success) throw new Error(r.error?.message ?? 'No fue posible enviar el correo de prueba.');
