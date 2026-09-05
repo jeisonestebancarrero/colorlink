@@ -7,6 +7,11 @@ import { Button } from '../../components/common/Button';
 import { ExportarBoton } from '../ExportarBoton';
 import { Input } from '../../components/common/Input';
 import { Modal } from '../../components/common/Modal';
+import {
+  SelectorUbicacion,
+  UBICACION_VACIA,
+  type ValorUbicacion,
+} from '../../components/common/SelectorUbicacion';
 import { AccesoUsuarioPanel } from '../AccesoUsuarioPanel';
 import { IconoModulo } from '../IconosDeModulo';
 
@@ -40,6 +45,11 @@ export const UsuariosPage: React.FC = () => {
     }
   };
 
+  // La ciudad se elige del diccionario oficial, no se escribe. Con texto libre
+  // el perfil quedaba sin código de municipio, y sin él este empleado no puede
+  // entrar en el reparto de pedidos por sede.
+  const [ubicacion, setUbicacion] = useState<ValorUbicacion>(UBICACION_VACIA);
+
   useEffect(() => { void cargar(soloInternos); }, [soloInternos]);
 
   const crear = async (e: React.FormEvent) => {
@@ -49,10 +59,16 @@ export const UsuariosPage: React.FC = () => {
 
     setGuardando(true);
     try {
-      const r = await usuarioService.crear(form);
+      const r = await usuarioService.crear({
+        ...form,
+        ...(ubicacion.municipalityCode
+          ? { municipalityCode: ubicacion.municipalityCode, countryCode: ubicacion.countryCode }
+          : {}),
+      });
       setClaveTemporal(r.temporaryPassword);
       setAltaHecha({ correoEnviado: r.correoEnviado });
       setForm({ email: '', firstName: '', lastName: '', phone: '', city: '', roles: [] });
+      setUbicacion(UBICACION_VACIA);
       await cargar(soloInternos);
       if (!r.temporaryPassword) setAbierto(false);
     } catch (e) {
@@ -248,10 +264,17 @@ export const UsuariosPage: React.FC = () => {
               <Input label="Apellido" value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.target.value })} />
             </div>
             <Input label="Correo corporativo" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required />
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <Input label="Teléfono" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
-              <Input label="Ciudad" value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} />
-            </div>
+            <Input label="Teléfono" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+
+            {/* Del catálogo, igual que en el registro del cliente. Escrita a
+                mano quedaba sin código de municipio y el empleado no entraba en
+                el reparto de pedidos por sede. */}
+            <SelectorUbicacion
+              valor={ubicacion}
+              onChange={setUbicacion}
+              pedirBarrio={false}
+              compacto
+            />
 
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-2">

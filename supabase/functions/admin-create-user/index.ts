@@ -23,6 +23,9 @@ interface Peticion {
   lastName?: string;
   phone?: string;
   city?: string;
+  /** Código DIVIPOLA. El disparador de alta deriva de aquí la ciudad. */
+  municipalityCode?: string;
+  countryCode?: string;
   roles: string[];
   /**
    * Si no se envía, se genera una temporal, se marca la cuenta para que la
@@ -106,7 +109,13 @@ Deno.serve(async (req: Request) => {
       first_name: p.firstName.trim(),
       last_name: p.lastName?.trim() ?? '',
       phone: p.phone?.trim() ?? '',
+      // Con el código, `handle_new_user` valida contra el diccionario y escribe
+      // la ciudad con su NOMBRE OFICIAL, ignorando el texto suelto. Sin él se
+      // guarda lo que venga, que es como se llenaba antes la tabla de
+      // «medellin», «Medellín » y «Mede».
       city: p.city?.trim() ?? '',
+      ...(p.municipalityCode?.trim() ? { municipality_code: p.municipalityCode.trim() } : {}),
+      ...(p.countryCode?.trim() ? { country_code: p.countryCode.trim() } : {}),
       client_type: 'Profesional',
       // Sin `company`: el personal interno no genera empresa propia.
     },

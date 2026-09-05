@@ -164,6 +164,8 @@ export const usuarioService = {
     lastName?: string;
     phone?: string;
     city?: string;
+    municipalityCode?: string;
+    countryCode?: string;
     roles: string[];
     password?: string;
   }): Promise<{
