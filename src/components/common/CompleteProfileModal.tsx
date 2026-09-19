@@ -7,6 +7,7 @@ import { Modal } from './Modal';
 import { Input } from './Input';
 import { Select } from './Select';
 import { TIPOS_DOCUMENTO, ETIQUETA_DOCUMENTO } from '../../schemas/auth';
+import { normalizarDocumento, errorDocumento, errorTelefono, normalizarTelefono } from '../../schemas/documento';
 import {
   SelectorUbicacion,
   UBICACION_VACIA,
@@ -80,11 +81,17 @@ export const CompleteProfileModal: React.FC = () => {
     if (!esParticular && !datos.company.trim()) {
       return setError('La empresa o razón social es obligatoria para cuentas empresariales.');
     }
-    if (!datos.phone.trim()) return setError('El teléfono de contacto es obligatorio.');
+    const malTel = errorTelefono(datos.phone);
+    if (malTel) return setError(`${malTel}.`);
     // Sin documento no se puede facturar, y esta es la única pantalla por la
     // que pasa quien entró con Google.
-    if (datos.documentNumber.replace(/\D/g, '').length < 5) {
-      return setError('El número de documento es obligatorio para poder facturarte.');
+    const malDoc = errorDocumento(datos.documentType, datos.documentNumber);
+    if (malDoc) {
+      return setError(
+        datos.documentNumber.trim()
+          ? `${malDoc}.`
+          : 'El número de documento es obligatorio para poder facturarte.',
+      );
     }
 
     // El barrio no se pide aquí: para atender el perfil basta la ciudad, y la
@@ -181,7 +188,9 @@ export const CompleteProfileModal: React.FC = () => {
         <Input
           label="Teléfono de contacto"
           value={datos.phone}
-          onChange={(e) => setDatos({ ...datos, phone: e.target.value })}
+          onChange={(e) =>
+                setDatos({ ...datos, phone: normalizarTelefono(e.target.value) })
+              }
           leftIcon={<Phone className="w-4 h-4" />}
           placeholder="+57 (300) 000-0000"
           required
@@ -198,12 +207,23 @@ export const CompleteProfileModal: React.FC = () => {
               label="Tipo de documento"
               options={TIPOS_DOCUMENTO.map((t) => ({ value: t, label: ETIQUETA_DOCUMENTO[t] }))}
               value={datos.documentType}
-              onChange={(e) => setDatos({ ...datos, documentType: e.target.value })}
+              onChange={(e) =>
+                setDatos({
+                  ...datos,
+                  documentType: e.target.value,
+                  documentNumber: normalizarDocumento(e.target.value, datos.documentNumber),
+                })
+              }
             />
             <Input
               label="Número de documento"
               value={datos.documentNumber}
-              onChange={(e) => setDatos({ ...datos, documentNumber: e.target.value })}
+              onChange={(e) =>
+                setDatos({
+                  ...datos,
+                  documentNumber: normalizarDocumento(datos.documentType, e.target.value),
+                })
+              }
               leftIcon={<IdCard className="w-4 h-4" />}
               inputMode="numeric"
               placeholder="1020304050"

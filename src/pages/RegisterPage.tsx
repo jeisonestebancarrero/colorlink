@@ -13,6 +13,11 @@ import {
 import { GoogleButton, SeparadorAcceso } from '../components/common/GoogleButton';
 import { TIPOS_DOCUMENTO, ETIQUETA_DOCUMENTO } from '../schemas/auth';
 import {
+  normalizarDocumento, errorDocumento,
+  normalizarNit, errorNit,
+  normalizarTelefono, errorTelefono,
+} from '../schemas/documento';
+import {
   User,
   Building2,
   Mail,
@@ -106,21 +111,22 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onNavigate }) => {
 
     if (tipoCuenta === 'EMPRESA') {
       if (!datos.company.trim()) errs.company = 'La razón social es obligatoria';
-      if (datos.companyNit.trim().length < 5) errs.companyNit = 'Ingresa el NIT de la empresa';
+      const malNit = errorNit(datos.companyNit);
+      if (malNit) errs.companyNit = malNit;
       if (!datos.firstName.trim()) errs.firstName = 'El nombre del representante es obligatorio';
       if (!datos.lastName.trim()) errs.lastName = 'El apellido del representante es obligatorio';
     } else {
       if (!datos.firstName.trim()) errs.firstName = 'El nombre es obligatorio';
       if (!datos.lastName.trim()) errs.lastName = 'El apellido es obligatorio';
-      if (datos.documentNumber.trim().length < 5) {
-        errs.documentNumber = 'Ingresa un número de documento válido';
-      }
+      const malDoc = errorDocumento(datos.documentType, datos.documentNumber);
+      if (malDoc) errs.documentNumber = malDoc;
     }
 
     if (!datos.email.trim() || !datos.email.includes('@')) {
       errs.email = 'Ingresa un correo electrónico válido';
     }
-    if (!datos.phone.trim()) errs.phone = 'Ingresa un teléfono de contacto';
+    const malTel = errorTelefono(datos.phone);
+    if (malTel) errs.phone = malTel;
     if (datos.address.trim().length < 5) errs.address = 'Ingresa tu dirección';
 
     const errsUbic = validarUbicacion(ubicacion, { pedirBarrio: true });
@@ -415,7 +421,7 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onNavigate }) => {
                   <Input
                     label="NIT"
                     value={datos.companyNit}
-                    onChange={(e) => set('companyNit', e.target.value)}
+                    onChange={(e) => set('companyNit', normalizarNit(e.target.value))}
                     placeholder="900.123.456-7"
                     error={errors.companyNit}
                     required
@@ -462,13 +468,22 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onNavigate }) => {
                   label="Tipo de documento"
                   options={TIPOS_DOCUMENTO.map((t) => ({ value: t, label: ETIQUETA_DOCUMENTO[t] }))}
                   value={datos.documentType}
-                  onChange={(e) => set('documentType', e.target.value)}
+                  onChange={(e) => {
+                    // Cambiar de pasaporte a cédula tiene que limpiar las
+                    // letras que ya estaban escritas; si no, quedan guardadas
+                    // en un campo que ya no las admite.
+                    const tipo = e.target.value;
+                    set('documentType', tipo);
+                    set('documentNumber', normalizarDocumento(tipo, datos.documentNumber));
+                  }}
                   required
                 />
                 <Input
                   label="Número de documento"
                   value={datos.documentNumber}
-                  onChange={(e) => set('documentNumber', e.target.value)}
+                  onChange={(e) =>
+                    set('documentNumber', normalizarDocumento(datos.documentType, e.target.value))
+                  }
                   placeholder="1.020.304.050"
                   error={errors.documentNumber}
                   required
@@ -491,7 +506,7 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onNavigate }) => {
               <Input
                 label="Teléfono de contacto"
                 value={datos.phone}
-                onChange={(e) => set('phone', e.target.value)}
+                onChange={(e) => set('phone', normalizarTelefono(e.target.value))}
                 placeholder="+57 (312) 000-0000"
                 error={errors.phone}
                 required
