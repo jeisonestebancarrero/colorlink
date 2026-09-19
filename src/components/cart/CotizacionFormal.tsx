@@ -82,6 +82,13 @@ export const CotizacionFormal: React.FC<{
     doc.open();
     doc.write(
       '<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">' +
+        // El <base> es imprescindible y su ausencia solo se nota en producción.
+        // El sitio compilado enlaza el CSS como `/assets/index-xxx.css`, una
+        // ruta relativa; este iframe vive en `about:blank`, que no tiene
+        // dominio contra el cual resolverla, así que la hoja no cargaba y la
+        // cotización salía sin un solo estilo. En desarrollo no se veía porque
+        // Vite incrusta los estilos en la página en vez de enlazarlos.
+        `<base href="${window.location.origin}/">` +
         `<title>Cotización</title>${estilos}` +
         '<style>@page{margin:14mm}body{margin:0;background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}</style>' +
         `</head><body>${nodo.innerHTML}</body></html>`,
