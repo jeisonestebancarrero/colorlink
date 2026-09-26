@@ -5,8 +5,8 @@ import type { CartItem } from '../../types';
 import { SelectorColor } from '../tienda/SelectorColor';
 
 /**
- * Línea vieja de una pintura con carta que quedó sin color: la base no deja crear
- * el pedido así, por eso se pide aquí mismo (o que se quite la línea).
+ * Pintura sin color o con un color que ya no se ofrece: la base no deja crear el pedido así,
+ * por eso se pide aquí mismo (o que se quite la línea).
  */
 export const ColorPendienteLinea: React.FC<{ item: CartItem }> = ({ item }) => {
   const { lineasSinColor, coloresDeLinea, elegirColorLinea } = useCart();
@@ -17,7 +17,7 @@ export const ColorPendienteLinea: React.FC<{ item: CartItem }> = ({ item }) => {
         colores={coloresDeLinea(item)}
         valor={null}
         onElegir={(codigo) => void elegirColorLinea(item.id, codigo)}
-        etiqueta="Falta el color"
+        etiqueta={item.colorCode ? `${item.colorName ?? 'Ese color'} ya no se ofrece: elige otro` : 'Falta el color'}
         faltante
         compacto
       />
@@ -34,8 +34,8 @@ export const AvisoColoresPendientes: React.FC = () => {
       <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
       <span>
         {lineasSinColor.length === 1
-          ? `Elige el color de «${lineasSinColor[0].productName}» o quítalo para poder confirmar el pedido.`
-          : `Hay ${lineasSinColor.length} pinturas sin color. Elige su color o quítalas para poder confirmar el pedido.`}
+          ? `Elige un color disponible para «${lineasSinColor[0].productName}» o quítalo para poder confirmar el pedido.`
+          : `Hay ${lineasSinColor.length} pinturas sin un color disponible. Elige su color o quítalas para poder confirmar el pedido.`}
       </span>
     </div>
   );

@@ -351,8 +351,13 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     [cartaPorProducto]
   );
 
+  // Sin color, o con un color que el producto dejó de ofrecer: la base rechazaría el pedido.
   const lineasSinColor = useMemo(
-    () => cartItems.filter((i) => !i.colorCode && coloresDeLinea(i).length > 0),
+    () =>
+      cartItems.filter((i) => {
+        const carta = coloresDeLinea(i);
+        return carta.length > 0 && (!i.colorCode || !carta.some((c) => c.code === i.colorCode));
+      }),
     [cartItems, coloresDeLinea]
   );
 
@@ -459,7 +464,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // La base rechazaría el pedido (COLOR_REQUERIDO); se avisa antes y se señala la línea.
     if (lineasSinColor.length > 0) {
       showToast(
-        `Elige el color de «${lineasSinColor[0].productName}» o quítalo del carrito antes de confirmar.`,
+        `Revisa el color de «${lineasSinColor[0].productName}» o quítalo del carrito antes de confirmar.`,
         'error'
       );
       setIsCartOpen(true);
