@@ -1,4 +1,5 @@
 import React from 'react';
+import { BrandLogo } from '../common/BrandLogo';
 import { useAuth } from '../../context/AuthContext';
 import { useProjects } from '../../context/ProjectContext';
 import { useCart } from '../../context/CartContext';
@@ -202,20 +203,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
             onClick={() => handleItemClick('dashboard')}
             className="flex items-center gap-2.5 cursor-pointer group"
           >
-            <div className="w-8 h-8 rounded-lg bg-yellow-400 text-slate-950 flex items-center justify-center font-black text-sm shadow-md">
-              P
-            </div>
-            <div>
-              <div className="flex items-center gap-1.5">
-                <span className="text-base font-extrabold text-white tracking-tight">
-                  COLOR<span className="text-yellow-400">LINK</span>
-                </span>
-                <span className="text-[9px] bg-white/20 text-white font-bold px-1.5 py-0.5 rounded">
-                  PINTUCO
-                </span>
-              </div>
-              <span className="text-[10px] text-blue-200">Ecosistema Digital</span>
-            </div>
+            {/* El mismo logo de la cabecera, no una «P» genérica. */}
+            <BrandLogo claro />
           </div>
 
           <button

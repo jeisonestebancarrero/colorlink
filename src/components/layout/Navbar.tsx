@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useProjects } from '../../context/ProjectContext';
 import { useCart } from '../../context/CartContext';
@@ -64,6 +65,24 @@ export const Navbar: React.FC<NavbarProps> = ({
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showComprarMenu, setShowComprarMenu] = useState(false);
+  const [posMenuComprar, setPosMenuComprar] = useState<{ top: number; left: number } | null>(null);
+  // Pasar del botón al menú cruza un hueco de nada; sin esta espera el menú se
+  // cerraba justo al ir a usarlo.
+  const temporizadorMenuComprar = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const mantenerMenuComprar = () => {
+    if (temporizadorMenuComprar.current) clearTimeout(temporizadorMenuComprar.current);
+  };
+  const abrirMenuComprar = (ancla: HTMLElement) => {
+    mantenerMenuComprar();
+    const caja = ancla.getBoundingClientRect();
+    setPosMenuComprar({ top: caja.bottom, left: caja.left });
+    setShowComprarMenu(true);
+  };
+  const cerrarMenuComprar = () => {
+    mantenerMenuComprar();
+    temporizadorMenuComprar.current = setTimeout(() => setShowComprarMenu(false), 150);
+  };
 
   /**
    * ¿La fila azul se sale de la pantalla?
@@ -251,7 +270,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           <div className="flex items-center gap-2 sm:gap-3 min-w-0">
             <button
               onClick={onOpenMobileMenu}
-              className="lg:hidden p-2 text-slate-700 hover:text-slate-900 hover:bg-slate-100 rounded-lg cursor-pointer"
+              className="lg:hidden p-2 min-w-11 min-h-11 sm:min-w-0 sm:min-h-0 flex items-center justify-center text-slate-700 hover:text-slate-900 hover:bg-slate-100 rounded-lg cursor-pointer"
               aria-label="Abrir menú"
             >
               <Menu className="w-5 h-5" />
@@ -464,7 +483,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             {/* Shopping Cart Button */}
             <button
               onClick={() => setIsCartOpen(true)}
-              className="relative bg-[#004F9F] hover:bg-[#003875] text-white px-2.5 sm:px-3.5 py-2 rounded-xl transition-all flex items-center gap-1.5 sm:gap-2 cursor-pointer shadow-md shadow-[#004F9F]/20 font-bold text-xs shrink-0"
+              className="relative bg-[#004F9F] hover:bg-[#003875] text-white px-2.5 sm:px-3.5 py-2 min-h-11 sm:min-h-0 rounded-xl transition-all flex items-center gap-1.5 sm:gap-2 cursor-pointer shadow-md shadow-[#004F9F]/20 font-bold text-xs shrink-0"
               aria-label="Abrir Carrito"
             >
               <ShoppingCart className="w-4 h-4" />
@@ -490,7 +509,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   setShowNotifications(false);
                   setShowUserMenu(false);
                 }}
-                className="relative p-2 text-slate-700 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
+                className="relative p-2 min-w-11 min-h-11 sm:min-w-0 sm:min-h-0 flex items-center justify-center text-slate-700 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
                 aria-label={mensajesSinLeer > 0
                   ? `Mensajes: ${mensajesSinLeer} sin leer`
                   : 'Mensajes'}
@@ -564,7 +583,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   setShowNotifications(!showNotifications);
                   setShowUserMenu(false);
                 }}
-                className="relative p-2 text-slate-700 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
+                className="relative p-2 min-w-11 min-h-11 sm:min-w-0 sm:min-h-0 flex items-center justify-center text-slate-700 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
                 aria-label="Notificaciones"
               >
                 <Bell className="w-5 h-5" />
@@ -772,8 +791,8 @@ export const Navbar: React.FC<NavbarProps> = ({
                   <div
                     key={item.id}
                     className="relative"
-                    onMouseEnter={() => setShowComprarMenu(true)}
-                    onMouseLeave={() => setShowComprarMenu(false)}
+                    onMouseEnter={(e) => abrirMenuComprar(e.currentTarget)}
+                    onMouseLeave={cerrarMenuComprar}
                   >
                     <button
                       onClick={() => onNavigate(item.id)}
@@ -788,9 +807,16 @@ export const Navbar: React.FC<NavbarProps> = ({
                       <ChevronDown className="w-3 h-3 text-blue-200" />
                     </button>
 
-                    {/* Comprar Category Mega Flyout */}
-                    {showComprarMenu && (
-                      <div className="absolute left-0 top-full w-80 bg-white text-slate-900 rounded-2xl shadow-2xl border border-slate-200 p-3 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+                    {/* El menú va a `document.body`: dentro de la tira quedaba
+                        recortado por su `overflow-x-auto` y su máscara, y nunca
+                        se veía. */}
+                    {showComprarMenu && posMenuComprar && createPortal(
+                      <div
+                        className="fixed w-80 bg-white text-slate-900 rounded-2xl shadow-2xl border border-slate-200 p-3 z-[60] animate-in fade-in slide-in-from-top-2 duration-150"
+                        style={{ top: posMenuComprar.top, left: posMenuComprar.left }}
+                        onMouseEnter={mantenerMenuComprar}
+                        onMouseLeave={cerrarMenuComprar}
+                      >
                         <div className="px-2 py-1 pb-2 border-b border-slate-100 flex items-center justify-between">
                           <span className="text-[11px] font-extrabold text-slate-900 uppercase tracking-wider">
                             Categorías de Pintura
@@ -822,7 +848,8 @@ export const Navbar: React.FC<NavbarProps> = ({
                             </button>
                           ))}
                         </div>
-                      </div>
+                      </div>,
+                      document.body,
                     )}
                   </div>
                 );

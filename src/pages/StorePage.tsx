@@ -160,14 +160,14 @@ export const StorePage: React.FC<StorePageProps> = ({ onNavigate, initialCategor
           <div className="flex flex-wrap items-center gap-3 pt-2">
             <button
               onClick={() => onNavigate('solutions')}
-              className="bg-yellow-400 hover:bg-yellow-300 text-slate-900 text-xs font-extrabold px-4 py-2.5 rounded-lg shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
+              className="bg-yellow-400 hover:bg-yellow-300 text-slate-900 text-xs font-extrabold px-4 py-2.5 min-h-11 sm:min-h-0 rounded-lg shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
             >
               <Package className="w-4 h-4" />
               <span>Ver Kits de Solución por Problema (-10%)</span>
             </button>
             <button
               onClick={() => onNavigate('calculator')}
-              className="bg-white/10 hover:bg-white/20 text-white text-xs font-semibold px-4 py-2.5 rounded-lg border border-white/20 transition-all flex items-center gap-1.5 cursor-pointer"
+              className="bg-white/10 hover:bg-white/20 text-white text-xs font-semibold px-4 py-2.5 min-h-11 sm:min-h-0 rounded-lg border border-white/20 transition-all flex items-center gap-1.5 cursor-pointer"
             >
               <SlidersHorizontal className="w-4 h-4" />
               <span>Calcular Galones Necesarios</span>
@@ -185,7 +185,7 @@ export const StorePage: React.FC<StorePageProps> = ({ onNavigate, initialCategor
           <button
             key={cat}
             onClick={() => setSelectedCategory(cat)}
-            className={`px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
+            className={`px-3.5 py-2 min-h-11 sm:min-h-0 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
               selectedCategory === cat
                 ? 'bg-[#004F9F] text-white shadow-xs'
                 : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
@@ -327,12 +327,15 @@ export const StorePage: React.FC<StorePageProps> = ({ onNavigate, initialCategor
                     </span>
                   </div>
 
+                  {/* Con texto y del mismo estilo que el «Comprar» de la portada:
+                      un icono suelto de 32 px era un blanco pequeño para el dedo. */}
                   <button
                     onClick={() => handleOpenProductDetail(product)}
-                    className="bg-[#004F9F] hover:bg-[#003B77] text-white p-2 rounded-lg transition-colors cursor-pointer shadow-xs"
+                    className="bg-[#004F9F] hover:bg-[#003B77] text-white px-3 py-2 min-h-11 sm:min-h-0 rounded-xl text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs"
                     title="Ver detalle y comprar"
                   >
-                    <ShoppingCart className="w-4 h-4" />
+                    <ShoppingCart className="w-3.5 h-3.5" />
+                    <span>Comprar</span>
                   </button>
                 </div>
               </div>

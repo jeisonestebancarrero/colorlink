@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Navbar } from './Navbar';
 import { Sidebar } from './Sidebar';
 import { Toast } from '../common/Toast';
+import { BrandLogo } from '../common/BrandLogo';
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -73,24 +74,9 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
             {/* Brand column */}
             <div className="space-y-4">
-              <div className="flex items-center gap-2.5">
-                <div className="w-10 h-10 rounded-xl bg-yellow-400 flex items-center justify-center text-slate-950 font-black text-xl shadow-md">
-                  P
-                </div>
-                <div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-xl font-black tracking-tight text-white">
-                      COLOR<span className="text-yellow-400">LINK</span>
-                    </span>
-                    <span className="text-[10px] font-bold uppercase tracking-wider bg-white/20 text-white px-2 py-0.5 rounded">
-                      PINTUCO
-                    </span>
-                  </div>
-                  <p className="text-xs text-blue-200 font-medium">
-                    Ecosistema Digital Inteligente
-                  </p>
-                </div>
-              </div>
+              {/* El mismo logo de la cabecera. Antes era una «P» amarilla que no
+                  se parecía a nada del resto del sitio. */}
+              <BrandLogo claro />
               <p className="text-xs text-blue-200/90 leading-relaxed">
                 La plataforma oficial de Pintuco para comprar pinturas, simular colores en tiempo real, calcular metrajes exactos y especificar sistemas técnicos con respaldo de fábrica.
               </p>

@@ -13,6 +13,7 @@ import {
 } from '../../services/conversacion';
 import { AcuseDeLectura } from '../common/AcuseDeLectura';
 import { useMensajes } from '../../context/MensajesContext';
+import { useCart } from '../../context/CartContext';
 import { LlamadaPintu } from './LlamadaPintu';
 
 /**
@@ -35,6 +36,9 @@ export const Asistente: React.FC<{
 }> = ({ onNavigate }) => {
   const { user, isAuthenticated } = useAuth();
   const [abierto, setAbierto] = useState(false);
+  // Con el carrito abierto el botón flotante tapaba «Confirmar Pedido», que
+  // queda justo en esa esquina.
+  const { isCartOpen } = useCart();
   /** La llamada de voz vive aparte del hilo escrito: es otra forma de hablar. */
   const [enLlamada, setEnLlamada] = useState(false);
   const [mensajes, setMensajes] = useState<MensajeAsistente[]>([]);
@@ -234,7 +238,7 @@ export const Asistente: React.FC<{
         />
       )}
 
-      {!abierto && (
+      {!abierto && !isCartOpen && (
         <div className="fixed bottom-6 right-6 z-[60] flex items-center gap-2.5">
           {/* Invitación, y solo UNA vez.
               Aparece a los pocos segundos y se va sola: un cartel permanente
