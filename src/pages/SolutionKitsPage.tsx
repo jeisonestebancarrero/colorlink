@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useCart } from '../context/CartContext';
 import { useProjects } from '../context/ProjectContext';
-import { useSolutionKits } from '../hooks/useCatalog';
+import { useProducts, useSolutionKits } from '../hooks/useCatalog';
 import { CatalogError, CatalogLoading } from '../components/common/CatalogState';
 import { SolutionKit } from '../types';
 import {
@@ -22,6 +22,7 @@ import {
   Building2,
 } from 'lucide-react';
 import { Button } from '../components/common/Button';
+import { SelectorColor } from '../components/tienda/SelectorColor';
 
 interface SolutionKitsPageProps {
   onNavigate: (page: string, param?: string) => void;
@@ -32,6 +33,13 @@ export const SolutionKitsPage: React.FC<SolutionKitsPageProps> = ({ onNavigate }
   const { data: PINTUCO_SOLUTION_KITS, isLoading, error, reload } = useSolutionKits();
 
   const { addKitToCart } = useCart();
+  // Carta de colores por producto: los pasos con carta exigen color antes de comprar el kit.
+  const { data: productos } = useProducts();
+  const cartaDe = (productId: string) =>
+    productos.find((p) => p.id === productId)?.availableColors ?? [];
+  // Color por kit y número de paso, para que cambiar de kit no mezcle elecciones.
+  const [coloresPorKit, setColoresPorKit] = useState<Record<string, Record<number, string>>>({});
+  const [faltanColores, setFaltanColores] = useState(false);
   const { activeProject, setActiveProjectId, showToast } = useProjects();
 
   // Sin id inicial: en el primer render el catálogo está vacío y `[0].id` lanzaba.
@@ -63,10 +71,29 @@ export const SolutionKitsPage: React.FC<SolutionKitsPageProps> = ({ onNavigate }
     }).format(num);
   };
 
-  const handleAddFullKitToCart = () => {
+  const coloresKit = activeKit ? coloresPorKit[activeKit.id] ?? {} : {};
+  const pasosSinColor = activeKit
+    ? activeKit.steps.filter((st) => cartaDe(st.productId).length > 0 && !coloresKit[st.stepNumber])
+    : [];
+
+  const elegirColorPaso = (paso: number, codigo: string) => {
     if (!activeKit) return;
-    addKitToCart(activeKit, multiplier);
-    showToast(`¡${activeKit.name} agregado al carrito con descuento de paquete!`, 'success');
+    setColoresPorKit((prev) => ({ ...prev, [activeKit.id]: { ...(prev[activeKit.id] ?? {}), [paso]: codigo } }));
+  };
+
+  const handleAddFullKitToCart = async () => {
+    if (!activeKit) return;
+    if (pasosSinColor.length > 0) {
+      setFaltanColores(true);
+      showToast(
+        `Elige el color de: ${pasosSinColor.map((st) => `«${st.productName}»`).join(', ')}.`,
+        'error'
+      );
+      return;
+    }
+    if (await addKitToCart(activeKit, multiplier, coloresKit)) {
+      showToast(`¡${activeKit.name} agregado al carrito con descuento de paquete!`, 'success');
+    }
   };
 
   const handleLinkToProject = () => {
@@ -114,7 +141,7 @@ export const SolutionKitsPage: React.FC<SolutionKitsPageProps> = ({ onNavigate }
           return (
             <div
               key={kit.id}
-              onClick={() => setSelectedKitId(kit.id)}
+              onClick={() => { setSelectedKitId(kit.id); setFaltanColores(false); }}
               className={`p-4 rounded-2xl border transition-all cursor-pointer flex flex-col justify-between space-y-3 ${
                 isSelected
                   ? 'bg-blue-50/80 border-[#004F9F] ring-2 ring-blue-600 shadow-md'
@@ -242,6 +269,15 @@ export const SolutionKitsPage: React.FC<SolutionKitsPageProps> = ({ onNavigate }
                       <strong className="text-[#004F9F] font-bold">{qty} unidades</strong>
                     </div>
                   </div>
+                  {cartaDe(step.productId).length > 0 && (
+                    <SelectorColor
+                      colores={cartaDe(step.productId)}
+                      valor={coloresKit[step.stepNumber] ?? null}
+                      onElegir={(codigo) => elegirColorPaso(step.stepNumber, codigo)}
+                      faltante={faltanColores && !coloresKit[step.stepNumber]}
+                      compacto
+                    />
+                  )}
                 </div>
               );
             })}
@@ -291,6 +327,11 @@ export const SolutionKitsPage: React.FC<SolutionKitsPageProps> = ({ onNavigate }
               IVA incluido. Incluye retiro gratis en tienda Pintuco o despacho
               directo a obra.
             </p>
+            {pasosSinColor.length > 0 && (
+              <p className={`text-[11px] font-semibold ${faltanColores ? 'text-red-300' : 'text-yellow-200'}`}>
+                Antes de comprar, elige el color de: {pasosSinColor.map((st) => st.productName).join(', ')}.
+              </p>
+            )}
           </div>
 
           <div className="flex flex-wrap gap-3 w-full md:w-auto">

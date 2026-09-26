@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useCart } from '../../context/CartContext';
+import { AvisoColoresPendientes, ColorPendienteLinea } from './ColorPendiente';
 import { useAuth } from '../../context/AuthContext';
 import { usePickupStores, useTarifaIva } from '../../hooks/useCatalog';
 import { desglosarIvaIncluido, formatearImporteImpuesto } from '../../services/impuestos';
+import { costoEnvio, ENVIO_GRATIS_DESDE_COP } from '../../services/envio';
 import {
   X,
   ShoppingCart,
@@ -68,6 +70,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ onNavigate }) => {
     isCheckoutSuccessOpen,
     setIsCheckoutSuccessOpen,
     lastOrderNumber,
+    ultimaEntregaEstimada,
     completeCheckout,
     necesitaSesionPara,
     pedirSesionPara,
@@ -76,6 +79,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ onNavigate }) => {
     pedidoPorPagar,
     ultimoPedidoPagado,
     cerrarPago,
+    lineasSinColor,
   } = useCart();
   const { user, isAuthenticated } = useAuth();
 
@@ -86,6 +90,9 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ onNavigate }) => {
   // cuadraría con descuentos de kit.
   const { data: tarifaIva } = useTarifaIva();
   const desglose = desglosarIvaIncluido(totalCOP, tarifaIva);
+  // El envío no lleva IVA en la factura: se suma aparte, igual que en create_order_from_cart.
+  const envioCOP = costoEnvio(deliveryMethod === 'delivery', totalCOP);
+  const totalAPagarCOP = totalCOP + envioCOP;
 
   const formatCOP = (num: number) => {
     return new Intl.NumberFormat('es-CO', {
@@ -124,7 +131,8 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ onNavigate }) => {
           items={cartItems}
           subtotal={subtotalCOP}
           descuento={discountCOP}
-          total={totalCOP}
+          total={totalAPagarCOP}
+          envio={envioCOP}
           onCerrar={() => setIsGeneratingQuote(false)}
         />
       )}
@@ -350,6 +358,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ onNavigate }) => {
                                 </span>
                               </div>
                             )}
+                            <ColorPendienteLinea item={item} />
                             <p className="text-xs font-extrabold text-[#004F9F] mt-1">
                               {formatCOP(item.unitPrice)} <span className="text-[10px] font-normal text-slate-500">c/u · IVA incl.</span>
                             </p>
@@ -417,9 +426,18 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ onNavigate }) => {
                       </div>
                     )}
                     <div className="flex justify-between text-slate-600">
-                      <span>Despacho / Retiro:</span>
-                      <span className="font-semibold text-emerald-700">GRATIS</span>
+                      <span>{deliveryMethod === 'delivery' ? 'Envío a domicilio:' : 'Retiro en tienda:'}</span>
+                      {envioCOP > 0 ? (
+                        <span className="font-semibold text-slate-800">{formatCOP(envioCOP)}</span>
+                      ) : (
+                        <span className="font-semibold text-emerald-700">GRATIS</span>
+                      )}
                     </div>
+                    {envioCOP > 0 && (
+                      <p className="text-[11px] text-slate-500">
+                        Envío gratis en compras desde {formatCOP(ENVIO_GRATIS_DESDE_COP)}.
+                      </p>
+                    )}
                     <div className="flex justify-between text-slate-600">
                       <span>Asesoría Técnica Pintuco:</span>
                       <span className="font-semibold text-blue-700">INCLUIDA ($0)</span>
@@ -441,7 +459,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ onNavigate }) => {
                     <div className="pt-2 border-t border-slate-200 flex justify-between items-baseline">
                       <span className="text-sm font-extrabold text-slate-900">Total a Pagar (COP):</span>
                       <span className="text-xl font-extrabold text-[#004F9F]">
-                        {formatCOP(totalCOP)}
+                        {formatCOP(totalAPagarCOP)}
                       </span>
                     </div>
                     <p className="text-[11px] text-slate-500 leading-snug">
@@ -509,6 +527,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ onNavigate }) => {
                           </span>
                         </p>
                       )}
+                      <AvisoColoresPendientes />
                       <div className="grid grid-cols-2 gap-2">
                         <Button
                           onClick={handleDownloadQuote}
@@ -521,7 +540,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ onNavigate }) => {
                         </Button>
                         <Button
                           onClick={completeCheckout}
-                          disabled={recuperandoCarrito}
+                          disabled={recuperandoCarrito || lineasSinColor.length > 0}
                           variant="primary"
                           className="bg-[#004F9F] hover:bg-[#003B77] text-xs font-bold text-white shadow-md flex items-center justify-center gap-1.5 cursor-pointer"
                         >
@@ -573,8 +592,12 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ onNavigate }) => {
               <p className="text-xs text-slate-600 leading-relaxed">
                 {ultimoPedidoPagado ? (
                   <>
-                    Notificamos a <strong>{selectedStore.name}</strong> para que empiece el
-                    alistamiento. Te avisamos por correo en cada paso.
+                    {deliveryMethod === 'pickup' ? (
+                      <>Notificamos a <strong>{selectedStore.name}</strong> para que empiece el alistamiento.</>
+                    ) : (
+                      <>Empezamos a preparar tu envío a la dirección indicada.</>
+                    )}{' '}
+                    Te avisamos por correo en cada paso.
                   </>
                 ) : (
                   <>
@@ -607,8 +630,12 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ onNavigate }) => {
                 </strong>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-500">Fecha Programada:</span>
-                <strong className="text-slate-800">{pickupDate}</strong>
+                <span className="text-slate-500">
+                  {deliveryMethod === 'pickup' ? 'Fecha de retiro:' : 'Entrega estimada:'}
+                </span>
+                <strong className="text-slate-800">
+                  {deliveryMethod === 'pickup' ? pickupDate : ultimaEntregaEstimada ?? 'Ver en Mis Pedidos'}
+                </strong>
               </div>
             </div>
 

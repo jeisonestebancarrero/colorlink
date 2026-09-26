@@ -94,10 +94,12 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-200">
         <div>
           <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">
-            Perfil de Cliente B2B
+            Mi cuenta
           </h1>
           <p className="text-xs text-slate-500">
-            Administra los datos de tu empresa, información de contacto y preferencias
+            {esCuentaDeEmpresa
+              ? 'Administra los datos de tu empresa, información de contacto y preferencias'
+              : 'Administra tus datos de contacto, direcciones y contraseña'}
           </p>
         </div>
 
@@ -163,10 +165,12 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
                 {user?.clientType}
               </span>
             </div>
-            <p className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
-              <Building2 className="w-3.5 h-3.5 text-slate-400" />
-              {user?.company}
-            </p>
+            {user?.company && (
+              <p className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
+                <Building2 className="w-3.5 h-3.5 text-slate-400" />
+                {user.company}
+              </p>
+            )}
             <p className="text-xs text-slate-400">
               Cliente verificado Pintuco Colombia • ID: {user?.id}
             </p>
@@ -346,9 +350,11 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
         <ShieldCheck className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
         <div className="text-xs text-blue-900 leading-relaxed">
           <strong className="block font-semibold mb-0.5">
-            Cuenta Corporativa Segura Pintuco
+            {esCuentaDeEmpresa ? 'Cuenta corporativa segura Pintuco' : 'Cuenta segura Pintuco'}
           </strong>
-          Tus proyectos y diagnósticos quedan asociados a tu razón social para facilitar la emisión de garantías comerciales y el despacho de producto por distribuidores autorizados.
+          {esCuentaDeEmpresa
+            ? 'Tus proyectos y diagnósticos quedan asociados a tu razón social para facilitar la emisión de garantías comerciales y el despacho de producto por distribuidores autorizados.'
+            : 'Tus pedidos, proyectos y diagnósticos quedan asociados a tu documento para emitir tus facturas y respaldar las garantías.'}
         </div>
       </div>
     </div>

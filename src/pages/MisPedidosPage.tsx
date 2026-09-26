@@ -62,8 +62,12 @@ export const MisPedidosPage: React.FC<Props> = ({ onNavigate, numeroAbierto }) =
     return () => { cancelar(); setEnVivo(false); };
   }, []);
 
+  // Una fecha sin hora se lee como medianoche UTC y en Colombia saldría el día anterior.
   const fecha = (iso: string | null) =>
-    iso ? new Date(iso).toLocaleDateString('es-CO', { day: '2-digit', month: 'long', year: 'numeric' }) : '—';
+    iso
+      ? new Date(/^\d{4}-\d{2}-\d{2}$/.test(iso) ? `${iso}T00:00:00` : iso)
+          .toLocaleDateString('es-CO', { day: '2-digit', month: 'long', year: 'numeric' })
+      : '—';
 
   if (cargando) return <CatalogLoading mensaje="Cargando tus pedidos…" />;
   if (error) return <CatalogError mensaje={error} onReintentar={() => { setCargando(true); void cargar(); }} />;

@@ -26,6 +26,7 @@ montarAlmacen(almacen);
 const {
   leerLineas, vaciar, hayLineas, idLinea, agregarProducto,
   fijarCantidad, quitar, guardarIntencion, leerIntencion, CANTIDAD_MAXIMA,
+  fijarColor, tieneCarta,
 } = await import('./carritoInvitado');
 
 /** Producto mínimo con dos presentaciones de variantes reales. */
@@ -203,5 +204,31 @@ describe('Carrito del visitante sin sesión', () => {
     expect(leerIntencion()).toBeNull();
 
     aviso.mockRestore();
+  });
+
+  it('no agrega una pintura con carta si no trae color (la base rechazaría el pedido)', async () => {
+    const conCarta: StoreProduct = {
+      ...producto(),
+      availableColors: [{ name: 'Blanco Puro', code: 'PNT-100', hex: '#FFFFFF', family: 'Blancos & Neutros' }],
+    };
+    expect(tieneCarta(conCarta)).toBe(true);
+    expect(tieneCarta(producto())).toBe(false);
+
+    await expect(agregarProducto(conCarta, '1 Galón (3.785 L)')).rejects.toThrow(/Elige el color/);
+    await expect(agregarProducto(conCarta, '1 Galón (3.785 L)', 'PNT-999')).rejects.toThrow(/no se ofrece/);
+    expect(leerLineas()).toEqual([]);
+  });
+
+  it('al poner color a una línea vieja la junta con la que ya tenía ese color', () => {
+    almacen.setItem('colorlink.carrito.invitado.v1', JSON.stringify([
+      { variantId: 'v1', colorId: null, quantity: 2, kitSolutionId: null },
+      { variantId: 'v1', colorId: 'c1', quantity: 3, kitSolutionId: null },
+    ]));
+
+    fijarColor(idLinea('v1', null), 'c1');
+
+    expect(leerLineas()).toEqual([
+      { variantId: 'v1', colorId: 'c1', quantity: 5, kitSolutionId: null },
+    ]);
   });
 });

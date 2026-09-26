@@ -307,6 +307,8 @@ export interface CartItem {
   image: string;
   isKitItem?: boolean;
   kitName?: string;
+  /** Porcentaje que descuenta el kit sobre esta línea; lo configura Catálogo → Kits. */
+  kitDiscountPercent?: number;
 }
 
 export interface SolutionKitStep {

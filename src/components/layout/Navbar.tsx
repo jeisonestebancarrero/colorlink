@@ -131,6 +131,27 @@ export const Navbar: React.FC<NavbarProps> = ({
   const sinLeer = notifications.filter((n) => !n.read);
   const [showMensajes, setShowMensajes] = useState(false);
 
+  // Los tres desplegables de la cabecera se cierran al hacer clic fuera o con Escape.
+  useEffect(() => {
+    const cerrar = () => {
+      setShowMensajes(false);
+      setShowNotifications(false);
+      setShowUserMenu(false);
+    };
+    const alPulsar = (e: MouseEvent) => {
+      if (!(e.target as Element).closest?.('[data-menu-cabecera]')) cerrar();
+    };
+    const alTeclear = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') cerrar();
+    };
+    document.addEventListener('mousedown', alPulsar);
+    document.addEventListener('keydown', alTeclear);
+    return () => {
+      document.removeEventListener('mousedown', alPulsar);
+      document.removeEventListener('keydown', alTeclear);
+    };
+  }, []);
+
   const handleNotificationClick = (notif: typeof notifications[0]) => {
     markNotificationRead(notif.id);
     setShowNotifications(false);
@@ -479,7 +500,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
             {/* Mensajes separados de las notificaciones: un mensaje espera respuesta.
                 El contador baja al abrir la conversación, no al desplegar la lista. */}
-            <div className="relative">
+            <div className="relative" data-menu-cabecera>
               <button
                 onClick={() => {
                   setShowMensajes(!showMensajes);
@@ -551,12 +572,13 @@ export const Navbar: React.FC<NavbarProps> = ({
             </div>
 
             {/* Notifications Bell */}
-            <div className="relative">
+            <div className="relative" data-menu-cabecera>
               <button
                 id="btn-navbar-notifications"
                 onClick={() => {
                   setShowNotifications(!showNotifications);
                   setShowUserMenu(false);
+                  setShowMensajes(false);
                 }}
                 className="relative p-2 min-w-11 min-h-11 sm:min-w-0 sm:min-h-0 flex items-center justify-center text-slate-700 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
                 aria-label="Notificaciones"
@@ -634,11 +656,12 @@ export const Navbar: React.FC<NavbarProps> = ({
             </div>
 
             {/* User Account Menu */}
-            <div className="relative">
+            <div className="relative" data-menu-cabecera>
               <button
                 onClick={() => {
                   setShowUserMenu(!showUserMenu);
                   setShowNotifications(false);
+                  setShowMensajes(false);
                 }}
                 className="flex items-center gap-2 p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl hover:bg-slate-100 text-slate-700 transition-colors cursor-pointer border border-slate-200"
               >

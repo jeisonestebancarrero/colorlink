@@ -1,12 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   AlertTriangle, ArrowLeft, ArrowRightLeft, Boxes, ChevronDown, ChevronRight,
-  MapPin, PackageX, Search, Store, Target, X,
+  MapPin, PackageX, Palette, Search, Store, Target, X,
 } from 'lucide-react';
 import {
-  inventarioService, situacion, signoMovimiento, formatearFecha,
+  inventarioService, situacion, signoMovimiento, formatearFecha, sinClasificar, coincideExistencia,
   TIPOS_MOVIMIENTO, ETIQUETA_MOVIMIENTO,
-  type Existencia, type Movimiento, type ResumenPunto, type TipoMovimiento,
+  type ColorInventario, type Existencia, type Movimiento, type ResumenPunto, type TipoMovimiento,
 } from '../../services/backoffice';
 import { useSedes } from '../SedeContext';
 import { ExportarBoton } from '../ExportarBoton';
@@ -32,11 +32,13 @@ export const InventarioPage: React.FC = () => {
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState('');
   const [busqueda, setBusqueda] = useState('');
+  const [filtroColor, setFiltroColor] = useState('');
   const [soloAtencion, setSoloAtencion] = useState(false);
   const [plegados, setPlegados] = useState<Set<string>>(new Set());
   const [moviendo, setMoviendo] = useState<Existencia | null>(null);
   const [trasladando, setTrasladando] = useState<Existencia | null>(null);
   const [reordenando, setReordenando] = useState<Existencia | null>(null);
+  const [clasificando, setClasificando] = useState<Existencia | null>(null);
 
   const escribe = puede('inventory.write');
 
@@ -64,6 +66,7 @@ export const InventarioPage: React.FC = () => {
       setPunto(p);
       setPestana('existencias');
       setBusqueda('');
+      setFiltroColor('');
       setSoloAtencion(false);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'No fue posible abrir el punto de venta.');
@@ -88,18 +91,18 @@ export const InventarioPage: React.FC = () => {
   useEffect(() => { void cargarPuntos(); }, []);
 
   const filtradas = useMemo(() => {
-    const q = busqueda.trim().toLowerCase();
+    const c = filtroColor.trim().toLowerCase();
     return existencias.filter((e) => {
-      const porTexto =
-        !q ||
-        e.producto.toLowerCase().includes(q) ||
-        e.presentacion.toLowerCase().includes(q) ||
-        e.categoria.toLowerCase().includes(q) ||
-        (e.codigo ?? '').toLowerCase().includes(q);
+      // El filtro de color solo mira el color: nombre, código o «sin clasificar».
+      const porColor =
+        !c ||
+        (e.color?.nombre ?? '').toLowerCase().includes(c) ||
+        (e.color?.codigo ?? '').toLowerCase().includes(c) ||
+        (sinClasificar(e) && 'sin clasificar'.includes(c));
       const porAtencion = !soloAtencion || situacion(e) !== 'ok';
-      return porTexto && porAtencion;
+      return coincideExistencia(e, busqueda) && porColor && porAtencion;
     });
-  }, [existencias, busqueda, soloAtencion]);
+  }, [existencias, busqueda, filtroColor, soloAtencion]);
 
   /** Agrupado por categoría. */
   const grupos = useMemo(() => {
@@ -227,6 +230,7 @@ export const InventarioPage: React.FC = () => {
 
   // Dentro de un punto de venta
   const enAtencion = existencias.filter((e) => situacion(e) !== 'ok').length;
+  const porClasificar = existencias.filter((e) => sinClasificar(e) && e.disponible > 0).length;
 
   return (
     <div className="space-y-5">
@@ -289,7 +293,17 @@ export const InventarioPage: React.FC = () => {
               <input
                 value={busqueda}
                 onChange={(e) => setBusqueda(e.target.value)}
-                placeholder="Buscar producto, presentación, código o categoría…"
+                placeholder="Buscar producto, presentación, código, categoría o color…"
+                className="w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 py-2.5 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#004F9F]/20 focus:border-[#004F9F]"
+              />
+            </div>
+            <div className="relative w-full sm:w-56">
+              <Palette className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                value={filtroColor}
+                onChange={(e) => setFiltroColor(e.target.value)}
+                placeholder="Filtrar por color…"
+                aria-label="Filtrar por color"
                 className="w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 py-2.5 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#004F9F]/20 focus:border-[#004F9F]"
               />
             </div>
@@ -313,11 +327,14 @@ export const InventarioPage: React.FC = () => {
                 punto?.punto ?? '',
                 soloAtencion ? 'Solo lo que requiere atención' : 'Todas las referencias',
                 busqueda.trim() ? `Búsqueda: ${busqueda.trim()}` : '',
+                filtroColor.trim() ? `Color: ${filtroColor.trim()}` : '',
               ].filter(Boolean).join(' · ')}
               columnas={[
                 { titulo: 'Código', valor: (e) => e.codigo },
                 { titulo: 'Producto', valor: (e) => e.producto },
                 { titulo: 'Presentación', valor: (e) => e.presentacion },
+                { titulo: 'Color', valor: (e) => textoColor(e) },
+                { titulo: 'Código de color', valor: (e) => e.color?.codigo ?? '' },
                 { titulo: 'Categoría', valor: (e) => e.categoria },
                 { titulo: 'Marca', valor: (e) => e.marca },
                 { titulo: 'Bodega', valor: (e) => e.bodega },
@@ -329,6 +346,13 @@ export const InventarioPage: React.FC = () => {
               ]}
             />
           </div>
+
+          {porClasificar > 0 && (
+            <div className="p-3.5 bg-amber-50 border border-amber-200 text-amber-800 text-xs rounded-lg font-medium">
+              {porClasificar} referencia{porClasificar > 1 ? 's tienen' : ' tiene'} existencias sin
+              clasificar por color. Usa «Clasificar» en esas filas para asignarles su color real.
+            </div>
+          )}
 
           {grupos.length === 0 ? (
             <div className="bg-white rounded-xl border border-slate-200 shadow-2xs text-center py-14 px-6">
@@ -375,10 +399,11 @@ export const InventarioPage: React.FC = () => {
 
                     {!plegado && (
                       <div className="overflow-x-auto border-t border-slate-100">
-                        <table className="w-full text-sm min-w-[720px]">
+                        <table className="w-full text-sm min-w-[880px]">
                           <thead>
                             <tr className="bg-slate-50 text-[11px] uppercase tracking-wider text-slate-500 font-bold">
                               <th className="text-left px-5 py-2.5">Producto</th>
+                              <th className="text-left px-3 py-2.5">Color</th>
                               <th className="text-right px-3 py-2.5">Disponible</th>
                               <th className="text-right px-3 py-2.5">Reservado</th>
                               <th className="text-right px-3 py-2.5">Neto</th>
@@ -389,10 +414,11 @@ export const InventarioPage: React.FC = () => {
                           <tbody>
                             {filas.map((e) => {
                               const s = situacion(e);
+                              const pendiente = sinClasificar(e);
                               return (
                                 <tr
-                                  key={`${e.variantId}-${e.locationId}`}
-                                  className="border-t border-slate-100"
+                                  key={`${e.variantId}-${e.locationId}-${e.colorId ?? 'sin-color'}`}
+                                  className={`border-t border-slate-100 ${pendiente ? 'bg-amber-50/60' : ''}`}
                                 >
                                   <td className="px-5 py-3">
                                     <div className="flex items-center gap-2">
@@ -412,6 +438,9 @@ export const InventarioPage: React.FC = () => {
                                         </p>
                                       </div>
                                     </div>
+                                  </td>
+                                  <td className="px-3 py-3">
+                                    <CeldaColor existencia={e} />
                                   </td>
                                   <td className="px-3 py-3 text-right tabular-nums text-slate-700">
                                     {cantidad(e.disponible)}
@@ -438,6 +467,11 @@ export const InventarioPage: React.FC = () => {
                                   <td className="px-5 py-3">
                                     {escribe && (
                                       <div className="flex justify-end gap-1.5">
+                                        {pendiente && e.neto > 0 && (
+                                          <Button size="sm" variant="outline" onClick={() => setClasificando(e)}>
+                                            Clasificar
+                                          </Button>
+                                        )}
                                         <button
                                           onClick={() => setReordenando(e)}
                                           title="Punto de reorden"
@@ -485,6 +519,7 @@ export const InventarioPage: React.FC = () => {
                     <th className="text-left px-5 py-2.5">Fecha</th>
                     <th className="text-left px-3 py-2.5">Movimiento</th>
                     <th className="text-left px-3 py-2.5">Producto</th>
+                    <th className="text-left px-3 py-2.5">Color</th>
                     <th className="text-right px-3 py-2.5">Cantidad</th>
                     <th className="text-right px-3 py-2.5">Saldo</th>
                     <th className="text-left px-5 py-2.5">Responsable</th>
@@ -504,6 +539,9 @@ export const InventarioPage: React.FC = () => {
                         </span>
                       </td>
                       <td className="px-3 py-3 text-slate-700">{m.producto}</td>
+                      <td className="px-3 py-3">
+                        {m.color ? <EtiquetaColor color={m.color} /> : <span className="text-xs text-slate-400">—</span>}
+                      </td>
                       <td className="px-3 py-3 text-right tabular-nums font-semibold">
                         {(() => {
                           const signo = signoMovimiento(m.tipo);
@@ -539,6 +577,7 @@ export const InventarioPage: React.FC = () => {
       {moviendo && (
         <MovimientoModal
           existencia={moviendo}
+          existencias={existencias}
           onCerrar={() => setMoviendo(null)}
           onListo={async () => {
             setMoviendo(null);
@@ -550,6 +589,7 @@ export const InventarioPage: React.FC = () => {
       {trasladando && (
         <TrasladoModal
           existencia={trasladando}
+          existencias={existencias}
           puntos={puntos}
           onCerrar={() => setTrasladando(null)}
           onListo={async () => {
@@ -565,6 +605,18 @@ export const InventarioPage: React.FC = () => {
           onCerrar={() => setReordenando(null)}
           onListo={async () => {
             setReordenando(null);
+            await refrescar();
+          }}
+        />
+      )}
+
+      {clasificando && (
+        <ClasificarModal
+          existencia={clasificando}
+          existencias={existencias}
+          onCerrar={() => setClasificando(null)}
+          onListo={async () => {
+            setClasificando(null);
             await refrescar();
           }}
         />
@@ -632,22 +684,120 @@ const Marco: React.FC<{
   </div>
 );
 
+/** Texto plano del color de una fila, para exportar. */
+const textoColor = (e: Existencia): string =>
+  e.color ? e.color.nombre : sinClasificar(e) ? 'Sin clasificar' : '—';
+
+const Muestra: React.FC<{ hex: string; grande?: boolean }> = ({ hex, grande }) => (
+  <span
+    aria-hidden
+    className={`${grande ? 'w-6 h-6' : 'w-4 h-4'} rounded-full border border-slate-300 shrink-0`}
+    style={{ backgroundColor: hex }}
+  />
+);
+
+const EtiquetaColor: React.FC<{ color: ColorInventario }> = ({ color }) => (
+  <span className="inline-flex items-center gap-2 min-w-0">
+    <Muestra hex={color.hex} />
+    <span className="min-w-0">
+      <span className="block text-xs font-semibold text-slate-800 truncate">{color.nombre}</span>
+      <span className="block text-[10px] text-slate-400 tabular-nums">{color.codigo}</span>
+    </span>
+  </span>
+);
+
+const CeldaColor: React.FC<{ existencia: Existencia }> = ({ existencia: e }) => {
+  if (e.color) return <EtiquetaColor color={e.color} />;
+  if (sinClasificar(e)) {
+    return (
+      <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300">
+        <AlertTriangle className="w-3 h-3" /> Sin clasificar
+      </span>
+    );
+  }
+  return <span className="text-xs text-slate-400">—</span>;
+};
+
+/** Saldo de la presentación en ese color y punto; 0 si aún no hay fila. */
+function saldoDe(
+  existencias: Existencia[], base: Existencia, colorId: string | null,
+): { disponible: number; reservado: number } {
+  const f = existencias.find(
+    (x) => x.variantId === base.variantId && x.locationId === base.locationId && x.colorId === colorId,
+  );
+  return { disponible: f?.disponible ?? 0, reservado: f?.reservado ?? 0 };
+}
+
+/** Solo los colores de la carta del producto; con la muestra del elegido al lado. */
+const SelectorColor: React.FC<{
+  colores: ColorInventario[];
+  valor: string;
+  onCambio: (id: string) => void;
+  etiqueta?: string;
+  existencias?: Existencia[];
+  base?: Existencia;
+}> = ({ colores, valor, onCambio, etiqueta = 'Color', existencias, base }) => {
+  const elegido = colores.find((c) => c.id === valor);
+  return (
+    <div className="flex items-end gap-2.5">
+      <div className="flex-1 min-w-0">
+        <Select
+          label={etiqueta}
+          required
+          options={[
+            { value: '', label: 'Selecciona el color…' },
+            ...colores.map((c) => {
+              const saldo = existencias && base ? saldoDe(existencias, base, c.id).disponible : null;
+              return {
+                value: c.id,
+                label: `${c.nombre} · ${c.codigo}${saldo !== null ? ` (${cantidad(saldo)} disp.)` : ''}`,
+              };
+            }),
+          ]}
+          value={valor}
+          onChange={(e) => onCambio(e.target.value)}
+        />
+      </div>
+      <div className="h-[42px] flex items-center">
+        {elegido ? <Muestra hex={elegido.hex} grande /> : <span className="w-6 h-6 rounded-full border border-dashed border-slate-300" />}
+      </div>
+    </div>
+  );
+};
+
+const AvisoSinCarta: React.FC = () => (
+  <p className="p-3 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-800">
+    No se pudo cargar la carta de colores de este producto. Revísala en Catálogo antes de moverlo.
+  </p>
+);
+
 /** Entrada, salida o ajuste por conteo sobre una referencia de esta bodega. */
 const MovimientoModal: React.FC<{
   existencia: Existencia;
+  existencias: Existencia[];
   onCerrar: () => void;
   onListo: () => void;
-}> = ({ existencia, onCerrar, onListo }) => {
+}> = ({ existencia, existencias, onCerrar, onListo }) => {
   const [tipo, setTipo] = useState<TipoMovimiento>('ENTRADA');
+  const [colorId, setColorId] = useState(existencia.colorId ?? '');
   const [cant, setCant] = useState('');
   const [notas, setNotas] = useState('');
   const [error, setError] = useState('');
   const [guardando, setGuardando] = useState(false);
 
+  const saldo = existencia.tieneCarta
+    ? saldoDe(existencias, existencia, colorId || null)
+    : { disponible: existencia.disponible, reservado: existencia.reservado };
+  const color = existencia.coloresProducto.find((c) => c.id === colorId);
+
   const enviar = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     const n = Number(cant);
+    if (existencia.tieneCarta && !colorId) {
+      setError('Elige el color: este producto se lleva en inventario por color.');
+      return;
+    }
     if (!Number.isFinite(n) || n <= 0) {
       setError('La cantidad debe ser un número mayor que cero.');
       return;
@@ -659,6 +809,7 @@ const MovimientoModal: React.FC<{
         locationId: existencia.locationId,
         tipo,
         cantidad: n,
+        colorId: existencia.tieneCarta ? colorId : null,
         notas: notas.trim() || undefined,
       });
       onListo();
@@ -682,9 +833,28 @@ const MovimientoModal: React.FC<{
           </div>
         )}
 
+        {existencia.tieneCarta && (
+          existencia.coloresProducto.length > 0 ? (
+            <SelectorColor
+              colores={existencia.coloresProducto}
+              valor={colorId}
+              onCambio={setColorId}
+              existencias={existencias}
+              base={existencia}
+            />
+          ) : <AvisoSinCarta />
+        )}
+
         <div className="p-3 rounded-lg bg-slate-50 border border-slate-200 text-xs text-slate-600">
-          Saldo actual en {existencia.bodega}: <strong>{cantidad(existencia.disponible)}</strong>{' '}
-          disponibles, {cantidad(existencia.reservado)} reservadas.
+          {existencia.tieneCarta && !colorId ? (
+            'Elige el color para ver su saldo en esta bodega.'
+          ) : (
+            <>
+              Saldo actual en {existencia.bodega}
+              {color ? ` (${color.nombre})` : ''}: <strong>{cantidad(saldo.disponible)}</strong>{' '}
+              disponibles, {cantidad(saldo.reservado)} reservadas.
+            </>
+          )}
         </div>
 
         <Select
@@ -708,7 +878,7 @@ const MovimientoModal: React.FC<{
           value={cant}
           onChange={(e) => setCant(e.target.value)}
           required
-          autoFocus
+          autoFocus={!existencia.tieneCarta || Boolean(colorId)}
         />
 
         <Input
@@ -734,22 +904,32 @@ const MovimientoModal: React.FC<{
 /** Traslado entre puntos de venta: las dos patas en una sola operación. */
 const TrasladoModal: React.FC<{
   existencia: Existencia;
+  existencias: Existencia[];
   puntos: ResumenPunto[];
   onCerrar: () => void;
   onListo: () => void;
-}> = ({ existencia, puntos, onCerrar, onListo }) => {
+}> = ({ existencia, existencias, puntos, onCerrar, onListo }) => {
   const [destino, setDestino] = useState('');
+  const [colorId, setColorId] = useState(existencia.colorId ?? '');
   const [cant, setCant] = useState('');
   const [notas, setNotas] = useState('');
   const [error, setError] = useState('');
   const [guardando, setGuardando] = useState(false);
 
   const otros = puntos.filter((p) => p.locationId !== existencia.locationId);
+  const disponible = existencia.tieneCarta
+    ? saldoDe(existencias, existencia, colorId || null).disponible
+    : existencia.disponible;
+  const color = existencia.coloresProducto.find((c) => c.id === colorId);
 
   const enviar = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     const n = Number(cant);
+    if (existencia.tieneCarta && !colorId) {
+      setError('Elige el color que vas a trasladar.');
+      return;
+    }
     if (!destino) {
       setError('Elige el punto de venta de destino.');
       return;
@@ -765,6 +945,7 @@ const TrasladoModal: React.FC<{
         origen: existencia.locationId,
         destino,
         cantidad: n,
+        colorId: existencia.tieneCarta ? colorId : null,
         notas: notas.trim() || undefined,
       });
       onListo();
@@ -788,9 +969,36 @@ const TrasladoModal: React.FC<{
           </div>
         )}
 
+        {existencia.tieneCarta && (
+          existencia.coloresProducto.length > 0 ? (
+            <>
+              <SelectorColor
+                colores={existencia.coloresProducto}
+                valor={colorId}
+                onCambio={setColorId}
+                etiqueta="Color a trasladar"
+                existencias={existencias}
+                base={existencia}
+              />
+              {!existencia.colorId && (
+                <p className="text-[11px] text-slate-400 -mt-2 leading-relaxed">
+                  Lo que está sin clasificar no se traslada: clasifícalo primero por color.
+                </p>
+              )}
+            </>
+          ) : <AvisoSinCarta />
+        )}
+
         <div className="p-3 rounded-lg bg-slate-50 border border-slate-200 text-xs text-slate-600">
-          Sale de <strong>{existencia.bodega}</strong>, que tiene{' '}
-          <strong>{cantidad(existencia.disponible)}</strong> unidades disponibles.
+          {existencia.tieneCarta && !colorId ? (
+            'Elige el color para ver cuánto hay en el origen.'
+          ) : (
+            <>
+              Sale de <strong>{existencia.bodega}</strong>, que tiene{' '}
+              <strong>{cantidad(disponible)}</strong> unidades disponibles
+              {color ? ` en ${color.nombre}` : ''}.
+            </>
+          )}
         </div>
 
         <Select
@@ -808,7 +1016,7 @@ const TrasladoModal: React.FC<{
           label="Cantidad a trasladar"
           type="number"
           min="1"
-          max={String(existencia.disponible)}
+          max={String(disponible)}
           value={cant}
           onChange={(e) => setCant(e.target.value)}
           required
@@ -839,7 +1047,7 @@ const TrasladoModal: React.FC<{
   );
 };
 
-/** Punto de reorden de una referencia en esta bodega. */
+/** Punto de reorden de una referencia (y su color) en esta bodega. */
 const ReordenModal: React.FC<{
   existencia: Existencia;
   onCerrar: () => void;
@@ -859,7 +1067,9 @@ const ReordenModal: React.FC<{
     }
     setGuardando(true);
     try {
-      await inventarioService.fijarPuntoReorden(existencia.variantId, existencia.locationId, n);
+      await inventarioService.fijarPuntoReorden(
+        existencia.variantId, existencia.locationId, n, existencia.colorId,
+      );
       onListo();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No fue posible guardar.');
@@ -871,7 +1081,9 @@ const ReordenModal: React.FC<{
   return (
     <Marco
       titulo="Punto de reorden"
-      subtitulo={`${existencia.producto} · ${existencia.presentacion}`}
+      subtitulo={`${existencia.producto} · ${existencia.presentacion}${
+        existencia.tieneCarta ? ` · ${textoColor(existencia)}` : ''
+      }`}
       onCerrar={onCerrar}
     >
       <form onSubmit={enviar} className="space-y-4 text-left">
@@ -883,7 +1095,8 @@ const ReordenModal: React.FC<{
 
         <p className="text-xs text-slate-600 leading-relaxed">
           Por debajo de esta cantidad, <strong>{existencia.bodega}</strong> aparecerá como
-          pendiente de reponer. Va por referencia y bodega, porque cada tienda rota distinto.
+          pendiente de reponer. Va por referencia{existencia.tieneCarta ? ', color' : ''} y bodega,
+          porque cada tienda rota distinto.
         </p>
 
         <Input
@@ -905,6 +1118,112 @@ const ReordenModal: React.FC<{
           </Button>
           <Button type="submit" variant="pintuco" isLoading={guardando}>
             Guardar
+          </Button>
+        </div>
+      </form>
+    </Marco>
+  );
+};
+
+/** Asigna su color real a existencias que entraron antes de llevar el inventario por color. */
+const ClasificarModal: React.FC<{
+  existencia: Existencia;
+  existencias: Existencia[];
+  onCerrar: () => void;
+  onListo: () => void;
+}> = ({ existencia, existencias, onCerrar, onListo }) => {
+  // Lo reservado queda sin clasificar hasta que se despache su pedido.
+  const maximo = Math.max(0, existencia.neto);
+  const [colorId, setColorId] = useState('');
+  const [cant, setCant] = useState(String(maximo));
+  const [error, setError] = useState('');
+  const [guardando, setGuardando] = useState(false);
+
+  const enviar = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    const n = Number(cant);
+    if (!colorId) {
+      setError('Elige el color al que pertenecen estas unidades.');
+      return;
+    }
+    if (!Number.isInteger(n) || n <= 0) {
+      setError('La cantidad debe ser un número entero mayor que cero.');
+      return;
+    }
+    if (n > maximo) {
+      setError(`Solo hay ${cantidad(maximo)} unidades libres sin clasificar.`);
+      return;
+    }
+    setGuardando(true);
+    try {
+      await inventarioService.clasificarPorColor({
+        variantId: existencia.variantId,
+        locationId: existencia.locationId,
+        colorId,
+        cantidad: n,
+      });
+      onListo();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No fue posible clasificar.');
+    } finally {
+      setGuardando(false);
+    }
+  };
+
+  return (
+    <Marco
+      titulo="Clasificar por color"
+      subtitulo={`${existencia.producto} · ${existencia.presentacion}`}
+      onCerrar={onCerrar}
+    >
+      <form onSubmit={enviar} className="space-y-4 text-left">
+        {error && (
+          <div role="alert" className="p-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-lg font-medium">
+            {error}
+          </div>
+        )}
+
+        <p className="text-xs text-slate-600 leading-relaxed">
+          Pasa unidades «sin clasificar» al color que realmente son; el total de{' '}
+          <strong>{existencia.bodega}</strong> no cambia.
+        </p>
+
+        <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-800">
+          Sin clasificar: <strong>{cantidad(existencia.disponible)}</strong> disponibles
+          {existencia.reservado > 0
+            ? `, de las que ${cantidad(existencia.reservado)} están reservadas en pedidos y no se pueden clasificar`
+            : ''}
+          .
+        </div>
+
+        {existencia.coloresProducto.length > 0 ? (
+          <SelectorColor
+            colores={existencia.coloresProducto}
+            valor={colorId}
+            onCambio={setColorId}
+            etiqueta="Color real"
+            existencias={existencias}
+            base={existencia}
+          />
+        ) : <AvisoSinCarta />}
+
+        <Input
+          label={`Cantidad (máximo ${cantidad(maximo)})`}
+          type="number"
+          min="1"
+          max={String(maximo)}
+          value={cant}
+          onChange={(e) => setCant(e.target.value)}
+          required
+        />
+
+        <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 pt-1">
+          <Button type="button" variant="ghost" onClick={onCerrar}>
+            Cancelar
+          </Button>
+          <Button type="submit" variant="pintuco" isLoading={guardando}>
+            Clasificar
           </Button>
         </div>
       </form>

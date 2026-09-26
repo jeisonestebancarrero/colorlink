@@ -18,6 +18,7 @@ import { Input } from '../../components/common/Input';
 import { Select } from '../../components/common/Select';
 import { IconoModulo } from '../IconosDeModulo';
 import { KitsPanel } from '../KitsPanel';
+import { ColoresDelProducto } from '../ColoresDelProducto';
 
 // Deben coincidir con los enums `product_environment` y `product_finish` de la base.
 const AMBIENTES = ['Interior', 'Exterior', 'Ambos', 'Industrial'];
@@ -594,6 +595,17 @@ export const CatalogoPage: React.FC = () => {
           </div>
         )}
 
+        {/* Colores: se guardan aparte con su propia función del servidor */}
+        {p.id && (
+          <ColoresDelProducto
+            productId={p.id}
+            carta={colores}
+            actuales={productos.find((x) => x.id === p.id)?.colores ?? []}
+            escribe={escribe}
+            onGuardado={async () => { setProductos(await catalogoService.productos()); }}
+          />
+        )}
+
         {editandoPres && (
           <FormularioPresentacion
             valor={editandoPres}
@@ -832,6 +844,7 @@ export const CatalogoPage: React.FC = () => {
                             <th className="text-left px-5 py-2.5">Producto</th>
                             <th className="text-left px-3 py-2.5">Marca</th>
                             <th className="text-right px-3 py-2.5">Presentaciones</th>
+                            <th className="text-right px-3 py-2.5">Colores</th>
                             <th className="text-right px-3 py-2.5">Desde</th>
                             <th className="text-left px-5 py-2.5">Estado</th>
                           </tr>
@@ -872,6 +885,12 @@ export const CatalogoPage: React.FC = () => {
                                 <td className="px-3 py-3 text-slate-600 text-xs">{p.marca ?? '—'}</td>
                                 <td className="px-3 py-3 text-right tabular-nums text-slate-600">
                                   {p.presentaciones.length}
+                                </td>
+                                <td
+                                  className="px-3 py-3 text-right tabular-nums text-slate-600"
+                                  title={p.colores.length ? undefined : 'Se vende sin color'}
+                                >
+                                  {p.colores.length || <span className="text-xs text-slate-400">Sin color</span>}
                                 </td>
                                 <td className="px-3 py-3 text-right tabular-nums font-semibold">
                                   {desde === null ? '—' : formatearCOP(desde)}

@@ -301,9 +301,11 @@ describe.skipIf(!disponible)('Direcciones, sedes y quién recibe', () => {
       cartId = (cart as { id: string }).id;
     }
     const { data: variante } = await horizonte
-      .from('product_variants').select('id').limit(1).single();
+      .from('product_variants').select('id, products(product_colors(color_id))').limit(1).single();
+    const fila = variante as { id: string; products?: { product_colors?: Array<{ color_id: string }> } };
     await horizonte.from('cart_items').insert({
-      cart_id: cartId, variant_id: (variante as { id: string }).id, quantity: 1,
+      cart_id: cartId, variant_id: fila.id,
+      color_id: fila.products?.product_colors?.[0]?.color_id ?? null, quantity: 1,
     });
 
     // Se envía la sede propia junto con una dirección falsa a propósito.

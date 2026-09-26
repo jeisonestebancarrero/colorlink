@@ -30,6 +30,8 @@ import { BrandLogo } from '../components/common/BrandLogo';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 import { useColorPalette, useProducts, useSolutionKits } from '../hooks/useCatalog';
+import { ComprarProductoModal } from '../components/tienda/ComprarProductoModal';
+import type { StoreProduct } from '../types';
 
 interface LandingPageProps {
   onNavigate: (page: string, param?: string) => void;
@@ -41,7 +43,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
   const { data: PINTUCO_SOLUTION_KITS } = useSolutionKits();
   const { data: PINTUCO_COLOR_PALETTES } = useColorPalette();
 
-  const { addToCart, selectedStore } = useCart();
+  const { selectedStore } = useCart();
+  // «Comprar» abre la compra rápida: una pintura con carta no se agrega sin color.
+  const [compraRapida, setCompraRapida] = useState<StoreProduct | null>(null);
   const [heroSearch, setHeroSearch] = useState('');
   const [selectedProblemTab, setSelectedProblemTab] = useState('fachada');
 
@@ -535,10 +539,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
                       </div>
 
                       <button
-                        onClick={() => {
-                          addToCart(product, pres.label);
-                          onNavigate('store');
-                        }}
+                        onClick={() => setCompraRapida(product)}
                         className="bg-[#004F9F] hover:bg-[#003875] text-white px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
                       >
                         <ShoppingCart className="w-3.5 h-3.5" />
@@ -629,6 +630,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
           </div>
         </div>
       </section>
+      <ComprarProductoModal
+        abierto={compraRapida !== null}
+        onCerrar={() => setCompraRapida(null)}
+        productos={compraRapida ? [compraRapida] : []}
+      />
     </div>
   );
 };

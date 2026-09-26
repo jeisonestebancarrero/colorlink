@@ -1,7 +1,7 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { CartItem, PintucoStore, SolutionKit, StoreProduct } from '../types';
 import { cartService, orderService } from '../services/commerce';
-import { storeService } from '../services/catalog';
+import { productService, storeService } from '../services/catalog';
 import { pagoService } from '../services/pagos';
 import * as carritoInvitado from '../services/carritoInvitado';
 import type { Intencion } from '../services/carritoInvitado';
@@ -24,8 +24,18 @@ interface CartContextType {
   totalCOP: number;
   isCartOpen: boolean;
   setIsCartOpen: (open: boolean) => void;
-  addToCart: (product: StoreProduct, presentationLabel?: string, colorName?: string, colorHex?: string, qty?: number) => Promise<void>;
-  addKitToCart: (kit: SolutionKit, multiplier?: number) => Promise<void>;
+  /**
+   * `color` es el código (o nombre) de uno de los colores del producto; obligatorio si
+   * el producto tiene carta. Devuelve false si no se pudo agregar (ya avisó en pantalla).
+   */
+  addToCart: (product: StoreProduct, presentationLabel?: string, color?: string, colorHex?: string, qty?: number) => Promise<boolean>;
+  /** `colores`: código de color por número de paso, para los pasos con carta. */
+  addKitToCart: (kit: SolutionKit, multiplier?: number, colores?: Record<number, string>) => Promise<boolean>;
+  /** Líneas de pintura con carta que no traen color (datos viejos): bloquean el pedido. */
+  lineasSinColor: CartItem[];
+  /** Colores que ofrece el producto de una línea (vacío si no tiene carta). */
+  coloresDeLinea: (item: CartItem) => NonNullable<StoreProduct['availableColors']>;
+  elegirColorLinea: (itemId: string, codigoColor: string) => Promise<void>;
   updateQuantity: (itemId: string, delta: number) => Promise<void>;
   removeFromCart: (itemId: string) => Promise<void>;
   clearCart: () => Promise<void>;
@@ -48,6 +58,7 @@ interface CartContextType {
   isCheckoutSuccessOpen: boolean;
   setIsCheckoutSuccessOpen: (open: boolean) => void;
   lastOrderNumber: string | null;
+  ultimaEntregaEstimada: string | null;
   checkoutError: string | null;
   stores: PintucoStore[];
   completeCheckout: () => void;
@@ -138,6 +149,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [erroresEntrega, setErroresEntrega] = useState<Record<string, string>>({});
   const [isCheckoutSuccessOpen, setIsCheckoutSuccessOpen] = useState(false);
   const [lastOrderNumber, setLastOrderNumber] = useState<string | null>(null);
+  const [ultimaEntregaEstimada, setUltimaEntregaEstimada] = useState<string | null>(null);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const [pedidoPorPagar, setPedidoPorPagar] = useState<
     { id: string; numero: string; total: number } | null
@@ -283,37 +295,79 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     async (
       product: StoreProduct,
       presentationLabel?: string,
-      colorName?: string,
+      color?: string,
       _colorHex?: string,
       qty = 1
-    ) => {
+    ): Promise<boolean> => {
       try {
         if (isAuthenticated) {
-          setCartItems(await cartService.addProduct(product, presentationLabel, colorName, qty));
+          setCartItems(await cartService.addProduct(product, presentationLabel, color, qty));
         } else {
-          await carritoInvitado.agregarProducto(product, presentationLabel, colorName, qty);
+          await carritoInvitado.agregarProducto(product, presentationLabel, color, qty);
           setCartItems(await carritoInvitado.obtenerArticulos());
         }
         setIsCartOpen(true);
+        return true;
       } catch (e) {
         avisarError('addToCart', e);
+        return false;
       }
     },
     [isAuthenticated, avisarError]
   );
 
   const addKitToCart = useCallback(
-    async (kit: SolutionKit, multiplier = 1) => {
+    async (kit: SolutionKit, multiplier = 1, colores: Record<number, string> = {}): Promise<boolean> => {
       try {
         if (isAuthenticated) {
-          setCartItems(await cartService.addKit(kit, multiplier));
+          setCartItems(await cartService.addKit(kit, multiplier, colores));
         } else {
-          await carritoInvitado.agregarKit(kit, multiplier);
+          await carritoInvitado.agregarKit(kit, multiplier, colores);
           setCartItems(await carritoInvitado.obtenerArticulos());
         }
         setIsCartOpen(true);
+        return true;
       } catch (e) {
         avisarError('addKitToCart', e);
+        return false;
+      }
+    },
+    [isAuthenticated, avisarError]
+  );
+
+  // Carta de colores por producto, para detectar líneas viejas sin color y ofrecer sus colores.
+  const [cartaPorProducto, setCartaPorProducto] = useState<
+    Map<string, NonNullable<StoreProduct['availableColors']>>
+  >(new Map());
+  useEffect(() => {
+    productService
+      .getProducts()
+      .then((lista) => setCartaPorProducto(new Map(lista.map((p) => [p.id, p.availableColors ?? []]))))
+      .catch((e) => console.error('[cart] no se pudo cargar la carta de colores', e));
+  }, []);
+
+  const coloresDeLinea = useCallback(
+    (item: CartItem) => cartaPorProducto.get(item.productId) ?? [],
+    [cartaPorProducto]
+  );
+
+  const lineasSinColor = useMemo(
+    () => cartItems.filter((i) => !i.colorCode && coloresDeLinea(i).length > 0),
+    [cartItems, coloresDeLinea]
+  );
+
+  const elegirColorLinea = useCallback(
+    async (itemId: string, codigoColor: string) => {
+      try {
+        const colorId = await carritoInvitado.idDeColor(codigoColor);
+        if (isAuthenticated) {
+          setCartItems(await cartService.fijarColor(itemId, colorId));
+        } else {
+          carritoInvitado.fijarColor(itemId, colorId);
+          setCartItems(await carritoInvitado.obtenerArticulos());
+        }
+      } catch (e) {
+        avisarError('elegirColorLinea', e);
       }
     },
     [isAuthenticated, avisarError]
@@ -384,7 +438,11 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const cartCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
   const subtotalCOP = cartItems.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
-  const discountCOP = cartItems.some((i) => i.isKitItem) ? Math.round(subtotalCOP * 0.08) : 0;
+  // Igual que create_order_from_cart: cada kit descuenta su porcentaje solo sobre sus líneas.
+  const discountCOP = cartItems.reduce(
+    (sum, item) => sum + (item.isKitItem ? (item.unitPrice * item.quantity * (item.kitDiscountPercent ?? 0)) / 100 : 0),
+    0,
+  );
   const totalCOP = Math.max(0, subtotalCOP - discountCOP);
 
   /**
@@ -395,6 +453,15 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // El pedido se vincula a un usuario; la sesión se pide aquí, no al añadir, y el carrito se conserva.
     if (!isAuthenticated) {
       pedirSesionPara('pedido');
+      setIsCartOpen(true);
+      return;
+    }
+    // La base rechazaría el pedido (COLOR_REQUERIDO); se avisa antes y se señala la línea.
+    if (lineasSinColor.length > 0) {
+      showToast(
+        `Elige el color de «${lineasSinColor[0].productName}» o quítalo del carrito antes de confirmar.`,
+        'error'
+      );
       setIsCartOpen(true);
       return;
     }
@@ -460,6 +527,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         recipientPhone: quienRecibe.telefono.trim(),
       });
       setLastOrderNumber(pedido.orderNumber);
+      setUltimaEntregaEstimada(pedido.entregaEstimada ?? null);
       setCartItems([]);
       setIsCartOpen(false);
       setErroresEntrega({});
@@ -476,7 +544,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       avisarError('completeCheckout', e);
     }
   }, [
-    deliveryMethod, selectedStore, destino, quienRecibe,
+    deliveryMethod, selectedStore, destino, quienRecibe, lineasSinColor,
     isAuthenticated, pedirSesionPara, avisarError, showToast,
   ]);
 
@@ -492,6 +560,9 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setIsCartOpen,
         addToCart,
         addKitToCart,
+        lineasSinColor,
+        coloresDeLinea,
+        elegirColorLinea,
         updateQuantity,
         removeFromCart,
         clearCart,
@@ -511,6 +582,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isCheckoutSuccessOpen,
         setIsCheckoutSuccessOpen,
         lastOrderNumber,
+        ultimaEntregaEstimada,
         checkoutError,
         stores,
         completeCheckout,

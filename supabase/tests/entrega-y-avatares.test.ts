@@ -144,9 +144,12 @@ describe.skipIf(!disponible || !SERVICE)('Entrega estimada, avatares y barrios',
         .from('carts').insert({ user_id: uidCliente }).select('id').single();
       cartId = (data as { id: string }).id;
     }
-    const { data: v } = await cliente.from('product_variants').select('id').limit(1).single();
+    const { data: v } = await cliente
+      .from('product_variants').select('id, products(product_colors(color_id))').limit(1).single();
+    const fila = v as { id: string; products?: { product_colors?: Array<{ color_id: string }> } };
     await cliente.from('cart_items').insert({
-      cart_id: cartId, variant_id: (v as { id: string }).id, quantity: 1,
+      cart_id: cartId, variant_id: fila.id,
+      color_id: fila.products?.product_colors?.[0]?.color_id ?? null, quantity: 1,
     });
 
     const r = await cliente.rpc('create_order_from_cart', {
@@ -189,9 +192,12 @@ describe.skipIf(!disponible || !SERVICE)('Entrega estimada, avatares y barrios',
         .from('carts').insert({ user_id: uidCliente }).select('id').single();
       cartId = (data as { id: string }).id;
     }
-    const { data: v } = await cliente.from('product_variants').select('id').limit(1).single();
+    const { data: v } = await cliente
+      .from('product_variants').select('id, products(product_colors(color_id))').limit(1).single();
+    const fila = v as { id: string; products?: { product_colors?: Array<{ color_id: string }> } };
     await cliente.from('cart_items').insert({
-      cart_id: cartId, variant_id: (v as { id: string }).id, quantity: 1,
+      cart_id: cartId, variant_id: fila.id,
+      color_id: fila.products?.product_colors?.[0]?.color_id ?? null, quantity: 1,
     });
     const { data: punto } = await cliente
       .from('pickup_locations').select('id').eq('status', 'ACTIVO').limit(1).single();

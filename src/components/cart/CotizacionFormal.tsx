@@ -30,8 +30,9 @@ export const CotizacionFormal: React.FC<{
   subtotal: number;
   descuento: number;
   total: number;
+  envio?: number;
   onCerrar: () => void;
-}> = ({ items, subtotal, descuento, total, onCerrar }) => {
+}> = ({ items, subtotal, descuento, total, envio = 0, onCerrar }) => {
   const { user } = useAuth();
   const [emisor, setEmisor] = useState<Emisor | null>(null);
   const documento = useRef<HTMLDivElement>(null);
@@ -123,7 +124,7 @@ export const CotizacionFormal: React.FC<{
   // Los precios ya incluyen IVA: la base se despeja con services/impuestos, el mismo
   // cálculo del carrito.
   const { base: baseTotal, iva: ivaTotal, tarifa } = desglosarIvaIncluido(
-    total,
+    total - envio,
     emisor?.iva ?? TARIFA_IVA_POR_DEFECTO
   );
 
@@ -271,6 +272,12 @@ export const CotizacionFormal: React.FC<{
                     <td className="py-1 text-slate-600">IVA {tarifa} %</td>
                     <td className="py-1 text-right tabular-nums">{formatearImporteImpuesto(ivaTotal)}</td>
                   </tr>
+                  {envio > 0 && (
+                    <tr>
+                      <td className="py-1 text-slate-600">Envío</td>
+                      <td className="py-1 text-right tabular-nums">{cop(envio)}</td>
+                    </tr>
+                  )}
                   <tr className="border-t-2 border-slate-800">
                     <td className="py-2 font-extrabold">TOTAL</td>
                     <td className="py-2 text-right font-extrabold text-base tabular-nums">

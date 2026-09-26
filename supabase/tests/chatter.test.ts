@@ -65,11 +65,15 @@ describe.skipIf(!disponible)('Chatter · mensajes, notas internas y trazabilidad
       body: JSON.stringify({ user_id: perfil.id }),
     }).then((r) => r.json()).then((d) => d[0].id);
 
-    const [v] = await fetch(`${API}/rest/v1/product_variants?select=id&sku=eq.PNT-EXT-001-V1`, { headers: anon() })
-      .then((r) => r.json());
+    const [v] = await fetch(
+      `${API}/rest/v1/product_variants?select=id,products(product_colors(color_id))&sku=eq.PNT-EXT-001-V1`,
+      { headers: anon() },
+    ).then((r) => r.json());
+    // Un producto con carta exige color al crear el pedido.
+    const colorId = v.products?.product_colors?.[0]?.color_id ?? null;
     await fetch(`${API}/rest/v1/cart_items`, {
       method: 'POST', headers: auth(tCliente),
-      body: JSON.stringify({ cart_id: cartId, variant_id: v.id, quantity: 1 }),
+      body: JSON.stringify({ cart_id: cartId, variant_id: v.id, color_id: colorId, quantity: 1 }),
     });
     const [loc] = await fetch(`${API}/rest/v1/pickup_locations?select=id&limit=1`, { headers: anon() })
       .then((r) => r.json());

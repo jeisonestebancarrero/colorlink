@@ -28,6 +28,8 @@ import {
   Eye,
   SlidersHorizontal,
 } from 'lucide-react';
+import { ComprarProductoModal } from '../components/tienda/ComprarProductoModal';
+import type { StoreProduct } from '../types';
 
 interface DashboardPageProps {
   onNavigate: (page: string, param?: string) => void;
@@ -40,7 +42,9 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
 
   const { user } = useAuth();
   const { projects, activeProject, setActiveProjectId } = useProjects();
-  const { addToCart, setIsCartOpen } = useCart();
+  const { setIsCartOpen } = useCart();
+  // «Comprar» abre la compra rápida: una pintura con carta no se agrega sin color.
+  const [compraRapida, setCompraRapida] = useState<{ producto: StoreProduct; presentacion?: string } | null>(null);
 
   const [selectedProblemTab, setSelectedProblemTab] = useState<string>('fachada');
 
@@ -274,8 +278,9 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
               </Button>
               <button
                 onClick={() => {
-                  const kit = PINTUCO_SOLUTION_KITS[0];
-                  addToCart(PINTUCO_PRODUCTS[0], 'Cuñete 5 Galones (18.9 L)', 'Blanco Nieve', '#F8FAFC', 1);
+                  if (PINTUCO_PRODUCTS[0]) {
+                    setCompraRapida({ producto: PINTUCO_PRODUCTS[0], presentacion: 'Cuñete 5 Galones (18.9 L)' });
+                  }
                 }}
                 className="bg-blue-50 hover:bg-blue-100 text-[#004F9F] text-xs font-bold px-4 py-2 rounded-lg border border-blue-200 transition-colors cursor-pointer text-center"
               >
@@ -476,7 +481,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
                     </div>
 
                     <button
-                      onClick={() => addToCart(product, pres.label)}
+                      onClick={() => setCompraRapida({ producto: product, presentacion: pres.label })}
                       className="bg-[#004F9F] hover:bg-[#003B77] text-white p-2 rounded-lg transition-colors cursor-pointer shadow-xs"
                       title="Agregar al carrito"
                     >
@@ -555,6 +560,12 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
           </button>
         </div>
       </div>
+      <ComprarProductoModal
+        abierto={compraRapida !== null}
+        onCerrar={() => setCompraRapida(null)}
+        productos={compraRapida ? [compraRapida.producto] : []}
+        presentacionInicial={compraRapida?.presentacion}
+      />
     </div>
   );
 };

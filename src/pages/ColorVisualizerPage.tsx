@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { useCart } from '../context/CartContext';
 import { useProjects } from '../context/ProjectContext';
 import { useColorPalette, useProducts } from '../hooks/useCatalog';
 import { CatalogError, CatalogLoading } from '../components/common/CatalogState';
@@ -23,6 +22,7 @@ import {
   CheckCheck,
 } from 'lucide-react';
 import { Button } from '../components/common/Button';
+import { ComprarProductoModal } from '../components/tienda/ComprarProductoModal';
 
 interface ColorVisualizerPageProps {
   onNavigate: (page: string, param?: string) => void;
@@ -35,7 +35,6 @@ export const ColorVisualizerPage: React.FC<ColorVisualizerPageProps> = ({ onNavi
   const isLoading = cargandoColores || cargandoProductos;
   const error = errorColores;
 
-  const { addToCart } = useCart();
   const { showToast, activeProject } = useProjects();
 
   const [selectedFamily, setSelectedFamily] = useState<string>('Blancos & Neutros');
@@ -47,6 +46,7 @@ export const ColorVisualizerPage: React.FC<ColorVisualizerPageProps> = ({ onNavi
   const setSelectedColor = setColorElegido;
   const [selectedRoom, setSelectedRoom] = useState<'facade' | 'living' | 'bedroom' | 'office'>('facade');
   const [copiedCode, setCopiedCode] = useState<boolean>(false);
+  const [comprando, setComprando] = useState(false);
 
   const families = [
     'Blancos & Neutros',
@@ -57,7 +57,8 @@ export const ColorVisualizerPage: React.FC<ColorVisualizerPageProps> = ({ onNavi
   ];
 
   const filteredColors = PINTUCO_COLOR_PALETTES.filter((col) => {
-    const matchFamily = selectedFamily === 'Todos' || col.family === selectedFamily;
+    // Al buscar se recorre toda la carta: el color puede estar en otra familia.
+    const matchFamily = !!searchQuery.trim() || selectedFamily === 'Todos' || col.family === selectedFamily;
     const matchSearch =
       !searchQuery.trim() ||
       col.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -72,14 +73,13 @@ export const ColorVisualizerPage: React.FC<ColorVisualizerPageProps> = ({ onNavi
     setTimeout(() => setCopiedCode(false), 2500);
   };
 
-  const handleBuyPaint = () => {
-    const prod =
-      selectedRoom === 'facade'
-        ? PINTUCO_PRODUCTS.find((p) => p.id === 'prod-koraza-5') || PINTUCO_PRODUCTS[0]
-        : PINTUCO_PRODUCTS.find((p) => p.id === 'prod-viniltex-avanzada') || PINTUCO_PRODUCTS[1];
-
-    addToCart(prod, prod.presentations[0]?.label, selectedColor.name, selectedColor.hex, 1);
-  };
+  // Solo las pinturas que ofrecen este color (product_colors); la sugerida por el ambiente va primero.
+  const sugerida = selectedRoom === 'facade' ? 'prod-koraza-5' : 'prod-viniltex-avanzada';
+  const productosDelColor = selectedColor
+    ? PINTUCO_PRODUCTS
+        .filter((p) => p.availableColors?.some((c) => c.code === selectedColor.code))
+        .sort((a, b) => Number(b.id === sugerida) - Number(a.id === sugerida))
+    : [];
 
   const roomEnvironments = [
     {
@@ -228,9 +228,12 @@ export const ColorVisualizerPage: React.FC<ColorVisualizerPageProps> = ({ onNavi
                       {selectedColor.code}
                     </span>
                   </div>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    Pintura recomendada: <strong className="text-slate-700">{selectedColor.recommendedProduct}</strong>
-                  </p>
+                  {/* 100 de los 120 colores no traen pintura recomendada en el catálogo. */}
+                  {selectedColor.recommendedProduct && (
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Pintura recomendada: <strong className="text-slate-700">{selectedColor.recommendedProduct}</strong>
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -243,16 +246,35 @@ export const ColorVisualizerPage: React.FC<ColorVisualizerPageProps> = ({ onNavi
                   {copiedCode ? <CheckCheck className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
                   <span>{copiedCode ? 'Copiado' : 'Copiar'}</span>
                 </button>
-                <Button
-                  onClick={handleBuyPaint}
-                  variant="primary"
-                  className="bg-[#004F9F] text-xs font-bold flex-1 sm:flex-initial flex items-center justify-center gap-1.5 shadow-xs"
-                >
-                  <ShoppingCart className="w-3.5 h-3.5" />
-                  <span>Comprar Pintura</span>
-                </Button>
+                {productosDelColor.length > 0 && (
+                  <Button
+                    onClick={() => setComprando(true)}
+                    variant="primary"
+                    className="bg-[#004F9F] text-xs font-bold flex-1 sm:flex-initial flex items-center justify-center gap-1.5 shadow-xs"
+                  >
+                    <ShoppingCart className="w-3.5 h-3.5" />
+                    <span>Comprar Pintura</span>
+                  </Button>
+                )}
               </div>
             </div>
+            {productosDelColor.length === 0 ? (
+              <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                Por ahora ninguna pintura de la tienda se vende en {selectedColor.name} ({selectedColor.code}).
+                Elige otro color o consulta en tu tienda Pintuco.
+              </p>
+            ) : (
+              <p className="text-[11px] text-slate-500">
+                Disponible en: {productosDelColor.map((p) => p.name).join(', ')}.
+              </p>
+            )}
+            <ComprarProductoModal
+              abierto={comprando}
+              onCerrar={() => setComprando(false)}
+              productos={productosDelColor}
+              colorFijo={selectedColor}
+              titulo={`Comprar en ${selectedColor.name}`}
+            />
           </div>
         </div>
 

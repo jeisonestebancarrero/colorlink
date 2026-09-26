@@ -66,6 +66,7 @@ export const StorePage: React.FC<StorePageProps> = ({ onNavigate, initialCategor
   const [modalPresentation, setModalPresentation] = useState<string>('');
   const [modalColor, setModalColor] = useState<{ name: string; hex: string; code: string } | null>(null);
   const [modalQuantity, setModalQuantity] = useState<number>(1);
+  const [faltaColorModal, setFaltaColorModal] = useState(false);
 
   const filteredProducts = useMemo(() => {
     return PINTUCO_PRODUCTS.filter((prod) => {
@@ -90,20 +91,26 @@ export const StorePage: React.FC<StorePageProps> = ({ onNavigate, initialCategor
   const handleOpenProductDetail = (product: StoreProduct) => {
     setSelectedProductDetail(product);
     setModalPresentation(product.presentations[0]?.label || '');
-    setModalColor(product.availableColors?.[0] || null);
+    // Sin color preseleccionado: el cliente debe escoger el que quiere.
+    setModalColor(null);
+    setFaltaColorModal(false);
     setModalQuantity(1);
   };
 
-  const handleAddToCartFromModal = () => {
+  const handleAddToCartFromModal = async () => {
     if (!selectedProductDetail) return;
-    addToCart(
+    if ((selectedProductDetail.availableColors?.length ?? 0) > 0 && !modalColor) {
+      setFaltaColorModal(true);
+      return;
+    }
+    const ok = await addToCart(
       selectedProductDetail,
       modalPresentation,
-      modalColor?.name,
+      modalColor?.code,
       modalColor?.hex,
       modalQuantity
     );
-    setSelectedProductDetail(null);
+    if (ok) setSelectedProductDetail(null);
   };
 
   const formatCOP = (num: number) => {
@@ -432,8 +439,8 @@ export const StorePage: React.FC<StorePageProps> = ({ onNavigate, initialCategor
                         <label className="font-bold text-slate-800">
                           Color Seleccionado:
                         </label>
-                        <span className="font-semibold text-slate-600">
-                          {modalColor?.name} ({modalColor?.code})
+                        <span className={modalColor ? 'font-semibold text-slate-600' : faltaColorModal ? 'font-bold text-red-600' : 'text-slate-500'}>
+                          {modalColor ? `${modalColor.name} (${modalColor.code})` : 'Elige un color'}
                         </span>
                       </div>
                       <div className="flex flex-wrap gap-2">
@@ -441,7 +448,7 @@ export const StorePage: React.FC<StorePageProps> = ({ onNavigate, initialCategor
                           <button
                             key={col.code}
                             type="button"
-                            onClick={() => setModalColor(col)}
+                            onClick={() => { setModalColor(col); setFaltaColorModal(false); }}
                             className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs cursor-pointer transition-all ${
                               modalColor?.code === col.code
                                 ? 'border-[#004F9F] bg-blue-50 text-[#004F9F] font-bold ring-1 ring-blue-600'
@@ -457,6 +464,12 @@ export const StorePage: React.FC<StorePageProps> = ({ onNavigate, initialCategor
                         ))}
                       </div>
                     </div>
+                  )}
+
+                  {faltaColorModal && !modalColor && (
+                    <p className="text-xs font-semibold text-red-600">
+                      Elige el color antes de agregarlo al carrito.
+                    </p>
                   )}
 
                   {/* Quantity and Actions */}

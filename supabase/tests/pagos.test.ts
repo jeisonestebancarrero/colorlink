@@ -86,7 +86,7 @@ describe.skipIf(!disponible)('Pagos', () => {
     }
 
     const variante = await fetch(
-      `${API}/rest/v1/product_variants?select=id&status=eq.ACTIVO&price_cop=gt.0&limit=1`,
+      `${API}/rest/v1/product_variants?select=id,products(product_colors(color_id))&status=eq.ACTIVO&price_cop=gt.0&limit=1`,
       { headers: cab() },
     ).then((r) => r.json());
 
@@ -96,6 +96,9 @@ describe.skipIf(!disponible)('Pagos', () => {
       body: JSON.stringify({
         cart_id: cartId,
         variant_id: (variante as Array<{ id: string }>)[0].id,
+        // Un producto con carta exige color al crear el pedido.
+        color_id: (variante as Array<{ products?: { product_colors?: Array<{ color_id: string }> } }>)[0]
+          .products?.product_colors?.[0]?.color_id ?? null,
         quantity: 1,
       }),
     });

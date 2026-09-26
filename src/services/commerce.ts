@@ -1,6 +1,8 @@
 import { supabase } from '../lib/supabase';
 import type { CartItem, NotificationItem, SolutionKit, StoreProduct } from '../types';
-import { CANTIDAD_MAXIMA, type LineaInvitado } from './carritoInvitado';
+import {
+  CANTIDAD_MAXIMA, resolverColorId, resolverPasosKit, type LineaInvitado,
+} from './carritoInvitado';
 
 /** Carrito, pedidos, notificaciones y calculadora. El navegador nunca envía precios ni totales. */
 
@@ -10,6 +12,16 @@ function errorLegible(contexto: string, error: { message: string }): Error {
   if (/EMPTY_CART/.test(m)) return new Error('Tu carrito está vacío.');
   if (/PRODUCT_UNAVAILABLE/.test(m))
     return new Error('Uno de los productos de tu carrito ya no está disponible.');
+  // Mensajes de create_order_from_cart sobre el color de una línea.
+  const color = /(COLOR_REQUERIDO|COLOR_NO_OFRECIDO|SIN_CARTA):\s*(.*)$/.exec(m);
+  if (color) {
+    const detalle = color[2].charAt(0).toUpperCase() + color[2].slice(1);
+    return new Error(
+      color[1] === 'COLOR_REQUERIDO'
+        ? `${detalle} en el carrito antes de confirmar.`
+        : `${detalle}. Revisa el color en el carrito.`
+    );
+  }
   if (/VALIDATION/.test(m)) return new Error(m.replace(/^.*VALIDATION:\s*/, ''));
   if (/NOT_CALCULABLE/.test(m))
     return new Error('Este producto no tiene rendimiento por galón: no es calculable.');
@@ -32,7 +44,7 @@ interface FilaCartItem {
     products: { external_ref: string | null; name: string; image_url: string | null;
                 categories: { name: string } | null } | null;
   } | null;
-  solutions: { name: string } | null;
+  solutions: { name: string; discount_percent: string | number | null } | null;
 }
 
 const CART_SELECT = `
@@ -42,7 +54,7 @@ const CART_SELECT = `
     id, label, price_cop,
     products ( external_ref, name, image_url, categories ( name ) )
   ),
-  solutions:kit_solution_id ( name )
+  solutions:kit_solution_id ( name, discount_percent )
 `;
 
 const num = (v: string | number | null | undefined): number => {
@@ -69,6 +81,7 @@ function aCartItem(f: FilaCartItem): CartItem {
     image: p?.image_url ?? '',
     isKitItem: f.kit_solution_id !== null,
     kitName: f.solutions?.name,
+    kitDiscountPercent: num(f.solutions?.discount_percent),
   };
 }
 
@@ -96,6 +109,17 @@ async function carritoActivo(): Promise<string | null> {
   return (nuevo as { id: string }).id;
 }
 
+/** Línea del carrito con esa variante y color; `.is()` solo sirve para nulo, no para un uuid. */
+async function lineaExistente(
+  cartId: string, variantId: string, colorId: string | null
+): Promise<{ id: string; quantity: number } | null> {
+  let consulta = supabase
+    .from('cart_items').select('id, quantity').eq('cart_id', cartId).eq('variant_id', variantId);
+  consulta = colorId ? consulta.eq('color_id', colorId) : consulta.is('color_id', null);
+  const { data } = await consulta.maybeSingle();
+  return (data as { id: string; quantity: number } | null) ?? null;
+}
+
 export const cartService = {
   async getItems(): Promise<CartItem[]> {
     const cartId = await carritoActivo();
@@ -114,7 +138,7 @@ export const cartService = {
   async addProduct(
     producto: StoreProduct,
     etiquetaPresentacion?: string,
-    nombreColor?: string,
+    color?: string,
     cantidad = 1
   ): Promise<CartItem[]> {
     const cartId = await carritoActivo();
@@ -125,30 +149,16 @@ export const cartService = {
       producto.presentations[0];
     if (!presentacion) throw new Error('Este producto no tiene presentaciones disponibles.');
 
-    let colorId: string | null = null;
-    if (nombreColor) {
-      const codigo = producto.availableColors?.find((c) => c.name === nombreColor)?.code;
-      if (codigo) {
-        const { data } = await supabase
-          .from('colors').select('id').eq('code', codigo).maybeSingle();
-        colorId = (data as { id: string } | null)?.id ?? null;
-      }
-    }
+    const colorId = await resolverColorId(producto, color);
 
     // La presentación ya trae el UUID de la variante.
-    const { data: existente } = await supabase
-      .from('cart_items')
-      .select('id, quantity')
-      .eq('cart_id', cartId)
-      .eq('variant_id', presentacion.id)
-      .is('color_id', colorId)
-      .maybeSingle();
+    const existente = await lineaExistente(cartId, presentacion.id, colorId);
 
     if (existente) {
       const fila = existente as { id: string; quantity: number };
       const { error } = await supabase
         .from('cart_items')
-        .update({ quantity: fila.quantity + cantidad })
+        .update({ quantity: Math.min(CANTIDAD_MAXIMA, fila.quantity + cantidad) })
         .eq('id', fila.id);
       if (error) throw errorLegible('addProduct/update', error);
     } else {
@@ -164,51 +174,66 @@ export const cartService = {
     return this.getItems();
   },
 
-  /** Añade los pasos de un kit, marcados para el descuento. */
-  async addKit(kit: SolutionKit, multiplicador = 1): Promise<CartItem[]> {
+  /** Añade los pasos de un kit, marcados para el descuento; `colores` va por número de paso. */
+  async addKit(
+    kit: SolutionKit,
+    multiplicador = 1,
+    colores: Record<number, string> = {}
+  ): Promise<CartItem[]> {
     const cartId = await carritoActivo();
     if (!cartId) throw new Error('Inicia sesión para agregar el kit al carrito.');
 
-    const { data: solucion } = await supabase
-      .from('solutions').select('id').eq('external_ref', kit.id).maybeSingle();
-    const solutionId = (solucion as { id: string } | null)?.id ?? null;
-
-    for (const paso of kit.steps) {
-      const { data: variante } = await supabase
-        .from('product_variants')
-        .select('id, products!inner(external_ref)')
-        .eq('products.external_ref', paso.productId)
-        .eq('label', paso.presentation)
-        .maybeSingle();
-
-      const variantId = (variante as { id: string } | null)?.id;
-      // Pasos con etiquetas sin variante real se omiten sin romper la compra.
-      if (!variantId) {
-        console.warn(`[commerce] paso de kit sin variante: ${paso.productId} / ${paso.presentation}`);
-        continue;
-      }
-
-      const cantidad = paso.quantityFor85m2 * multiplicador;
-      const { data: existente } = await supabase
-        .from('cart_items')
-        .select('id, quantity')
-        .eq('cart_id', cartId)
-        .eq('variant_id', variantId)
-        .is('color_id', null)
-        .maybeSingle();
+    // Se resuelven todos los pasos antes de escribir: un color faltante no deja el kit a medias.
+    const lineas = await resolverPasosKit(kit, multiplicador, colores);
+    for (const linea of lineas) {
+      const existente = await lineaExistente(cartId, linea.variantId, linea.colorId);
 
       if (existente) {
         const fila = existente as { id: string; quantity: number };
-        await supabase.from('cart_items')
-          .update({ quantity: fila.quantity + cantidad }).eq('id', fila.id);
+        const { error } = await supabase.from('cart_items')
+          .update({ quantity: Math.min(CANTIDAD_MAXIMA, fila.quantity + linea.quantity) })
+          .eq('id', fila.id);
+        if (error) throw errorLegible('addKit/update', error);
       } else {
-        await supabase.from('cart_items').insert({
-          cart_id: cartId, variant_id: variantId, quantity: cantidad,
-          kit_solution_id: solutionId,
+        const { error } = await supabase.from('cart_items').insert({
+          cart_id: cartId, variant_id: linea.variantId, color_id: linea.colorId,
+          quantity: Math.min(CANTIDAD_MAXIMA, linea.quantity),
+          kit_solution_id: linea.kitSolutionId,
         });
+        if (error) throw errorLegible('addKit/insert', error);
       }
     }
 
+    return this.getItems();
+  },
+
+  /** Pone color a una línea que no lo tenía; si ya había otra con ese color, se juntan. */
+  async fijarColor(itemId: string, colorId: string): Promise<CartItem[]> {
+    const { data: actual, error: errLectura } = await supabase
+      .from('cart_items').select('id, cart_id, variant_id, quantity').eq('id', itemId).single();
+    if (errLectura) throw errorLegible('fijarColor/leer', errLectura);
+    const linea = actual as { id: string; cart_id: string; variant_id: string; quantity: number };
+
+    const { data: gemela } = await supabase
+      .from('cart_items')
+      .select('id, quantity')
+      .eq('cart_id', linea.cart_id)
+      .eq('variant_id', linea.variant_id)
+      .eq('color_id', colorId)
+      .maybeSingle();
+
+    if (gemela) {
+      const g = gemela as { id: string; quantity: number };
+      const { error } = await supabase.from('cart_items')
+        .update({ quantity: Math.min(CANTIDAD_MAXIMA, g.quantity + linea.quantity) })
+        .eq('id', g.id);
+      if (error) throw errorLegible('fijarColor/juntar', error);
+      return this.removeItem(linea.id);
+    }
+
+    const { error } = await supabase
+      .from('cart_items').update({ color_id: colorId }).eq('id', linea.id);
+    if (error) throw errorLegible('fijarColor', error);
     return this.getItems();
   },
 
@@ -244,13 +269,7 @@ export const cartService = {
     if (!cartId) throw new Error('Inicia sesión para recuperar tu carrito.');
 
     for (const linea of lineas) {
-      const { data: existente } = await supabase
-        .from('cart_items')
-        .select('id, quantity')
-        .eq('cart_id', cartId)
-        .eq('variant_id', linea.variantId)
-        .is('color_id', linea.colorId)
-        .maybeSingle();
+      const existente = await lineaExistente(cartId, linea.variantId, linea.colorId);
 
       // Tope de cart_items_cantidad_positiva (999): superarlo haría fallar todo el volcado.
       if (existente) {
@@ -282,6 +301,8 @@ export interface ResumenPedido {
   status: string;
   totalCOP: number;
   createdAt: string;
+  /** Solo en envíos; la calcula el servidor por tramos de cobertura. */
+  entregaEstimada?: string | null;
 }
 
 export const orderService = {
@@ -331,13 +352,13 @@ export const orderService = {
 
     const { data: pedido } = await supabase
       .from('orders')
-      .select('id, order_number, status, total_cop, created_at')
+      .select('id, order_number, status, total_cop, created_at, estimated_delivery_date')
       .eq('id', orderId as string)
       .single();
 
     const o = pedido as {
       id: string; order_number: string; status: string;
-      total_cop: string | number; created_at: string;
+      total_cop: string | number; created_at: string; estimated_delivery_date: string | null;
     };
     return {
       id: o.id,
@@ -345,6 +366,7 @@ export const orderService = {
       status: o.status,
       totalCOP: num(o.total_cop),
       createdAt: o.created_at,
+      entregaEstimada: o.estimated_delivery_date,
     };
   },
 

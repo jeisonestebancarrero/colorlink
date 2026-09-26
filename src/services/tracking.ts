@@ -85,7 +85,7 @@ export const trackingService = {
       .from('orders')
       .select(
         'id, order_number, status, delivery_method, total_cop, created_at, ' +
-          'shipping_address, shipping_city, pickup_code, ' +
+          'shipping_address, shipping_city, pickup_code, estimated_delivery_date, ' +
           'pickup_locations ( name, city ), ' +
           'shipments ( carrier, tracking_number, estimated_at ), ' +
           'order_items ( product_name, presentation, quantity, subtotal_cop )'
@@ -104,6 +104,7 @@ export const trackingService = {
         delivery_method: string; total_cop: string | number; created_at: string;
         shipping_address: string | null; shipping_city: string | null;
         pickup_code: string | null;
+        estimated_delivery_date: string | null;
         pickup_locations: { name: string; city: string } | null;
         shipments: Array<{ carrier: string | null; tracking_number: string | null; estimated_at: string | null }> | null;
         order_items: Array<{ product_name: string; presentation: string | null; quantity: number; subtotal_cop: string | number }> | null;
@@ -125,7 +126,8 @@ export const trackingService = {
         codigoRetiro: f.pickup_code,
         transportadora: envio?.carrier ?? null,
         guia: envio?.tracking_number ?? null,
-        estimada: envio?.estimated_at ?? null,
+        // La del despacho manda cuando existe; si no, la que calculó el servidor al crear el pedido.
+        estimada: envio?.estimated_at ?? f.estimated_delivery_date ?? null,
         progreso: PROGRESO[f.status] ?? 0,
         hitos: construirHitos(f.status, esEnvio),
         items: (f.order_items ?? []).map((i) => ({

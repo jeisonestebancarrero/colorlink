@@ -19,6 +19,7 @@ import {
 } from '../ContadorPorSede';
 import { ExportarBoton } from '../ExportarBoton';
 import { IconoModulo } from '../IconosDeModulo';
+import { MuestraColor } from '../ColoresDelProducto';
 
 /**
  * Recepciones: único punto de entrada del costo, por eso exige documento del proveedor.
@@ -44,7 +45,7 @@ export const RecepcionesPage: React.FC = () => {
   const [borrador, setBorrador] = useState({
     puntoId: '', proveedorId: '', documento: '', fecha: hoyISO(), notas: '',
   });
-  const [linea, setLinea] = useState({ variantId: '', cantidad: '', costo: '' });
+  const [linea, setLinea] = useState({ variantId: '', colorId: '', cantidad: '', costo: '' });
   const [prov, setProv] = useState({ nombre: '', nit: '', telefono: '', ciudad: '' });
 
   const escribe = puede('inventory.write');
@@ -78,9 +79,16 @@ export const RecepcionesPage: React.FC = () => {
         p.presentaciones.map((v) => ({
           id: v.id,
           etiqueta: `${p.nombre} · ${v.label}${v.sku ? ` (${v.sku})` : ''}`,
+          colores: p.colores,
         })),
       ),
     [productos],
+  );
+
+  /** Colores de la presentación elegida; vacío si el producto no tiene carta. */
+  const coloresDeLinea = useMemo(
+    () => presentaciones.find((p) => p.id === linea.variantId)?.colores ?? [],
+    [presentaciones, linea.variantId],
   );
 
   const filtradas = useMemo(() => {
@@ -136,6 +144,7 @@ export const RecepcionesPage: React.FC = () => {
     const cantidad = Number(linea.cantidad);
     const costo = Number(linea.costo);
     if (!linea.variantId) return setError('Elige qué presentación llegó.');
+    if (coloresDeLinea.length > 0 && !linea.colorId) return setError('Elige el color que llegó.');
     if (!Number.isFinite(cantidad) || cantidad <= 0) return setError('La cantidad debe ser mayor que cero.');
     if (!Number.isFinite(costo) || costo < 0) return setError('El costo unitario no es válido.');
 
@@ -144,10 +153,12 @@ export const RecepcionesPage: React.FC = () => {
       await recepcionService.agregarLinea({
         recepcionId: abierta.id,
         variantId: linea.variantId,
+        colorId: coloresDeLinea.length > 0 ? linea.colorId : null,
         cantidad,
         costoUnitario: costo,
       });
-      setLinea({ variantId: '', cantidad: '', costo: '' });
+      // Se conserva la presentación: suele llegar en varios colores seguidos.
+      setLinea({ variantId: linea.variantId, colorId: '', cantidad: '', costo: linea.costo });
       await refrescar(abierta.id);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No fue posible agregar la línea.');
@@ -291,10 +302,11 @@ export const RecepcionesPage: React.FC = () => {
             </p>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-sm min-w-[640px]">
+              <table className="w-full text-sm min-w-[760px]">
                 <thead>
                   <tr className="bg-slate-50 text-[11px] uppercase tracking-wider text-slate-500 font-bold">
                     <th className="text-left px-5 py-2.5">Producto</th>
+                    <th className="text-left px-3 py-2.5">Color</th>
                     <th className="text-right px-3 py-2.5">Cantidad</th>
                     <th className="text-right px-3 py-2.5">Costo unitario</th>
                     <th className="text-right px-3 py-2.5">Subtotal</th>
@@ -309,6 +321,19 @@ export const RecepcionesPage: React.FC = () => {
                         <p className="text-xs text-slate-500">
                           {[l.presentacion, l.sku].filter(Boolean).join(' · ')}
                         </p>
+                      </td>
+                      <td className="px-3 py-3">
+                        {l.color ? (
+                          <span className="inline-flex items-center gap-2 text-xs text-slate-700">
+                            <MuestraColor hex={l.color.hex} className="w-4 h-4" />
+                            <span>
+                              {l.color.nombre}
+                              <span className="text-slate-400"> · {l.color.codigo}</span>
+                            </span>
+                          </span>
+                        ) : (
+                          <span className="text-xs text-slate-400">Sin color</span>
+                        )}
                       </td>
                       <td className="px-3 py-3 text-right tabular-nums">{l.cantidad}</td>
                       <td className="px-3 py-3 text-right tabular-nums text-slate-600">
@@ -351,8 +376,42 @@ export const RecepcionesPage: React.FC = () => {
                 ...presentaciones.map((p) => ({ value: p.id, label: p.etiqueta })),
               ]}
               value={linea.variantId}
-              onChange={(e) => setLinea({ ...linea, variantId: e.target.value })}
+              onChange={(e) => setLinea({ ...linea, variantId: e.target.value, colorId: '' })}
             />
+
+            {/* Solo productos con carta: el color es parte de la existencia */}
+            {coloresDeLinea.length > 0 && (
+              <fieldset>
+                <legend className="block text-sm font-medium text-slate-700 mb-1.5">
+                  Color que llegó
+                </legend>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 max-h-60 overflow-y-auto pr-1">
+                  {coloresDeLinea.map((c) => {
+                    const elegido = linea.colorId === c.id;
+                    return (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => setLinea({ ...linea, colorId: c.id })}
+                        aria-pressed={elegido}
+                        className={`flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-left transition-colors ${
+                          elegido ? 'border-[#004F9F] bg-[#004F9F]/5 ring-1 ring-[#004F9F]' : 'border-slate-200 hover:bg-slate-50'
+                        }`}
+                      >
+                        <MuestraColor hex={c.hex} className="w-5 h-5" />
+                        <span className="min-w-0">
+                          <span className="block text-xs font-semibold text-slate-800 truncate">{c.nombre}</span>
+                          <span className="block text-[10px] text-slate-400">{c.codigo}</span>
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="text-[11px] text-slate-400 mt-1.5 leading-relaxed">
+                  Si llegó en varios colores, agrega una línea por cada color.
+                </p>
+              </fieldset>
+            )}
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Input

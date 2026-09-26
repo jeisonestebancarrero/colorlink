@@ -93,16 +93,97 @@ export function leerIntencion(): Intencion | null {
 
 // Resolución contra el catálogo (lectura anónima permitida)
 
-/** Nombre de color de la interfaz → id real. */
-async function resolverColorId(
-  producto: StoreProduct,
-  nombreColor?: string
-): Promise<string | null> {
-  if (!nombreColor) return null;
-  const codigo = producto.availableColors?.find((c) => c.name === nombreColor)?.code;
-  if (!codigo) return null;
+/** true si el producto se vende por color (tiene filas en product_colors). */
+export const tieneCarta = (producto: Pick<StoreProduct, 'availableColors'>): boolean =>
+  (producto.availableColors?.length ?? 0) > 0;
+
+/** Código de color → id real. */
+export async function idDeColor(codigo: string): Promise<string> {
   const { data } = await supabase.from('colors').select('id').eq('code', codigo).maybeSingle();
-  return (data as { id: string } | null)?.id ?? null;
+  const id = (data as { id: string } | null)?.id;
+  if (!id) throw new Error('Ese color ya no está disponible. Elige otro.');
+  return id;
+}
+
+/**
+ * Color elegido (código o nombre) → id real. La base rechaza el pedido si una pintura
+ * con carta va sin color, así que se exige aquí, antes de que llegue al carrito.
+ */
+export async function resolverColorId(
+  producto: StoreProduct,
+  color?: string
+): Promise<string | null> {
+  if (!tieneCarta(producto)) return null;
+  if (!color) throw new Error(`Elige el color de «${producto.name}» antes de agregarlo.`);
+  const elegido = producto.availableColors?.find((c) => c.code === color || c.name === color);
+  if (!elegido) throw new Error(`«${producto.name}» no se ofrece en ese color. Elige otro.`);
+  return idDeColor(elegido.code);
+}
+
+interface FilaVarianteKit {
+  id: string;
+  products: {
+    name: string;
+    product_colors: Array<{ colors: { id: string; code: string } | null }> | null;
+  } | null;
+}
+
+/**
+ * Traduce los pasos de un kit a líneas de carrito. `colores` va por número de paso
+ * (código de color); los pasos con carta sin color detienen todo el kit.
+ */
+export async function resolverPasosKit(
+  kit: SolutionKit,
+  multiplicador: number,
+  colores: Record<number, string> = {}
+): Promise<LineaInvitado[]> {
+  const { data: solucion } = await supabase
+    .from('solutions').select('id').eq('external_ref', kit.id).maybeSingle();
+  const kitSolutionId = (solucion as { id: string } | null)?.id ?? null;
+
+  const lineas: LineaInvitado[] = [];
+  const faltantes: string[] = [];
+  for (const paso of kit.steps) {
+    const { data: variante } = await supabase
+      .from('product_variants')
+      .select('id, products!inner(external_ref, name, product_colors(colors(id, code)))')
+      .eq('products.external_ref', paso.productId)
+      .eq('label', paso.presentation)
+      .maybeSingle();
+
+    const fila = variante as FilaVarianteKit | null;
+    // Algunos pasos del kit citan etiquetas sin variante real: se omiten sin romper la compra.
+    if (!fila) {
+      console.warn(`[carrito] paso de kit sin variante: ${paso.productId} / ${paso.presentation}`);
+      continue;
+    }
+
+    const carta = (fila.products?.product_colors ?? [])
+      .map((pc) => pc.colors)
+      .filter((c): c is { id: string; code: string } => c !== null);
+    let colorId: string | null = null;
+    if (carta.length > 0) {
+      colorId = carta.find((c) => c.code === colores[paso.stepNumber])?.id ?? null;
+      if (!colorId) {
+        faltantes.push(fila.products?.name ?? paso.productName);
+        continue;
+      }
+    }
+
+    lineas.push({
+      variantId: fila.id,
+      colorId,
+      // cart_items.quantity es entera: se redondea hacia arriba como lo muestra la página.
+      quantity: Math.max(1, Math.ceil(paso.quantityFor85m2 * multiplicador)),
+      kitSolutionId,
+    });
+  }
+
+  if (faltantes.length > 0) {
+    throw new Error(`Elige el color de: ${faltantes.map((n) => `«${n}»`).join(', ')}.`);
+  }
+  if (lineas.length === 0) throw new Error('Este kit no tiene productos disponibles por ahora.');
+  return lineas;
 }
 
 // Escritura
@@ -123,7 +204,7 @@ function fusionar(actuales: LineaInvitado[], nuevas: LineaInvitado[]): LineaInvi
 export async function agregarProducto(
   producto: StoreProduct,
   etiquetaPresentacion?: string,
-  nombreColor?: string,
+  color?: string,
   cantidad = 1
 ): Promise<void> {
   const presentacion =
@@ -131,7 +212,7 @@ export async function agregarProducto(
     producto.presentations[0];
   if (!presentacion) throw new Error('Este producto no tiene presentaciones disponibles.');
 
-  const colorId = await resolverColorId(producto, nombreColor);
+  const colorId = await resolverColorId(producto, color);
   guardarLineas(
     fusionar(leerLineas(), [
       { variantId: presentacion.id, colorId, quantity: cantidad, kitSolutionId: null },
@@ -139,36 +220,22 @@ export async function agregarProducto(
   );
 }
 
-export async function agregarKit(kit: SolutionKit, multiplicador = 1): Promise<void> {
-  const { data: solucion } = await supabase
-    .from('solutions').select('id').eq('external_ref', kit.id).maybeSingle();
-  const kitSolutionId = (solucion as { id: string } | null)?.id ?? null;
-
-  const nuevas: LineaInvitado[] = [];
-  for (const paso of kit.steps) {
-    const { data: variante } = await supabase
-      .from('product_variants')
-      .select('id, products!inner(external_ref)')
-      .eq('products.external_ref', paso.productId)
-      .eq('label', paso.presentation)
-      .maybeSingle();
-
-    const variantId = (variante as { id: string } | null)?.id;
-    // Algunos pasos del kit citan etiquetas sin variante real: se omiten sin romper la compra.
-    if (!variantId) {
-      console.warn(`[carrito-invitado] paso de kit sin variante: ${paso.productId} / ${paso.presentation}`);
-      continue;
-    }
-    nuevas.push({
-      variantId,
-      colorId: null,
-      quantity: paso.quantityFor85m2 * multiplicador,
-      kitSolutionId,
-    });
-  }
-
-  if (nuevas.length === 0) throw new Error('Este kit no tiene productos disponibles por ahora.');
+export async function agregarKit(
+  kit: SolutionKit,
+  multiplicador = 1,
+  colores: Record<number, string> = {}
+): Promise<void> {
+  const nuevas = await resolverPasosKit(kit, multiplicador, colores);
   guardarLineas(fusionar(leerLineas(), nuevas));
+}
+
+/** Pone color a una línea; si ya había otra con ese color, se juntan. */
+export function fijarColor(itemId: string, colorId: string): void {
+  const lineas = leerLineas();
+  const linea = lineas.find((l) => idLinea(l.variantId, l.colorId) === itemId);
+  if (!linea) return;
+  const resto = lineas.filter((l) => l !== linea);
+  guardarLineas(fusionar(resto, [{ ...linea, colorId }]));
 }
 
 export function fijarCantidad(itemId: string, cantidad: number): void {

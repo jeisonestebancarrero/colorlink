@@ -36,6 +36,20 @@ function errorLegible(contexto: string, error: { message: string }): Error {
   if (/mime type|not allowed/i.test(m)) {
     return new Error('Formato no admitido. Usa JPG, PNG, WebP o AVIF.');
   }
+  if (/COLOR_CON_EXISTENCIAS/.test(m)) {
+    const colores = m.match(/no puedes quitar (.+) porque/)?.[1];
+    return new Error(
+      colores
+        ? `No puedes quitar ${colores}: todavía hay unidades en inventario en ese color. Véndelas o trasládalas antes de quitarlo.`
+        : 'No puedes quitar un color que todavía tiene unidades en inventario.',
+    );
+  }
+  if (/COLOR_REQUERIDO/.test(m)) {
+    const detalle = m.split('COLOR_REQUERIDO:')[1]?.split('\n')[0]?.trim();
+    return new Error(detalle ? `${detalle[0].toUpperCase()}${detalle.slice(1)}.` : 'Elige el color.');
+  }
+  if (/COLOR_NO_OFRECIDO/.test(m)) return new Error('Ese producto no se ofrece en el color elegido.');
+  if (/SIN_CARTA/.test(m)) return new Error('Ese producto no se vende por color: agrégalo sin color.');
   if (/NOT_FOUND/.test(m)) return new Error('Ese registro ya no existe.');
   return new Error('No fue posible completar la operación. Inténtalo nuevamente.');
 }
@@ -82,6 +96,14 @@ export interface Presentacion {
   margenPct: number | null;
 }
 
+/** Color de la carta que ofrece un producto, en el orden en que se muestra. */
+export interface ColorDeProducto {
+  id: string;
+  codigo: string;
+  nombre: string;
+  hex: string;
+}
+
 export interface ProductoCatalogo {
   id: string;
   codigo: string;
@@ -103,6 +125,8 @@ export interface ProductoCatalogo {
   iva: number;
   estado: EstadoCatalogo;
   presentaciones: Presentacion[];
+  /** Vacío = se vende sin color (herramientas). */
+  colores: ColorDeProducto[];
 }
 
 const SELECT_PRODUCTO = `
@@ -110,7 +134,8 @@ const SELECT_PRODUCTO = `
   finish, coverage, spread_rate_m2_per_gal, drying_time, image_url,
   tech_sheet_url, badge, tax_rate, status,
   brands ( name ), categories ( name ),
-  product_variants ( id, product_id, label, sku, barcode, price_cop, volume_liters, unit, sort_order, status )
+  product_variants ( id, product_id, label, sku, barcode, price_cop, volume_liters, unit, sort_order, status ),
+  product_colors ( sort_order, colors ( id, code, name, hex ) )
 `;
 
 export const catalogoService = {
@@ -174,7 +199,28 @@ export const catalogoService = {
           };
         })
         .sort((a, b) => a.orden - b.orden || a.label.localeCompare(b.label, 'es')),
+      colores: ((p.product_colors ?? []) as Array<Record<string, unknown>>)
+        .filter((pc) => pc.colors)
+        .sort((a, b) => num(a.sort_order) - num(b.sort_order))
+        .map((pc) => {
+          const c = pc.colors as { id: string; code?: string; name?: string; hex?: string };
+          return {
+            id: String(c.id),
+            codigo: String(c.code ?? ''),
+            nombre: String(c.name ?? ''),
+            hex: String(c.hex ?? '#000000'),
+          };
+        }),
     }));
+  },
+
+  /** Fija los colores que ofrece el producto; el orden del arreglo es el de la tienda. */
+  async definirColores(productId: string, colorIds: string[]): Promise<void> {
+    const { error } = await supabase.rpc('definir_colores_producto', {
+      _product_id: productId,
+      _color_ids: colorIds,
+    });
+    if (error) throw errorLegible('definirColores', error);
   },
 
   /** Se deduce de si la vista de costos devuelve algo. */
@@ -388,6 +434,8 @@ export interface LineaRecepcion {
   producto: string;
   presentacion: string;
   sku: string | null;
+  /** Nulo en productos sin carta de color. */
+  color: ColorDeProducto | null;
   cantidad: number;
   costoUnitario: number;
   subtotal: number;
@@ -418,8 +466,9 @@ const SELECT_RECEPCION = `
   creador:created_by ( first_name, last_name ),
   confirmador:confirmed_by ( first_name, last_name ),
   purchase_receipt_items (
-    id, variant_id, quantity, unit_cost_cop, subtotal_cop,
-    product_variants ( label, sku, products ( name ) )
+    id, variant_id, color_id, quantity, unit_cost_cop, subtotal_cop, created_at,
+    product_variants ( label, sku, products ( name ) ),
+    colors ( id, code, name, hex )
   )
 `;
 
@@ -442,21 +491,28 @@ const aRecepcion = (r: Record<string, unknown>): Recepcion => {
     total: num(r.total_cop),
     creadaPor: nombre(r.creador),
     confirmadaPor: nombre(r.confirmador),
-    lineas: ((r.purchase_receipt_items ?? []) as Array<Record<string, unknown>>).map((l) => {
-      const v = l.product_variants as
-        | { label?: string; sku?: string; products?: { name?: string } | null }
-        | null;
-      return {
-        id: String(l.id),
-        variantId: String(l.variant_id),
-        producto: v?.products?.name ?? '—',
-        presentacion: v?.label ?? '',
-        sku: v?.sku ?? null,
-        cantidad: num(l.quantity),
-        costoUnitario: num(l.unit_cost_cop),
-        subtotal: num(l.subtotal_cop),
-      };
-    }),
+    // Orden de llegada: la misma presentación puede repetirse en varios colores.
+    lineas: [...((r.purchase_receipt_items ?? []) as Array<Record<string, unknown>>)]
+      .sort((a, b) => String(a.created_at ?? '').localeCompare(String(b.created_at ?? '')))
+      .map((l) => {
+        const v = l.product_variants as
+          | { label?: string; sku?: string; products?: { name?: string } | null }
+          | null;
+        const c = l.colors as { id: string; code?: string; name?: string; hex?: string } | null;
+        return {
+          id: String(l.id),
+          variantId: String(l.variant_id),
+          producto: v?.products?.name ?? '—',
+          presentacion: v?.label ?? '',
+          sku: v?.sku ?? null,
+          color: c
+            ? { id: String(c.id), codigo: String(c.code ?? ''), nombre: String(c.name ?? ''), hex: String(c.hex ?? '#000000') }
+            : null,
+          cantidad: num(l.quantity),
+          costoUnitario: num(l.unit_cost_cop),
+          subtotal: num(l.subtotal_cop),
+        };
+      }),
   };
 };
 
@@ -502,19 +558,26 @@ export const recepcionService = {
   async agregarLinea(datos: {
     recepcionId: string;
     variantId: string;
+    /** Obligatorio si el producto tiene carta; nulo si no. */
+    colorId?: string | null;
     cantidad: number;
     costoUnitario: number;
   }): Promise<void> {
     const { error } = await supabase.from('purchase_receipt_items').insert({
       receipt_id: datos.recepcionId,
       variant_id: datos.variantId,
+      color_id: datos.colorId ?? null,
       quantity: datos.cantidad,
       unit_cost_cop: datos.costoUnitario,
       subtotal_cop: datos.cantidad * datos.costoUnitario,
     });
     if (error) {
       if (/una_linea_por_variante/.test(error.message)) {
-        throw new Error('Esa presentación ya está en la recepción. Edita su cantidad.');
+        throw new Error(
+          datos.colorId
+            ? 'Esa presentación ya está en la recepción en ese color. Quita la línea y agrégala con la cantidad total.'
+            : 'Esa presentación ya está en la recepción. Quita la línea y agrégala con la cantidad total.',
+        );
       }
       throw errorLegible('agregarLinea', error);
     }

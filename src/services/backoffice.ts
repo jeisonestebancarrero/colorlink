@@ -570,9 +570,24 @@ export const ETIQUETA_MOVIMIENTO: Record<string, string> = {
   LIBERACION: 'Liberación',
 };
 
+/** Color de la carta de un producto, tal como se muestra en inventario. */
+export interface ColorInventario {
+  id: string;
+  codigo: string;
+  nombre: string;
+  hex: string;
+}
+
 export interface Existencia {
   variantId: string;
   locationId: string;
+  productId: string;
+  /** Nulo en productos sin carta y en existencias sin clasificar. */
+  colorId: string | null;
+  color: ColorInventario | null;
+  /** El producto se vende por color: todo movimiento exige uno de `coloresProducto`. */
+  tieneCarta: boolean;
+  coloresProducto: ColorInventario[];
   producto: string;
   codigo: string | null;
   presentacion: string;
@@ -589,6 +604,22 @@ export interface Existencia {
 
 /** 'bajo' solo si hay punto de reorden definido para esa referencia y bodega. */
 export type SituacionExistencia = 'agotado' | 'bajo' | 'ok';
+
+/** Existencias de un producto con carta que aún no tienen color asignado. */
+export function sinClasificar(e: Existencia): boolean {
+  return e.tieneCarta && !e.colorId;
+}
+
+/** Texto de búsqueda de una existencia: incluye el nombre y el código del color. */
+export function coincideExistencia(e: Existencia, q: string): boolean {
+  const t = q.trim().toLowerCase();
+  if (!t) return true;
+  return [
+    e.producto, e.presentacion, e.categoria, e.codigo ?? '',
+    e.color?.nombre ?? '', e.color?.codigo ?? '',
+    sinClasificar(e) ? 'sin clasificar' : '',
+  ].some((v) => v.toLowerCase().includes(t));
+}
 
 export function situacion(e: Existencia): SituacionExistencia {
   if (e.neto <= 0) return 'agotado';
@@ -627,10 +658,25 @@ export interface Movimiento {
   cantidad: number;
   saldo: number;
   producto: string;
+  color: ColorInventario | null;
   bodega: string;
   notas: string | null;
   autor: string | null;
   fecha: string;
+}
+
+interface FilaColor { id: string; code: string; name: string; hex: string }
+
+const aColor = (c: FilaColor | null | undefined): ColorInventario | null =>
+  c ? { id: c.id, codigo: c.code, nombre: c.name, hex: c.hex } : null;
+
+/** Los errores de color del servidor ya vienen en español tras el código: se usa ese texto. */
+function errorDeColor(error: { message: string }): Error | null {
+  const m = error.message ?? '';
+  const r = m.match(/(?:COLOR_REQUERIDO|COLOR_NO_OFRECIDO|SIN_CARTA|NOT_FOUND):\s*(.+)$/);
+  if (!r) return null;
+  const texto = r[1].trim();
+  return new Error(`${texto.charAt(0).toUpperCase()}${texto.slice(1)}.`);
 }
 
 export const inventarioService = {
@@ -661,8 +707,10 @@ export const inventarioService = {
     let consulta = supabase
       .from('inventory')
       .select(
-        'variant_id, location_id, qty_available, qty_reserved, min_qty, ' +
-          'product_variants ( label, sku, products ( name, code, categories ( name ), brands ( name ) ) ), ' +
+        'variant_id, location_id, color_id, qty_available, qty_reserved, min_qty, ' +
+          'colors ( id, code, name, hex ), ' +
+          'product_variants ( label, sku, products ( id, name, code, categories ( name ), brands ( name ), ' +
+          'product_colors ( sort_order, colors ( id, code, name, hex ) ) ) ), ' +
           'pickup_locations ( name, city )'
       );
 
@@ -672,62 +720,74 @@ export const inventarioService = {
     if (error) throw errorLegible('existencias', error);
 
     const filas: Existencia[] = ((data ?? []) as unknown as Array<{
-      variant_id: string; location_id: string;
+      variant_id: string; location_id: string; color_id: string | null;
       qty_available: number; qty_reserved: number; min_qty: number;
+      colors: FilaColor | null;
       product_variants: {
         label: string; sku: string | null;
         products: {
-          name: string; code: string;
+          id: string; name: string; code: string;
           categories: { name: string } | null;
           brands: { name: string } | null;
+          product_colors: Array<{ sort_order: number; colors: FilaColor | null }> | null;
         } | null;
       } | null;
       pickup_locations: { name: string; city: string } | null;
-    }>).map((f) => ({
-      variantId: f.variant_id,
-      locationId: f.location_id,
-      producto: f.product_variants?.products?.name ?? '—',
-      codigo: f.product_variants?.products?.code ?? null,
-      presentacion: f.product_variants?.label ?? '',
-      categoria: f.product_variants?.products?.categories?.name ?? 'Sin categoría',
-      marca: f.product_variants?.products?.brands?.name ?? '',
-      bodega: f.pickup_locations?.name ?? '—',
-      ciudad: f.pickup_locations?.city ?? '',
-      disponible: f.qty_available,
-      reservado: f.qty_reserved,
-      neto: f.qty_available - f.qty_reserved,
-      minimo: f.min_qty ?? 0,
-    }));
+    }>).map((f) => {
+      const p = f.product_variants?.products;
+      const carta = [...(p?.product_colors ?? [])]
+        .sort((a, b) => a.sort_order - b.sort_order)
+        .map((pc) => aColor(pc.colors))
+        .filter((c): c is ColorInventario => c !== null);
+      return {
+        variantId: f.variant_id,
+        locationId: f.location_id,
+        productId: p?.id ?? '',
+        colorId: f.color_id,
+        color: aColor(f.colors),
+        // Una fila con color también delata la carta aunque RLS oculte `product_colors`.
+        tieneCarta: carta.length > 0 || f.color_id !== null,
+        coloresProducto: carta,
+        producto: p?.name ?? '—',
+        codigo: p?.code ?? null,
+        presentacion: f.product_variants?.label ?? '',
+        categoria: p?.categories?.name ?? 'Sin categoría',
+        marca: p?.brands?.name ?? '',
+        bodega: f.pickup_locations?.name ?? '—',
+        ciudad: f.pickup_locations?.city ?? '',
+        disponible: f.qty_available,
+        reservado: f.qty_reserved,
+        neto: f.qty_available - f.qty_reserved,
+        minimo: f.min_qty ?? 0,
+      };
+    });
 
-    const q = opciones?.busqueda?.trim().toLowerCase();
-    const lista = !q
-      ? filas
-      : filas.filter(
-          (f) =>
-            f.producto.toLowerCase().includes(q) ||
-            f.presentacion.toLowerCase().includes(q) ||
-            f.categoria.toLowerCase().includes(q) ||
-            (f.codigo ?? '').toLowerCase().includes(q),
-        );
+    const q = opciones?.busqueda ?? '';
+    const lista = filas.filter((f) => coincideExistencia(f, q));
 
-    // Primero lo agotado y luego lo bajo el punto de reorden.
+    // Primero lo agotado y luego lo bajo el punto de reorden; dentro, producto, presentación y color.
     const peso = (e: Existencia) =>
       situacion(e) === 'agotado' ? 0 : situacion(e) === 'bajo' ? 1 : 2;
     return lista.sort(
       (a, b) =>
         peso(a) - peso(b) ||
         a.categoria.localeCompare(b.categoria, 'es') ||
-        a.producto.localeCompare(b.producto, 'es'),
+        a.producto.localeCompare(b.producto, 'es') ||
+        a.presentacion.localeCompare(b.presentacion, 'es') ||
+        (a.color?.nombre ?? '').localeCompare(b.color?.nombre ?? '', 'es'),
     );
   },
 
-  async fijarPuntoReorden(variantId: string, locationId: string, minimo: number): Promise<void> {
+  async fijarPuntoReorden(
+    variantId: string, locationId: string, minimo: number, colorId: string | null = null,
+  ): Promise<void> {
     const { error } = await supabase.rpc('set_reorder_point', {
       _variant_id: variantId,
       _location_id: locationId,
       _min_qty: minimo,
+      _color_id: colorId,
     });
-    if (error) throw errorLegible('fijarPuntoReorden', error);
+    if (error) throw errorDeColor(error) ?? errorLegible('fijarPuntoReorden', error);
   },
 
   /** Salida y entrada ocurren en una sola transacción en el servidor. */
@@ -736,6 +796,7 @@ export const inventarioService = {
     origen: string;
     destino: string;
     cantidad: number;
+    colorId?: string | null;
     notas?: string;
   }): Promise<{ referencia: string; saldoOrigen: number; saldoDestino: number }> {
     const { data, error } = await supabase.rpc('transfer_inventory', {
@@ -744,6 +805,7 @@ export const inventarioService = {
       _destino: datos.destino,
       _cantidad: datos.cantidad,
       _notas: datos.notas ?? null,
+      _color_id: datos.colorId ?? null,
     });
 
     if (error) {
@@ -761,11 +823,39 @@ export const inventarioService = {
       if (/BAD_QTY/.test(error.message)) {
         throw new Error('La cantidad a trasladar debe ser mayor que cero.');
       }
-      throw errorLegible('trasladar', error);
+      if (/NOT_FOUND/.test(error.message)) {
+        throw new Error('El punto de origen no tiene existencias de esa referencia en ese color.');
+      }
+      throw errorDeColor(error) ?? errorLegible('trasladar', error);
     }
 
     const r = data as { referencia: string; saldo_origen: number; saldo_destino: number };
     return { referencia: r.referencia, saldoOrigen: r.saldo_origen, saldoDestino: r.saldo_destino };
+  },
+
+  /** Pasa unidades sin clasificar al color que realmente son; el total del punto no cambia. */
+  async clasificarPorColor(datos: {
+    variantId: string; locationId: string; colorId: string; cantidad: number;
+  }): Promise<string> {
+    const { data, error } = await supabase.rpc('clasificar_por_color', {
+      _variant_id: datos.variantId,
+      _location_id: datos.locationId,
+      _color_id: datos.colorId,
+      _cantidad: datos.cantidad,
+    });
+    if (error) {
+      if (/INSUFFICIENT_STOCK/.test(error.message)) {
+        throw new Error('No hay tantas unidades sin clasificar en este punto de venta.');
+      }
+      if (/VALIDATION/.test(error.message)) {
+        throw new Error('La cantidad debe ser mayor que cero.');
+      }
+      if (/inventory_reservado_menor_o_igual/.test(error.message)) {
+        throw new Error('Parte de esas unidades están reservadas en pedidos; clasifica solo las libres.');
+      }
+      throw errorDeColor(error) ?? errorLegible('clasificarPorColor', error);
+    }
+    return String((data as { referencia: string }).referencia);
   },
 
   async movimientos(filtro?: { variantId?: string; locationId?: string }): Promise<Movimiento[]> {
@@ -773,6 +863,7 @@ export const inventarioService = {
       .from('inventory_movements')
       .select(
         'id, kind, quantity, balance_after, notes, created_at, ' +
+          'colors ( id, code, name, hex ), ' +
           'product_variants ( label, products ( name ) ), ' +
           'pickup_locations ( name ), profiles:created_by ( first_name, last_name )'
       )
@@ -787,6 +878,7 @@ export const inventarioService = {
     return ((data ?? []) as unknown as Array<{
       id: string; kind: string; quantity: number; balance_after: number;
       notes: string | null; created_at: string;
+      colors: FilaColor | null;
       product_variants: { label: string; products: { name: string } | null } | null;
       pickup_locations: { name: string } | null;
       profiles: { first_name: string; last_name: string } | null;
@@ -796,6 +888,7 @@ export const inventarioService = {
       cantidad: m.quantity,
       saldo: m.balance_after,
       producto: `${m.product_variants?.products?.name ?? '—'} · ${m.product_variants?.label ?? ''}`,
+      color: aColor(m.colors),
       bodega: m.pickup_locations?.name ?? '—',
       notas: m.notes,
       autor: m.profiles ? `${m.profiles.first_name} ${m.profiles.last_name}`.trim() : null,
@@ -806,7 +899,7 @@ export const inventarioService = {
   /** El saldo no se edita: se registra un movimiento y el servidor lo recalcula. */
   async registrar(datos: {
     variantId: string; locationId: string; tipo: TipoMovimiento;
-    cantidad: number; notas?: string;
+    cantidad: number; colorId?: string | null; notas?: string;
   }): Promise<number> {
     const { data, error } = await supabase.rpc('register_inventory_movement', {
       _variant_id: datos.variantId,
@@ -815,12 +908,16 @@ export const inventarioService = {
       _quantity: datos.cantidad,
       _reference: null,
       _notes: datos.notas ?? null,
+      _color_id: datos.colorId ?? null,
     });
     if (error) {
       if (/INSUFFICIENT_STOCK/.test(error.message)) {
         throw new Error('No hay existencias suficientes para ese movimiento.');
       }
-      throw errorLegible('registrar', error);
+      if (/inventory_reservado_menor_o_igual/.test(error.message)) {
+        throw new Error('El saldo no puede quedar por debajo de lo reservado en pedidos.');
+      }
+      throw errorDeColor(error) ?? errorLegible('registrar', error);
     }
     return Number((data as { balance: number }).balance);
   },

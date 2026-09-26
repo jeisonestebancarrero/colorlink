@@ -21,6 +21,7 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 import { Button } from '../components/common/Button';
+import { SelectorColor } from '../components/tienda/SelectorColor';
 
 interface PaintCalculatorPageProps {
   onNavigate: (page: string, param?: string) => void;
@@ -49,6 +50,9 @@ export const PaintCalculatorPage: React.FC<PaintCalculatorPageProps> = ({ onNavi
   const [surfaceType, setSurfaceType] = useState<'sellada' | 'porosa' | 'nueva'>('sellada');
   const [selectedProductId, setSelectedProductId] = useState<string>('prod-koraza-5');
   const [coats, setCoats] = useState<number>(2);
+  // Color por producto: al cambiar de pintura no se arrastra un color que no ofrece.
+  const [colorElegido, setColorElegido] = useState<{ productoId: string; codigo: string } | null>(null);
+  const [faltaColor, setFaltaColor] = useState(false);
 
   const selectedProduct =
     PINTUCO_PRODUCTS.find((p) => p.id === selectedProductId) || PINTUCO_PRODUCTS[0];
@@ -120,16 +124,27 @@ export const PaintCalculatorPage: React.FC<PaintCalculatorPageProps> = ({ onNavi
     );
   }
 
-  const handleAddToCart = () => {
+  const carta = selectedProduct.availableColors ?? [];
+  const codigoColor = colorElegido?.productoId === selectedProduct.id ? colorElegido.codigo : null;
+
+  const handleAddToCart = async () => {
+    // La base rechaza el pedido de una pintura con carta sin color: se pide antes de agregar.
+    if (carta.length > 0 && !codigoColor) {
+      setFaltaColor(true);
+      showToast(`Elige el color de «${selectedProduct.name}» antes de agregarlo.`, 'error');
+      return;
+    }
+    const color = codigoColor ?? undefined;
+    let ok = true;
     if (cuñetes5Gal > 0) {
       const cuñetePres = selectedProduct.presentations.find((p) => p.label.includes('Cuñete'));
-      addToCart(selectedProduct, cuñetePres?.label, undefined, undefined, cuñetes5Gal);
+      ok = (await addToCart(selectedProduct, cuñetePres?.label, color, undefined, cuñetes5Gal)) && ok;
     }
     if (remainingGals > 0) {
       const galPres = selectedProduct.presentations.find((p) => p.label.includes('1 Galón'));
-      addToCart(selectedProduct, galPres?.label, undefined, undefined, remainingGals);
+      ok = (await addToCart(selectedProduct, galPres?.label, color, undefined, remainingGals)) && ok;
     }
-    showToast('¡Materiales calculados agregados al carrito!', 'success');
+    if (ok) showToast('¡Materiales calculados agregados al carrito!', 'success');
   };
 
   return (
@@ -298,7 +313,7 @@ export const PaintCalculatorPage: React.FC<PaintCalculatorPageProps> = ({ onNavi
                 {PINTUCO_PRODUCTS.slice(0, 4).map((p) => (
                   <button
                     key={p.id}
-                    onClick={() => setSelectedProductId(p.id)}
+                    onClick={() => { setSelectedProductId(p.id); setFaltaColor(false); }}
                     className={`p-2.5 rounded-xl border text-left flex items-center justify-between text-xs transition-all cursor-pointer ${
                       selectedProductId === p.id
                         ? 'border-[#004F9F] bg-blue-50/80 font-bold text-[#004F9F] ring-1 ring-blue-600'
@@ -443,6 +458,21 @@ export const PaintCalculatorPage: React.FC<PaintCalculatorPageProps> = ({ onNavi
                 <span>Asesoría técnica y ficha oficial incluida</span>
               </div>
             </div>
+
+            {carta.length > 0 && (
+              <div className="bg-white text-slate-900 rounded-xl p-3">
+                <SelectorColor
+                  colores={carta}
+                  valor={codigoColor}
+                  onElegir={(codigo) => {
+                    setColorElegido({ productoId: selectedProduct.id, codigo });
+                    setFaltaColor(false);
+                  }}
+                  etiqueta="Color de la pintura"
+                  faltante={faltaColor}
+                />
+              </div>
+            )}
 
             {/* Actions */}
             <div className="space-y-2 pt-2">
