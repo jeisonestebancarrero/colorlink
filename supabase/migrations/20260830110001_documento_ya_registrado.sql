@@ -1,21 +1,5 @@
--- ============================================================
--- Un documento no puede tener dos cuentas
--- ============================================================
--- El índice único `profiles_documento_unico` ya lo impedía, pero lo hacía de
--- la peor manera posible: reventaba el trigger de alta y GoTrue devolvía
--- "Database error saving new user". La persona veía un error de servidor y no
--- tenía forma de saber que su cédula ya estaba registrada.
---
--- Con esta función el formulario puede avisar antes: "ya existe una cuenta
--- con ese documento, inicia sesión o recupera tu contraseña".
---
--- SOBRE LA PRIVACIDAD: la función responde sí/no sobre un documento concreto,
--- así que en teoría permite comprobar si una cédula está registrada. Es el
--- mismo compromiso que asume cualquier registro que valide documento, y es
--- deliberado: sin esto la única alternativa es un error 500 sin explicación.
--- Lo que NO hace es devolver ningún dato de la persona —ni nombre, ni correo,
--- ni teléfono—, así que un documento acertado no revela a quién pertenece.
--- ============================================================
+-- Permite al formulario avisar que un documento ya tiene cuenta, en vez del error
+-- genérico del índice único. Solo responde sí/no; nunca devuelve datos de la persona.
 
 create or replace function public.documento_ya_registrado(
   _tipo   text,
@@ -39,16 +23,10 @@ comment on function public.documento_ya_registrado(text, text) is
   'Responde si un documento ya tiene cuenta. No devuelve ningún dato de la persona.';
 
 revoke all on function public.documento_ya_registrado(text, text) from public;
--- anon la necesita: la comprobación ocurre ANTES de crear la cuenta.
+-- anon la necesita: se consulta antes de crear la cuenta.
 grant execute on function public.documento_ya_registrado(text, text) to anon, authenticated;
 
--- ============================================================
--- Segunda línea de defensa en el propio alta
--- ============================================================
--- La comprobación previa deja una ventana mínima (dos registros simultáneos
--- con la misma cédula). El trigger la cierra con un mensaje explícito, para
--- que en los registros del servidor quede la causa real y no un error suelto
--- de índice único.
+-- El trigger cierra la carrera entre dos registros simultáneos con un error explícito.
 create or replace function public.handle_new_user()
 returns trigger
 language plpgsql
@@ -99,7 +77,7 @@ begin
   v_first_name := nullif(trim(coalesce(new.raw_user_meta_data ->> 'first_name', '')), '');
   v_last_name  := nullif(trim(coalesce(new.raw_user_meta_data ->> 'last_name', '')), '');
 
-  -- Proveedor externo (Google): solo llega el nombre completo.
+  -- Proveedor externo: solo llega el nombre completo.
   if v_first_name is null then
     v_full_name := nullif(trim(coalesce(
       new.raw_user_meta_data ->> 'full_name',
@@ -133,7 +111,7 @@ begin
   on conflict on constraint user_roles_unicos do nothing;
 
   if v_company_name is not null then
-    -- ¿Ese NIT ya está registrado? Entonces no se crea nada: se pide permiso.
+    -- NIT existente: no se crea empresa, se pide vinculación.
     select id into v_existente
       from public.companies
      where v_company_nit is not null and nit = v_company_nit;
@@ -155,8 +133,7 @@ begin
       return new;
     end if;
 
-    -- Se crea SIEMPRE una empresa nueva, nunca se vincula por nombre: bastaría
-    -- escribir el nombre de otra constructora para acceder a sus proyectos.
+    -- Siempre empresa nueva: vincular por nombre daría acceso a otra compañía.
     insert into public.companies (name, nit, city, email, status)
     values (v_company_name, v_company_nit, v_city, new.email, 'ACTIVA')
     returning id into v_company_id;

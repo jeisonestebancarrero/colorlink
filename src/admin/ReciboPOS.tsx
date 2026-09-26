@@ -6,17 +6,8 @@ import { Button } from '../components/common/Button';
 import logoPintuco from '../../assets/brand/pintuco-logo.jpeg';
 
 /**
- * Recibo POS imprimible.
- *
- * No es facturación electrónica DIAN: no lleva CUFE ni XML UBL. Es el
- * documento que se entrega al cliente en tienda, con los datos del emisor,
- * los del comprador y el IVA desglosado por tarifa.
- *
- * Todos los datos salen de la factura ya emitida, no del pedido: la factura
- * congeló el NIT, la dirección y los precios del día en que se emitió, y ese
- * es exactamente el documento que debe reimprimirse mañana.
- *
- * El ancho de 80 mm es el del rollo térmico estándar de punto de venta.
+ * Recibo POS de 80 mm (no es factura electrónica DIAN). Sale de la factura emitida, no del
+ * pedido, para reimprimir con los datos y precios congelados.
  */
 
 interface Factura {
@@ -87,8 +78,7 @@ export const ReciboPOS: React.FC<{ facturaId: string; onCerrar: () => void }> = 
     })();
   }, [facturaId]);
 
-  // Agrupación del IVA por tarifa: la ley exige desglosarlo así cuando hay
-  // productos con tarifas distintas en el mismo documento.
+  // La ley exige desglosar el IVA por tarifa.
   const porTarifa = new Map<number, { base: number; iva: number }>();
   for (const it of factura?.invoice_items ?? []) {
     const t = n(it.tax_rate);

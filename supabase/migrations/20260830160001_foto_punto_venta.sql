@@ -1,13 +1,4 @@
--- ============================================================
--- Foto del punto de venta
--- ============================================================
--- La columna permite reemplazar la imagen de una tienda sin desplegar código:
--- cuando Pintuco tenga la foto real de cada local, se pega aquí la URL y lista.
---
--- Mientras tanto, la aplicación resuelve en este orden —el mismo que ya usa
--- el logotipo—: esta columna, si está; si no, la imagen local que corresponda
--- a la tienda; y si tampoco, el fondo de marca. Así nunca queda una tarjeta
--- rota ni un hueco gris.
+-- Foto del punto de venta. Si falta, la app usa la imagen local y luego el fondo de marca.
 alter table public.pickup_locations
   add column image_url text;
 

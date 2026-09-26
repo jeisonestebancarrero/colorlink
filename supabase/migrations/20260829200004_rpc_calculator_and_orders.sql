@@ -1,21 +1,7 @@
--- ============================================================
--- FASE 7 y 9 — Motor de cálculo y creación de pedidos
--- ============================================================
--- Las dos piezas de lógica que el MÓDULO 5 prohíbe dejar en el frontend.
--- ============================================================
+-- Motor de cálculo de pintura y creación de pedidos en el servidor.
 
--- ============================================================
--- MÓDULO 14 — MOTOR DE CÁLCULO DE PINTURA
--- ============================================================
--- Unifica los DOS motores contradictorios que detectó la auditoría (R3):
--- el de generatePreliminaryAnalysis (divisores fijos, sin desperdicio) y el
--- de PaintCalculatorPage (con factor de superficie, sin margen).
---
--- Fórmula: litros/galones = área x manos x factor_superficie x (1+desperdicio)
---                           / rendimiento
---
--- El rendimiento y el precio se leen SIEMPRE de la base. La entrada del
--- cliente se limita a área, manos, tipo de superficie y desperdicio.
+-- galones = área x manos x factor_superficie x (1 + desperdicio) / rendimiento.
+-- Rendimiento y precio salen siempre de la base; el cliente solo aporta los parámetros.
 create or replace function public.calculate_paint(
   _variant_id uuid,
   _area_m2 numeric,
@@ -65,9 +51,8 @@ begin
       using errcode = 'P0002';
   end if;
 
-  -- Una herramienta no tiene rendimiento: calcular sobre ella sería dividir
-  -- por cero. El frontend actual hace `spreadRateM2PerGal || 22`, que le
-  -- asignaría en silencio el rendimiento de una pintura.
+  -- Herramientas y complementos no tienen rendimiento: se rechazan en vez de
+  -- asumir uno por defecto.
   if v_rendimiento is null or v_rendimiento <= 0 then
     raise exception 'NOT_CALCULABLE: este producto no tiene rendimiento por galón (herramienta o complemento)'
       using errcode = '22023';
@@ -76,7 +61,7 @@ begin
   v_galones_necesarios :=
     (_area_m2 * _coats * _surface_factor * (1 + _waste_percent / 100.0)) / v_rendimiento;
 
-  -- Nunca se vende una fracción de envase: siempre se redondea hacia arriba.
+  -- No se venden fracciones de envase: se redondea hacia arriba.
   v_unidades := ceil(v_galones_necesarios / greatest(coalesce(v_volumen, 3.785) / 3.785, 0.01));
   v_unidades := greatest(v_unidades, 1);
   v_subtotal := v_unidades * v_precio;
@@ -102,9 +87,7 @@ $$;
 revoke execute on function public.calculate_paint(uuid, numeric, int, numeric, numeric) from public;
 grant execute on function public.calculate_paint(uuid, numeric, int, numeric, numeric) to anon, authenticated;
 
--- ============================================================
--- MÓDULO 60 — CARRITO → PEDIDO, TRANSACCIONAL
--- ============================================================
+-- Carrito a pedido en una transacción; los importes los calcula el servidor.
 create or replace function public.create_order_from_cart(
   _delivery_method text,
   _pickup_location_id uuid default null,
@@ -160,7 +143,7 @@ begin
 
   select p.company_id into v_company_id from public.profiles p where p.id = v_user_id;
 
-  -- Cabecera con importes en cero: se rellenan tras sumar las líneas.
+  -- Importes en cero; se rellenan tras sumar las líneas.
   insert into public.orders (
     order_number, user_id, company_id, project_id, status, delivery_method,
     shipping_address, shipping_city, pickup_location_id, pickup_code, notes
@@ -174,7 +157,7 @@ begin
   )
   returning id into v_order_id;
 
-  -- Líneas: el precio se toma de la variante EN ESTE INSTANTE y se congela.
+  -- El precio se lee de la variante en este instante y queda congelado.
   for r in
     select ci.quantity,
            v.id as variant_id, v.label, v.price_cop,
@@ -203,8 +186,7 @@ begin
     v_subtotal := v_subtotal + (r.price_cop * r.quantity);
   end loop;
 
-  -- Descuento por kit: 8%, la misma regla que aplicaba el frontend, ahora
-  -- calculada en el servidor sobre precios que el cliente no controla.
+  -- Descuento de kit del 8%, sobre precios que el cliente no controla.
   if exists (
     select 1 from public.cart_items ci
     where ci.cart_id = v_cart_id and ci.kit_solution_id is not null
@@ -212,7 +194,7 @@ begin
     v_descuento := round(v_subtotal * 0.08, 2);
   end if;
 
-  -- Envío: gratis al retirar en tienda o por encima de 500.000 COP.
+  -- Envío gratis al retirar en tienda o desde 500.000 COP.
   if v_metodo = 'ENVIO' and (v_subtotal - v_descuento) < 500000 then
     v_envio := 25000;
   end if;
@@ -224,20 +206,18 @@ begin
          total_cop    = v_subtotal - v_descuento + v_envio
    where id = v_order_id;
 
-  -- Envío o retiro asociado.
   if v_metodo = 'ENVIO' then
     insert into public.shipments (order_id, address, city, status)
     values (v_order_id, _shipping_address, _shipping_city, 'PENDIENTE');
   end if;
 
-  -- Pago pendiente (MÓDULO 17): la pasarela real se integrará después.
+  -- Pago pendiente hasta integrar la pasarela.
   insert into public.payments (order_id, method, status, amount_cop)
   values (v_order_id, 'PSE', 'PENDIENTE', v_subtotal - v_descuento + v_envio);
 
-  -- El carrito se cierra, no se borra: queda el rastro de qué se convirtió.
+  -- Se desactiva en vez de borrarse para conservar el rastro.
   update public.carts set is_active = false where id = v_cart_id;
 
-  -- Notificación y auditoría.
   insert into public.notifications (user_id, order_id, type, title, message, action_required, action_label)
   select v_user_id, v_order_id, 'success', 'Pedido confirmado',
          'Tu pedido ' || o.order_number || ' fue creado por ' ||
@@ -256,9 +236,7 @@ $$;
 revoke execute on function public.create_order_from_cart(text, uuid, text, text, uuid, text) from public, anon;
 grant execute on function public.create_order_from_cart(text, uuid, text, text, uuid, text) to authenticated;
 
--- ============================================================
--- MÓDULO 61 — TRANSICIONES DE ESTADO DE PEDIDO
--- ============================================================
+-- Transiciones de estado de pedido, solo para administración.
 create or replace function public.change_order_status(_order_id uuid, _nuevo text)
 returns void
 language plpgsql
@@ -282,8 +260,7 @@ begin
 
   v_nuevo := _nuevo::public.order_status;
 
-  -- Máquina de estados. No se permite saltar pasos ni resucitar un pedido
-  -- entregado o cancelado.
+  -- Sin saltar pasos ni reabrir pedidos entregados o cancelados.
   v_permitidos := case v_actual
     when 'PENDIENTE'  then array['CONFIRMADO','CANCELADO']::public.order_status[]
     when 'CONFIRMADO' then array['PREPARANDO','CANCELADO']::public.order_status[]

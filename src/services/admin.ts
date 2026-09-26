@@ -1,12 +1,7 @@
 import { supabase } from '../lib/supabase';
 import { mensajeDeLaFuncion } from './errorDeFuncion';
 
-/**
- * Servicios de administración — aplicación interna.
- *
- * Toda operación sensible pasa por una función del servidor que verifica
- * `is_admin()` allí. Este archivo nunca decide permisos: solo los pide.
- */
+/** Servicios del portal interno. Los permisos los verifica el servidor (`is_admin()`); aquí solo se piden. */
 
 function errorLegible(contexto: string, error: { message: string }): Error {
   console.error(`[admin] ${contexto}:`, error.message);
@@ -20,18 +15,13 @@ function errorLegible(contexto: string, error: { message: string }): Error {
     return new Error(
       'Esta cuenta ya tiene su aplicación de códigos registrada. Usa «Reiniciar verificación» primero y después quita la exigencia.',
     );
-  // El mensaje nombra la causa más probable en vez de un "inténtalo de nuevo"
-  // que no dice nada: cuando una sesión se queda sin permisos de golpe en
-  // todas las pantallas, casi siempre es porque caducó o porque le falta el
-  // segundo factor.
+  // Nombra la causa probable: pérdida de permisos en bloque suele ser sesión caducada o falta de MFA.
   return new Error(
     'No fue posible completar la operación. Si el problema se repite en varias pantallas, cierra sesión y vuelve a entrar.',
   );
 }
 
-// ============================================================
-// PERMISOS Y VISTAS DEL USUARIO ACTUAL
-// ============================================================
+// Permisos y vistas del usuario actual
 export interface VistaMenu {
   code: string;
   label: string;
@@ -39,7 +29,7 @@ export interface VistaMenu {
   route: string;
   area: string;
   sort_order: number;
-  /** Color de la muestra en el tablero, tomado de la carta Pintuco. */
+  /** Color de la muestra en el tablero (carta Pintuco). */
   color?: string | null;
   description?: string | null;
   badge?: string | null;
@@ -73,9 +63,7 @@ export const accesoService = {
   },
 };
 
-// ============================================================
-// USUARIOS
-// ============================================================
+// Usuarios
 export interface UsuarioAdmin {
   id: string;
   email: string;
@@ -145,13 +133,13 @@ export const usuarioService = {
     }));
 
     if (!soloInternos) return lista;
-    // Interno = tiene algún rol distinto de los dos de cliente.
+    // Interno = algún rol distinto de los de cliente.
     return lista.filter((u) =>
       u.roles.some((r) => r !== 'CLIENTE' && r !== 'CLIENTE_B2B')
     );
   },
 
-  /** Crea personal interno. Pasa por la Edge Function porque requiere service_role. */
+  /** Crea personal interno vía Edge Function, porque requiere service_role. */
   async crear(datos: {
     email: string;
     firstName: string;
@@ -165,16 +153,15 @@ export const usuarioService = {
   }): Promise<{
     id: string;
     temporaryPassword: string | null;
-    /** Si salió el correo con el enlace para poner su propia contraseña. */
+    /** Si se envió el correo para que fije su contraseña. */
     correoEnviado: boolean;
-    /** Si la cuenta quedará obligada a cambiar la provisional al entrar. */
+    /** Si deberá cambiar la provisional al entrar. */
     debeCambiarla: boolean;
   }> {
     const { data, error } = await supabase.functions.invoke('admin-create-user', { body: datos });
 
     if (error) {
-      // Mismo defecto que en el correo de prueba: el mensaje presentable venía
-      // en el cuerpo y se perdía al leerlo dos veces.
+      // El mensaje útil viene en el cuerpo de la respuesta de la función.
       throw new Error(await mensajeDeLaFuncion(error, 'No fue posible crear el usuario.'));
     }
 
@@ -196,20 +183,8 @@ export const usuarioService = {
   },
 
   /**
-   * Restablece la contraseña de otra persona.
-   *
-   * Dos caminos: por correo, donde la persona elige su propia contraseña y el
-   * administrador nunca la conoce —es el preferido—, o una contraseña
-   * temporal que se muestra una sola vez, para cuando el correo no es
-   * alcanzable. Ambos quedan en la auditoría.
-   */
-  /**
-   * Restablece el acceso de otra persona.
-   *
-   * En modo `temporal` el administrador puede ESCRIBIR la contraseña —a veces
-   * hay que dictarla por teléfono— o dejar el campo vacío y que se genere una.
-   * Generarla es preferible: nadie elige una débil por comodidad. En los dos
-   * casos la cuenta queda obligada a cambiarla al entrar.
+   * Restablece el acceso de otra persona: por correo (preferido, el admin no conoce
+   * la clave) o con una temporal, escrita o generada, que obliga a cambiarla al entrar.
    */
   async restablecerPassword(
     userId: string,
@@ -246,12 +221,8 @@ export const usuarioService = {
   },
 
   /**
-   * Reinicia el segundo factor de otra persona.
-   *
-   * Es el único camino cuando alguien pierde el teléfono: el propio
-   * interesado no puede retirarlo, porque para hacerlo tendría que superarlo.
-   * Pasa por la función servidor porque retirar factores ajenos exige la
-   * clave `service_role`, y queda registrado en la auditoría.
+   * Reinicia el MFA de otra persona; único camino si pierde el teléfono. Requiere
+   * service_role, por eso va por la función del servidor, y queda auditado.
    */
   async reiniciarMFA(userId: string): Promise<number> {
     const { data, error } = await supabase.functions.invoke('admin-reset-mfa', {
@@ -279,7 +250,7 @@ export const usuarioService = {
     return r.data?.retirados ?? 0;
   },
 
-  /** Cómo está el segundo factor de otra persona (solo administración). */
+  /** Estado del MFA de otra persona (solo administración). */
   async estadoMFA(userId: string): Promise<{
     configurado: boolean;
     requerido: boolean;
@@ -295,13 +266,7 @@ export const usuarioService = {
     };
   },
 
-  /**
-   * Exige o exime el segundo factor a una persona concreta.
-   *
-   * Eximir NO desactiva un factor ya registrado: para eso está reiniciar.
-   * Así el interruptor no puede usarse para bajarle la seguridad a alguien
-   * sin que se entere.
-   */
+  /** Exige o exime el MFA; eximir no retira un factor ya registrado (para eso está reiniciar). */
   async exigirMFA(userId: string, requerido: boolean): Promise<void> {
     const { error } = await supabase.rpc('set_mfa_requerido', {
       _user_id: userId,
@@ -321,9 +286,7 @@ export const usuarioService = {
   },
 };
 
-// ============================================================
-// PERMISOS POR ROL
-// ============================================================
+// Permisos por rol
 export interface Permiso {
   code: string;
   module: string;
@@ -337,7 +300,7 @@ export interface RolConfigurable {
   codigo: string;
   etiqueta: string;
   descripcion: string | null;
-  /** Los del sistema no se archivan: RLS y los disparadores los nombran. */
+  /** Los del sistema no se archivan: RLS y los disparadores dependen de ellos. */
   delSistema: boolean;
   activo: boolean;
   personas: number;
@@ -353,19 +316,10 @@ export interface VistaDelPortal {
 export interface ConfiguracionRoles {
   roles: RolConfigurable[];
   vistas: VistaDelPortal[];
-  /** Qué vistas tiene concedidas cada rol. */
   porRol: Record<string, string[]>;
 }
 
-/**
- * Roles: crearlos, nombrarlos y decidir qué ve cada uno.
- *
- * Esto faltaba entero. `set_role_view` existía en la base desde el principio
- * pero sin pantalla, así que «que este rol ya no vea Inventario» solo se podía
- * hacer entrando a la base. Lo único configurable desde el portal era la
- * excepción POR PERSONA, y eso obliga a repetir la misma configuración en cada
- * alta.
- */
+/** Roles: alta, nombre y vistas por rol (vía `set_role_view`). */
 export const rolService = {
   async configuracion(): Promise<ConfiguracionRoles> {
     const { data, error } = await supabase.rpc('configuracion_de_roles');
@@ -378,12 +332,7 @@ export const rolService = {
     };
   },
 
-  /**
-   * Crea un rol.
-   *
-   * Nace SIN permisos ni vistas a propósito: heredarlos de otro sería la forma
-   * más silenciosa de dar acceso de más.
-   */
+  /** El rol nace sin permisos ni vistas: heredarlos daría acceso de más en silencio. */
   async crear(codigo: string, etiqueta: string, descripcion?: string): Promise<string> {
     const { data, error } = await supabase.rpc('crear_rol', {
       _codigo: codigo, _etiqueta: etiqueta, _descripcion: descripcion ?? null,
@@ -422,12 +371,7 @@ export const rolService = {
     }
   },
 
-  /**
-   * Los roles internos que se pueden asignar hoy: los del sistema y los creados
-   * desde Permisos, sin los archivados ni los de cliente. Antes la matriz y el
-   * alta de personal usaban una lista fija, y un rol recién creado no aparecía
-   * en ninguna de las dos.
-   */
+  /** Roles internos asignables: sistema y creados, sin archivados ni de cliente. */
   async internosActivos(): Promise<{ codigo: string; etiqueta: string }[]> {
     const { roles } = await rolService.configuracion();
     return roles
@@ -435,7 +379,7 @@ export const rolService = {
       .map((r) => ({ codigo: r.codigo, etiqueta: r.etiqueta || ETIQUETA_ROL[r.codigo] || r.codigo }));
   },
 
-  /** Concede o quita una aplicación a TODO un rol. */
+  /** Concede o quita una aplicación a todo un rol. */
   async cambiarVista(rol: string, viewCode: string, visible: boolean): Promise<void> {
     const { error } = await supabase.rpc('set_role_view', {
       _role: rol, _view_code: viewCode, _visible: visible,
@@ -449,12 +393,12 @@ export interface PermisoDeUsuario {
   label: string;
   module: string;
   isCritical: boolean;
-  /** Lo que le da su rol. */
+  /** Lo que concede su rol. */
   porRol: boolean;
-  /** La excepción personal, si la hay: true concede, false retira. */
+  /** Excepción personal: true concede, false retira. */
   excepcion: boolean | null;
   motivo: string | null;
-  /** Lo que de verdad tiene: la excepción manda sobre el rol. */
+  /** Resultado efectivo: la excepción manda sobre el rol. */
   efectivo: boolean;
 }
 
@@ -475,7 +419,6 @@ export const permisoService = {
     }));
   },
 
-  /** Mapa rol → conjunto de permisos concedidos. */
   async matriz(): Promise<Record<string, Set<string>>> {
     const { data, error } = await supabase
       .from('role_permissions')
@@ -490,11 +433,7 @@ export const permisoService = {
     return mapa;
   },
 
-  /**
-   * Los permisos de una persona en tres capas: lo que da su rol, la excepción
-   * personal y el resultado. La misma regla que aplica `has_permission` en la
-   * base, para que la pantalla no prometa algo distinto.
-   */
+  /** Permisos por rol, excepción y resultado; replica la regla de `has_permission`. */
   async deUsuario(userId: string, roles: string[]): Promise<PermisoDeUsuario[]> {
     const [catalogo, matriz, { data: excepciones, error }] = await Promise.all([
       this.catalogo(),
@@ -533,7 +472,7 @@ export const permisoService = {
     }
   },
 
-  /** Quita la excepción: la persona vuelve a lo que diga su rol. */
+  /** Quita la excepción y vuelve a lo que diga el rol. */
   async restablecerDeUsuario(userId: string, permiso: string): Promise<void> {
     const { error } = await supabase.rpc('clear_user_permission', {
       _user_id: userId, _permission_code: permiso,
@@ -551,9 +490,7 @@ export const permisoService = {
   },
 };
 
-// ============================================================
-// CONFIGURACIÓN DE EMPRESA Y CORREO
-// ============================================================
+// Configuración de empresa y correo
 export interface DatosEmpresa {
   company_name: string;
   company_legal_name: string | null;
@@ -580,20 +517,15 @@ export interface EstadoSmtp {
 }
 
 /**
- * El entorno de correo: a qué dirección llama la base para que salga un correo,
- * con qué llave, y a dónde apuntan los enlaces que van DENTRO del mensaje.
- *
- * Es distinto del SMTP. El SMTP es el buzón por el que sale; esto es el
- * cableado que hace que la base llegue hasta él. Sin esto, `enviar_correo`
- * descarta los mensajes antes de intentar nada y quedan en `email_log` como
- * OMITIDO — que es exactamente lo que pasaba en el servidor de producción.
+ * Cableado para que la base llame a la función de correo (URL, llave y base de
+ * enlaces). Distinto del SMTP; sin él, `enviar_correo` marca todo como OMITIDO.
  */
 export interface EstadoEntornoCorreo {
   functions_url: string | null;
   site_url: string | null;
-  /** La llave nunca se devuelve: solo si hay una guardada. */
+  /** La llave nunca se devuelve; solo si existe. */
   tiene_llave: boolean;
-  /** Solo la FORMA de la llave, para poder avisar si es la que no sirve. */
+  /** Solo el formato de la llave, para avisar si no es la adecuada. */
   formato_llave: 'JWT' | 'SB_SECRET' | 'SB_PUBLISHABLE' | 'DESCONOCIDO' | null;
   emails_enabled: boolean;
   allowlist: string[];
@@ -607,11 +539,7 @@ export const configService = {
     return data as EstadoEntornoCorreo;
   },
 
-  /**
-   * Guarda el entorno. La llave vacía CONSERVA la que hay: es la única forma
-   * de tocar el resto del formulario sin volver a escribirla, y la pantalla no
-   * puede reenviarla porque nunca la recibió.
-   */
+  /** Llave vacía conserva la guardada: la interfaz nunca la recibe y no puede reenviarla. */
   async guardarEntornoCorreo(datos: {
     functionsUrl?: string;
     serviceKey?: string;
@@ -631,20 +559,14 @@ export const configService = {
     return data as EstadoEntornoCorreo;
   },
 
-  /**
-   * Prueba el camino REAL: la base llama a la función con su llave.
-   *
-   * El otro botón de prueba llama a la función desde el navegador, así que
-   * comprueba el SMTP pero se salta justo lo que falla al desplegar. Podía
-   * llegar esa prueba y no llegar ni un correo automático.
-   */
+  /** Prueba el camino real (base → función con su llave), que la prueba desde el navegador se salta. */
   async probarCorreoPorLaBase(destino: string): Promise<string> {
     const { data, error } = await supabase.rpc('probar_correo_por_la_base', { _destino: destino });
     if (error) throw errorLegible('probarCorreoPorLaBase', error);
     return (data as { desde: string }).desde;
   },
 
-  /** Las últimas anotaciones de la bitácora, para ver en qué paró la prueba. */
+  /** Últimas entradas de la bitácora, para ver dónde falló la prueba. */
   async bitacoraCorreo(desde?: string): Promise<
     { template: string | null; status: string; error: string | null; created_at: string }[]
   > {
@@ -674,24 +596,14 @@ export const configService = {
   },
 
   /**
-   * Sube el logotipo de la empresa y devuelve su URL pública.
-   *
-   * Antes el campo solo aceptaba una URL, así que había que subir la imagen a
-   * otro sitio primero. En la práctica eso significa que nadie lo cambia, o
-   * que el logotipo acaba colgando de un servidor ajeno que un día deja de
-   * responder —y desaparece de las facturas y de los correos, que es donde
-   * más se nota—.
-   *
-   * El nombre lleva marca de tiempo: reutilizarlo haría que el navegador y la
-   * CDN siguieran mostrando el logotipo viejo y pareciera que no se guardó.
+   * Sube el logotipo a Storage y devuelve su URL pública. El nombre lleva marca de
+   * tiempo para que navegador y CDN no sirvan el anterior.
    */
   async subirLogo(archivo: File): Promise<string> {
     if (!archivo.type.startsWith('image/')) {
       throw new Error('El logotipo tiene que ser una imagen (PNG, JPG o SVG).');
     }
-    // Un logotipo son unos pocos kilobytes. Un archivo de varios megas es casi
-    // siempre una foto subida por error, y acabaría cargándose en cada correo
-    // y en cada factura.
+    // Tope de 2 MB: un archivo mayor suele ser una foto por error y se cargaría en cada correo.
     if (archivo.size > 2 * 1024 * 1024) {
       throw new Error('El logotipo no puede pesar más de 2 MB.');
     }
@@ -721,11 +633,7 @@ export const configService = {
     return data as EstadoSmtp;
   },
 
-  /**
-   * Guarda el servidor de correo.
-   * Una contraseña vacía significa "conserva la actual": la interfaz nunca
-   * puede leerla, así que no puede reenviarla.
-   */
+  /** Contraseña vacía conserva la actual: la interfaz nunca puede leerla. */
   async guardarSmtp(datos: {
     host: string;
     port: number;
@@ -748,8 +656,6 @@ export const configService = {
   },
 
   async enviarPrueba(destinatario: string): Promise<void> {
-    // Se comprueba aquí y no solo en el servidor: pulsar el botón con el campo
-    // vacío es un viaje de ida y vuelta para recibir un error evitable.
     if (!destinatario.trim()) {
       throw new Error('Escribe a qué correo quieres enviar la prueba.');
     }
@@ -776,9 +682,7 @@ export const configService = {
 };
 
 
-// ============================================================
-// ACCESO A APLICACIONES (por rol y por persona)
-// ============================================================
+// Acceso a aplicaciones (por rol y por persona)
 export interface Aplicacion {
   code: string;
   label: string;
@@ -788,16 +692,16 @@ export interface Aplicacion {
   sortOrder: number;
 }
 
-/** Estado de una aplicación para una persona concreta. */
+/** Estado de una aplicación para una persona. */
 export interface AccesoUsuario {
   code: string;
   label: string;
   color: string | null;
-  /** Lo que le concede su rol, sin excepciones. */
+  /** Lo que concede su rol. */
   porRol: boolean;
-  /** Excepción personal: true concede, false retira, null = sin excepción. */
+  /** Excepción personal: true concede, false retira, null sin excepción. */
   excepcion: boolean | null;
-  /** Resultado final que verá la persona. */
+  /** Resultado efectivo. */
   efectivo: boolean;
 }
 
@@ -819,7 +723,6 @@ export const aplicacionService = {
     }));
   },
 
-  /** Mapa rol -> aplicaciones visibles. */
   async matrizPorRol(): Promise<Record<string, Set<string>>> {
     const { data, error } = await supabase
       .from('role_views')
@@ -840,11 +743,7 @@ export const aplicacionService = {
     if (error) throw errorLegible('cambiarPorRol', error);
   },
 
-  /**
-   * Accesos de UNA persona: lo que le da su rol, la excepción personal si
-   * existe, y el resultado final. Es lo que permite conceder Analítica a un
-   * asesor concreto sin dársela a todos los asesores.
-   */
+  /** Accesos de una persona por rol, excepción y resultado; permite excepciones individuales. */
   async deUsuario(userId: string, roles: string[]): Promise<AccesoUsuario[]> {
     const [apps, porRol, { data: excepciones }] = await Promise.all([
       this.catalogo(),
@@ -881,7 +780,7 @@ export const aplicacionService = {
     if (error) throw errorLegible('concederAUsuario', error);
   },
 
-  /** Quita la excepción: la persona vuelve a lo que diga su rol. */
+  /** Quita la excepción y vuelve a lo que diga el rol. */
   async restablecerUsuario(userId: string, viewCode: string): Promise<void> {
     const { error } = await supabase.rpc('clear_user_view', {
       _user_id: userId, _view_code: viewCode,

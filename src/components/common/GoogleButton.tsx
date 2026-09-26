@@ -1,14 +1,6 @@
 import React from 'react';
 
-/**
- * Botón "Continuar con Google".
- *
- * Se implementa como componente propio y no con `Button` porque las guías de
- * marca de Google exigen su logotipo oficial y un botón blanco con borde.
- * Reutiliza las mismas clases de radio, altura, tipografía y foco que la
- * variante `outline` de Button, para que no desentone con el resto del
- * formulario.
- */
+/** Botón de Google propio (su guía de marca exige logo y fondo blanco); imita la variante `outline`. */
 export const GoogleButton: React.FC<{
   onClick: () => void;
   disabled?: boolean;

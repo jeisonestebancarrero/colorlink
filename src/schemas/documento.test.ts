@@ -26,8 +26,7 @@ describe('normalizarDocumento', () => {
 
 describe('errorDocumento', () => {
   it('rechaza lo que solo tiene basura', () => {
-    // Era el fallo real: `abc-%$#` pasaba la validación de 5 caracteres y
-    // llegaba a la base, donde el disparador lo dejaba en nada.
+    // Caracteres inválidos que el disparador de la base dejaba vacíos.
     expect(errorDocumento('CC', 'abc-%$#')).toBeTruthy();
   });
 
@@ -46,7 +45,7 @@ describe('NIT', () => {
   });
 
   it('calcula el dígito de verificación de la DIAN', () => {
-    // NIT reales, comprobables contra el RUT: Ecopetrol y Banco de Bogotá.
+    // NIT reales verificables en el RUT (Ecopetrol, Banco de Bogotá).
     expect(digitoVerificacionNit('899999068')).toBe(1);
     expect(digitoVerificacionNit('860002964')).toBe(4);
   });

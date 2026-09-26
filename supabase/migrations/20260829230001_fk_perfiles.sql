@@ -1,20 +1,5 @@
--- ============================================================
--- Relaciones hacia `profiles` para poder consultarlas anidadas
--- ============================================================
--- PROBLEMA: las columnas de usuario apuntan a `auth.users`, no a
--- `public.profiles`. PostgREST solo sabe anidar recursos cuando existe una
--- clave foránea entre las dos tablas, así que pedir
--- `orders(..., profiles(first_name))` fallaba con
--- "Could not find a relationship between 'orders' and 'user_id'".
---
--- SOLUCIÓN: añadir una segunda clave foránea hacia `profiles`. No es
--- redundante ni contradictoria: `profiles.id` ES `auth.users.id` (relación
--- 1:1 creada por el trigger de alta), de modo que ambas restricciones
--- expresan la misma verdad y no pueden entrar en conflicto.
---
--- Las columnas ya contienen datos válidos, así que las restricciones se
--- pueden añadir sin migrar nada.
--- ============================================================
+-- FK adicionales hacia profiles para que PostgREST pueda anidarlos. No chocan con
+-- las de auth.users: profiles.id es el mismo id (1:1).
 
 alter table public.orders
   add constraint orders_user_id_profiles_fkey

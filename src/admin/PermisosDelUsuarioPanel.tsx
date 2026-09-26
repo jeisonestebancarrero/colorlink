@@ -4,14 +4,8 @@ import { permisoService, type PermisoDeUsuario } from '../services/admin';
 import { Button } from '../components/common/Button';
 
 /**
- * Permisos de una persona concreta.
- *
- * La base ya sabía guardar excepciones por persona (`user_permissions`) y
- * `has_permission` las respetaba, pero no había pantalla: dar a un asesor
- * concreto el permiso de facturar obligaba a dárselo a todos los asesores.
- *
- * Toda excepción pide un motivo. Es lo que se lee meses después en la
- * auditoría, cuando nadie recuerda por qué esa persona puede anular facturas.
+ * Excepciones de permiso por persona (`user_permissions`), sin tocar su rol.
+ * El motivo es obligatorio: es lo que explica la excepción en la auditoría.
  */
 
 interface Props {

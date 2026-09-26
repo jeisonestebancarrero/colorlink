@@ -73,12 +73,7 @@ export interface ProjectPhoto {
   size: string;
   uploadDate: string;
   isPrimary?: boolean;
-  /**
-   * FASE 5: archivo original seleccionado por el usuario, necesario para
-   * subirlo a Supabase Storage. Solo existe entre que se elige la foto y
-   * que se guarda el proyecto; las fotos ya persistidas no lo traen.
-   * Opcional para no romper ningún consumidor existente.
-   */
+  /** Archivo pendiente de subir a Storage; solo existe hasta guardar el proyecto. */
   file?: File;
   /** Ruta en el bucket, para regenerar la URL firmada cuando expire. */
   storagePath?: string;

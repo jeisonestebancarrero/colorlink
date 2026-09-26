@@ -18,14 +18,8 @@ import {
 } from '../../src/services/catalogMappers';
 
 /**
- * FIDELIDAD DEL CATÁLOGO — FASE 4
- * ============================================================
- * La prueba central de esta fase: lo que devuelve Supabase debe ser
- * equivalente a lo que devolvían los datos mock. Si algo se perdió o se
- * deformó en el camino a la base de datos, aquí se ve.
- *
- * Consulta la API REST directamente y aplica los mismos traductores que usa
- * el servicio, de modo que se ejercita exactamente la cadena real.
+ * Fidelidad del catálogo: lo que devuelve Supabase, pasado por los mismos
+ * traductores del servicio, debe equivaler a los datos mock originales.
  */
 
 function leerEnvLocal(): Record<string, string> {
@@ -74,10 +68,8 @@ describe.skipIf(!disponible)('Fidelidad catálogo: Supabase vs datos mock', () =
     ]);
     const mapa = new Map<string, 'InStock' | 'LowStock' | 'PreOrder'>();
     for (const d of disp) mapa.set(d.variant_id, d.stock_status);
-    // Se descartan los productos que crean otras suites. Corren en paralelo
-    // y alguna publica el suyo un instante para comprobar que lo publicado
-    // aquí llega a la tienda; sin este filtro, esta comprobación fallaba de
-    // vez en cuando por un producto que nada tiene que ver con la carta.
+    // Se excluyen productos de otras suites que corren en paralelo y publican
+    // uno temporalmente; sin el filtro la prueba falla de forma intermitente.
     productos = filas
       .filter((f: { code?: string }) => !String(f.code ?? '').startsWith('TEST-'))
       .map((f: never) => aStoreProduct(f, mapa));
@@ -129,9 +121,7 @@ describe.skipIf(!disponible)('Fidelidad catálogo: Supabase vs datos mock', () =
     );
     const colores: ReturnType<typeof aColorSwatch>[] = filas.map(aColorSwatch);
 
-    // La carta creció a propósito. Lo que esta prueba vigila no es el número
-    // sino que ninguno de los tonos originales se haya perdido ni cambiado al
-    // ampliarla: eso sí sería una regresión.
+    // La carta puede crecer; lo que se vigila es que ningún tono original se pierda ni cambie.
     expect(colores.length).toBeGreaterThanOrEqual(PINTUCO_COLOR_PALETTES.length);
 
     for (const esperado of PINTUCO_COLOR_PALETTES) {
@@ -166,8 +156,7 @@ describe.skipIf(!disponible)('Fidelidad catálogo: Supabase vs datos mock', () =
         expect(paso.phaseName).toBe(pasoEsperado.phaseName);
         expect(paso.presentation).toBe(pasoEsperado.presentation);
         expect(paso.quantityFor85m2).toBe(pasoEsperado.quantityFor85m2);
-        // El precio se toma de la variante real: debe coincidir con el que
-        // el kit traía copiado.
+        // El precio sale de la variante real y debe coincidir con el copiado en el kit.
         expect(paso.unitPriceCOP, `precio paso ${pasoEsperado.stepNumber} de ${esperado.id}`)
           .toBe(pasoEsperado.unitPriceCOP);
       }
@@ -207,9 +196,7 @@ describe.skipIf(!disponible)('Fidelidad catálogo: Supabase vs datos mock', () =
       const real = tiendas.find((t) => t.id === esperado.id);
       expect(real, `falta tienda ${esperado.id}`).toBeDefined();
 
-      // `imageUrl` se compara aparte: es un dato de presentación añadido
-      // después, que no forma parte de la ficha comercial que esta prueba
-      // vigila. Lo que sí importa es que no traiga basura: o una URL, o nada.
+      // `imageUrl` es de presentación y se compara aparte: debe ser una URL o nada.
       const { imageUrl, ...ficha } = real!;
       expect(ficha).toEqual(esperado);
       expect(imageUrl === null || typeof imageUrl === 'string').toBe(true);

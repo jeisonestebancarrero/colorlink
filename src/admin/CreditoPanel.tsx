@@ -8,27 +8,13 @@ import { Button } from '../components/common/Button';
 import { Input } from '../components/common/Input';
 
 /**
- * Cupo de crédito de una empresa.
- *
- * `fijar_credito_empresa` estaba en la base sin pantalla, así que aprobarle
- * crédito a una constructora había que hacerlo entrando a la base. En un
- * negocio de materiales eso pasa todas las semanas, y es una decisión
- * comercial, no técnica.
- *
- * Lo que la base exige y aquí se explica antes de que lo rechace:
- *   · el plazo va entre 1 y 180 días;
- *   · un crédito sin cupo no sirve de nada, así que el cupo tiene que ser > 0;
- *   · solo un administrador puede cambiarlo, y queda en la bitácora
- *     (`audit_logs`, acción `COMPANY_CREDIT`).
- *
- * Se muestra además EL SALDO PENDIENTE. Aprobar un cupo por debajo de lo que
- * la empresa ya debe le bloquea los pedidos sin que nadie entienda por qué:
- * quien aprueba tiene que ver las dos cifras juntas.
+ * Cupo de crédito vía `fijar_credito_empresa`: solo admin, plazo 1-180 días, cupo > 0, auditado.
+ * Muestra el saldo pendiente porque un cupo menor a la deuda bloquea los pedidos.
  */
 
 interface Props {
   companyId: string;
-  /** Para no volver a pedir el nombre a la base: lo tiene la pantalla padre. */
+  /** Lo pasa la pantalla padre para no consultarlo otra vez. */
   nombre?: string;
 }
 
@@ -84,7 +70,7 @@ export const CreditoPanel: React.FC<Props> = ({ companyId }) => {
   const nCupo = Number(cupo);
   const saldo = datos?.saldo ?? 0;
 
-  /** Validación local, con el mismo criterio que la base. */
+  /** Mismo criterio que valida la base. */
   const problema = (): string | null => {
     if (!aCredito) return null;
     if (!Number.isFinite(nDias) || nDias < 1 || nDias > 180) {
@@ -104,8 +90,7 @@ export const CreditoPanel: React.FC<Props> = ({ companyId }) => {
     setAviso(null);
     setGuardando(true);
     try {
-      // Con crédito apagado la base ignora plazo y cupo; se manda lo que hay
-      // para no borrar la última condición aprobada.
+      // Sin crédito la base ignora plazo y cupo; se envían para conservar la última condición.
       await pasarelaService.fijarCredito(
         companyId,
         aCredito,

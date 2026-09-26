@@ -7,25 +7,12 @@ import { useMensajes } from '../../context/MensajesContext';
 import { AcuseDeLectura } from '../common/AcuseDeLectura';
 
 /**
- * Conversación del pedido, en la tienda.
- *
- * Faltaba de este lado: el personal escribía desde el portal y el cliente
- * nunca lo veía, así que las preguntas sobre un pedido acababan en WhatsApp y
- * no quedaban con el pedido. La base ya lo permitía todo —la política
- * `mensajes_cliente` deja leer, `post_message` deja escribir— y lo único que
- * no existía era la pantalla.
- *
- * Los EVENTOS de trazabilidad («pedido alistado», «guía asignada») se muestran
- * en la misma línea de tiempo, no en una pestaña aparte: es lo que da sentido
- * a la conversación. Se pintan distinto porque no son de nadie.
- *
- * Las NOTAS INTERNAS no aparecen, y no porque aquí se filtren: no llegan. Las
- * excluye la política de la base, así que ni siquiera viajan al navegador.
+ * Chat del pedido en la tienda (lee con la política `mensajes_cliente`, escribe con `post_message`).
+ * Los eventos de trazabilidad van en la misma línea; las notas internas las excluye RLS y nunca llegan.
  */
 
 interface Props {
   orderId: string;
-  /** Número visible del pedido, para el texto de ayuda. */
   numero: string;
 }
 
@@ -53,9 +40,7 @@ export const ConversacionPedido: React.FC<Props> = ({ orderId, numero }) => {
         conversacionPedidoService.estado(orderId),
       ]);
       setMensajes(msgs);
-      // Manda el estado del PEDIDO. «Dar por atendida» no cierra nada mientras
-      // el pedido siga en curso: cortarle la voz a alguien que espera
-      // mercancía es lo peor que puede hacer un sistema de pedidos.
+      // Manda el estado del pedido: «dar por atendida» no cierra el chat mientras siga en curso.
       setAbierta(est?.sePuedeEscribir !== false);
       setError('');
     } catch (e) {
@@ -69,15 +54,12 @@ export const ConversacionPedido: React.FC<Props> = ({ orderId, numero }) => {
     setCargando(true);
     void cargar();
 
-    // ABRIR la conversación es lo que la marca leída, y es lo único que lo
-    // hace: no basta con recibir el mensaje ni con desplegar la campana.
+    // Solo abrir la conversación la marca leída (no recibir ni desplegar la campana).
     void marcarLeida(orderId);
 
     const cancelar = conversacionPedidoService.suscribir(orderId, () => {
       void cargar();
-      // Si llega uno mientras la persona está mirando el chat, ya lo está
-      // viendo: se marca en el acto para que la campana no suba por algo que
-      // tiene delante.
+      // Con el chat abierto, lo que llega se marca leído en el acto.
       void marcarLeida(orderId);
     });
     setEnVivo(true);
@@ -85,7 +67,7 @@ export const ConversacionPedido: React.FC<Props> = ({ orderId, numero }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orderId]);
 
-  // Al fondo cuando llega algo: lo último es lo que importa.
+  // Desplaza al último mensaje.
   useEffect(() => {
     finRef.current?.scrollIntoView({ block: 'nearest' });
   }, [mensajes.length]);
@@ -126,8 +108,7 @@ export const ConversacionPedido: React.FC<Props> = ({ orderId, numero }) => {
             </span>
           )}
 
-          {/* El cliente también puede darla por terminada: no tiene por qué
-              esperar a que el equipo la cierre para dejar de recibir avisos. */}
+          {/* El cliente también puede cerrarla para dejar de recibir avisos. */}
           {abierta === true && mensajes.length > 0 && (
             <button
               onClick={async () => {
@@ -161,7 +142,7 @@ export const ConversacionPedido: React.FC<Props> = ({ orderId, numero }) => {
         ) : (
           mensajes.map((m) => {
             if (m.tipo === 'EVENTO') {
-              // Trazabilidad: no es de nadie, así que va centrado y discreto.
+              // Evento de trazabilidad: sin autor, centrado.
               return (
                 <div key={m.id} className="flex items-center gap-2 justify-center py-1">
                   <Info className="w-3 h-3 text-slate-300 shrink-0" />
@@ -181,10 +162,7 @@ export const ConversacionPedido: React.FC<Props> = ({ orderId, numero }) => {
                 }`}>
                   {!mio && (
                     <p className="text-[10px] font-extrabold uppercase tracking-wider text-[#004F9F] mb-0.5">
-                      {/* Con el nombre se sabe con quién se está hablando, y la
-                          marca detrás dice desde dónde. «Pintuco» a secas no lo
-                          decía, y con dos personas escribiendo tampoco se
-                          distinguían entre sí. */}
+                      {/* Nombre y origen, para distinguir a varias personas del equipo. */}
                       {m.autor ? `${m.autor} · Pintuco` : 'Pintuco'}
                     </p>
                   )}
@@ -226,8 +204,7 @@ export const ConversacionPedido: React.FC<Props> = ({ orderId, numero }) => {
             value={texto}
             onChange={(e) => setTexto(e.target.value)}
             onKeyDown={(e) => {
-              // Enter envía, Mayús+Enter hace salto de línea: es lo que la
-              // gente espera de un chat.
+              // Enter envía; Mayús+Enter, salto de línea.
               if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void enviar(e); }
             }}
             rows={2}

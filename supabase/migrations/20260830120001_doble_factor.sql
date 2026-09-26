@@ -1,23 +1,6 @@
--- ============================================================
--- Doble factor para el personal interno
--- ============================================================
--- El segundo factor solo sirve si el SERVIDOR lo exige. Si únicamente lo
--- comprobara la aplicación de administración, bastaría con llamar a la API
--- con el token de sesión —que el navegador entrega en texto plano— para
--- saltárselo entero. Por eso la comprobación vive aquí, en las tres funciones
--- por las que pasa toda decisión de acceso: is_admin, is_staff y
--- has_permission.
---
--- LA REGLA: si la cuenta tiene un segundo factor verificado, la sesión debe
--- haberlo superado (aal2). Si no lo tiene, sigue funcionando con contraseña.
---
--- Esa segunda mitad es deliberada y no es un descuido: exigir aal2 a todo el
--- personal desde el primer minuto dejaría fuera a quien todavía no ha
--- registrado su aplicación de códigos —incluido el administrador, que es
--- quien tendría que arreglarlo—. Quien no lo tenga configurado entra, y el
--- portal interno le exige registrarlo antes de dejarlo trabajar. Una vez
--- registrado, ya no hay vuelta atrás: sin código no hay acceso.
--- ============================================================
+-- MFA exigido en el servidor (is_admin, is_staff, has_permission): comprobarlo solo
+-- en la app se saltaría llamando a la API con el token. Con factor verificado la
+-- sesión debe ser aal2; sin él se permite para no bloquear a quien aún no lo registra.
 
 create or replace function public.mfa_satisfecho()
 returns boolean
@@ -28,16 +11,13 @@ set search_path = ''
 as $$
   select
     case
-      -- Sesión que ya superó el segundo factor.
       when coalesce(auth.jwt() ->> 'aal', 'aal1') = 'aal2' then true
-      -- Sin factor verificado todavía: se permite, y la interfaz obliga a
-      -- registrarlo.
+      -- Sin factor verificado: se permite y la interfaz obliga a registrarlo.
       when not exists (
         select 1 from auth.mfa_factors f
         where f.user_id = (select auth.uid())
           and f.status = 'verified'
       ) then true
-      -- Tiene factor y no lo usó en esta sesión.
       else false
     end;
 $$;
@@ -48,9 +28,6 @@ comment on function public.mfa_satisfecho() is
 revoke all on function public.mfa_satisfecho() from public, anon;
 grant execute on function public.mfa_satisfecho() to authenticated;
 
--- ============================================================
--- Las tres puertas de acceso pasan a exigirlo
--- ============================================================
 create or replace function public.is_admin()
 returns boolean
 language sql
@@ -92,12 +69,12 @@ set search_path = ''
 as $$
   select public.mfa_satisfecho() and (
     coalesce(
-      -- 1. Si hay excepción personal, esa manda: concede o retira.
+      -- La excepción personal manda, concede o retira.
       (select up.granted
          from public.user_permissions up
         where up.user_id = (select auth.uid())
           and up.permission_code = _code),
-      -- 2. Si no la hay, decide el rol.
+      -- Sin excepción decide el rol.
       (select exists (
          select 1
          from public.user_roles ur
@@ -110,11 +87,7 @@ as $$
   );
 $$;
 
--- ============================================================
--- Estado del segundo factor, para que la interfaz sepa qué pedir
--- ============================================================
--- Se expone por función y no leyendo `auth.mfa_factors` directamente porque
--- ese esquema no está —ni debe estar— al alcance del cliente.
+-- Vía función porque el esquema auth no es accesible desde el cliente.
 create or replace function public.mi_estado_mfa()
 returns jsonb
 language sql
@@ -128,7 +101,7 @@ as $$
       where f.user_id = (select auth.uid()) and f.status = 'verified'
     ),
     'nivel_sesion', coalesce(auth.jwt() ->> 'aal', 'aal1'),
-    -- El personal interno está obligado; un cliente puede activarlo si quiere.
+    -- Obligatorio para el personal; opcional para clientes.
     'obligatorio', exists (
       select 1 from public.user_roles ur
       where ur.user_id = (select auth.uid())

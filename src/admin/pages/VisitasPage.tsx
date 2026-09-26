@@ -15,14 +15,13 @@ import {
 import { ExportarBoton } from '../ExportarBoton';
 import { IconoModulo } from '../IconosDeModulo';
 
-// `toISOString` da la fecha en UTC: después de las 7 p. m. en Colombia
-// habría propuesto el día siguiente como fecha por defecto.
+// `toISOString` es UTC: tras las 7 p. m. en Colombia daría el día siguiente.
 const HOY = hoyISO;
 
 const fechaLarga = (iso: string | null): string =>
   iso ? formatearFecha(iso, { weekday: 'short', day: 'numeric', month: 'short' }) : 'Sin fecha';
 
-/** Agrupa por día: una agenda se lee por jornadas, no como una lista plana. */
+/** Agrupa las visitas por día. */
 function agrupar(visitas: VisitaLista[]): Array<[string, VisitaLista[]]> {
   const mapa = new Map<string, VisitaLista[]>();
   for (const v of visitas) {
@@ -36,13 +35,7 @@ function agrupar(visitas: VisitaLista[]): Array<[string, VisitaLista[]]> {
   });
 }
 
-/**
- * Agenda de visitas técnicas.
- *
- * Se ordena por fecha ascendente y las visitas sin programar van primero: son
- * justamente las que exigen una decisión, y enterrarlas al final equivaldría
- * a no tenerlas.
- */
+/** Agenda de visitas por fecha ascendente; las no programadas van primero porque piden decisión. */
 export const VisitasPage: React.FC = () => {
   const { filtroSedes } = useSedes();
   const { sedeAislada, aislar, filtroEfectivo } = useAislamientoDeSede();
@@ -98,8 +91,7 @@ export const VisitasPage: React.FC = () => {
   const grupos = useMemo(() => agrupar(filtradas), [filtradas]);
 
   const mover = async (v: VisitaLista, nuevo: EstadoVisita) => {
-    // Cerrar una visita exige informe; reprogramar exige fecha. Se piden en un
-    // formulario en vez de rechazarlo después con un error del servidor.
+    // Cerrar exige informe y reprogramar exige fecha: se piden antes de llamar al servidor.
     if (nuevo === 'REALIZADA') {
       setCerrando(v);
       setResultado('');
@@ -172,8 +164,7 @@ export const VisitasPage: React.FC = () => {
     (v) => !v.tecnicoId && !['REALIZADA', 'CANCELADA'].includes(v.estado),
   ).length;
 
-  // Los contadores se calculan sobre la selección GLOBAL, no sobre lo ya
-  // aislado: si no, al entrar a una sede las demás mostrarían 0.
+  // Contadores sobre la selección global, no sobre la sede aislada.
   const porSede = visitas.filter((x) => sedeVisible(x.locationId, filtroSedes));
   return (
     <div className="space-y-5">
@@ -186,8 +177,7 @@ export const VisitasPage: React.FC = () => {
         </p>
       </div>
 
-      {/* Exporta EXACTAMENTE lo que se ve: los filtros y la sede activa ya
-          están aplicados en la lista. */}
+      {/* Exporta lo visible, con filtros y sede ya aplicados. */}
       <div className="flex justify-end">
         <ExportarBoton<VisitaLista>
           filas={filtradas}
@@ -209,8 +199,7 @@ export const VisitasPage: React.FC = () => {
         />
       </div>
 
-      {/* Con varias sedes activas, un total no dice cómo se reparte: la
-          comparación entre sedes es lo que se busca al activar varias. */}
+      {/* Con varias sedes activas, desglose por sede. */}
       <ContadorPorSede
         sedeAislada={sedeAislada}
         onAislar={aislar}

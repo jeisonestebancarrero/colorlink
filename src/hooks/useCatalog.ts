@@ -10,20 +10,9 @@ import { colorService, productService, solutionService, storeService } from '../
 import { obtenerTarifaIva, TARIFA_IVA_POR_DEFECTO } from '../services/impuestos';
 
 /**
- * Hooks de catálogo (MÓDULO 36/37).
- *
- * Se implementan con `useState` + `useEffect` en lugar de introducir React
- * Query o Zustand: el proyecto no usa ninguna librería de estado servidor y
- * el MÓDULO 36 pide reutilizar la arquitectura existente.
- *
- * POR QUÉ SE CARGA EL CATÁLOGO COMPLETO Y SE FILTRA EN CLIENTE:
- * Las páginas filtran hoy en memoria y el resultado es instantáneo mientras
- * se escribe. Mover ese filtrado al servidor añadiría una petición por
- * pulsación y un retardo perceptible: sería un cambio de experiencia, que el
- * MÓDULO 34 prohíbe. Con 11 productos, 20 colores y 11 soluciones, traerlo
- * todo en una consulta es además más eficiente que paginar.
- * Los servicios YA soportan filtro y paginación en servidor para cuando el
- * catálogo crezca; solo hay que empezar a pasarles los parámetros.
+ * Hooks de catálogo con useState/useEffect, sin librería de estado servidor.
+ * Se carga el catálogo completo y se filtra en cliente para que la búsqueda sea
+ * instantánea; los servicios ya admiten filtro y paginación en servidor si crece.
  */
 
 export interface AsyncState<T> {
@@ -39,7 +28,7 @@ function useAsyncData<T>(cargar: () => Promise<T>, inicial: T): AsyncState<T> {
   const [error, setError] = useState<string | null>(null);
   const [intento, setIntento] = useState(0);
 
-  // Se guarda en ref para que cambiar la función no dispare recargas.
+  // En ref para que cambiar la función no dispare recargas.
   const cargarRef = useRef(cargar);
   cargarRef.current = cargar;
 
@@ -91,25 +80,13 @@ export const useSolutionKits = (): AsyncState<SolutionKit[]> =>
 export const useSolutionsCatalog = (): AsyncState<SolutionCatalogItem[]> =>
   useAsyncData(() => solutionService.getCatalog(), SIN_SOLUCIONES);
 
-/**
- * Categorías de producto tal como están hoy en la base.
- *
- * Estaban escritas a mano en StorePage, así que una categoría creada desde el
- * portal interno no aparecía nunca en la tienda por más que se le asignaran
- * productos.
- */
+/** Categorías leídas de la base, para que las creadas en el portal aparezcan en la tienda. */
 export const useProductCategories = (): AsyncState<string[]> =>
   useAsyncData(() => productService.getCategories(), SIN_CATEGORIAS);
 
 export const usePickupStores = (): AsyncState<PintucoStore[]> =>
   useAsyncData(() => storeService.getStores(), SIN_TIENDAS);
 
-/**
- * Tarifa general de IVA configurada en `app_settings`.
- *
- * Arranca en la tarifa por defecto en lugar de en 0 o `null`: así ninguna
- * pantalla muestra por un instante un desglose con IVA de cero, que sería
- * mostrarle al cliente una cifra falsa mientras carga.
- */
+/** Tarifa general de IVA; arranca en el valor por defecto para no mostrar un IVA de cero mientras carga. */
 export const useTarifaIva = (): AsyncState<number> =>
   useAsyncData(() => obtenerTarifaIva(), TARIFA_IVA_POR_DEFECTO);

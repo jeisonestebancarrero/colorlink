@@ -1,16 +1,6 @@
 /**
- * Webhook de Wompi.
- *
- * POR QUÉ EXISTE: la confirmación de un pago no puede venir del navegador.
- * Cualquiera puede llamar una URL diciendo "ya pagué"; solo la pasarela sabe
- * de verdad si el banco aprobó la transacción. Wompi lo notifica aquí y firma
- * el evento, y esa firma es lo único que convierte una petición en una venta.
- *
- * Cómo se verifica la firma (documentación de Wompi):
- *   sha256( <valor de cada propiedad listada en signature.properties>
- *           + timestamp + secreto_de_eventos )
- * debe coincidir con `signature.checksum`. Si no coincide, se responde 401 y
- * no se toca nada.
+ * Webhook de Wompi: único punto que confirma pagos; el navegador nunca lo hace.
+ * Firma: sha256(valores de signature.properties + timestamp + secreto) == signature.checksum, o 401.
  */
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 
@@ -59,7 +49,7 @@ Deno.serve(async (req) => {
     return json({ error: 'Evento sin firma' }, 400);
   }
 
-  // La cadena se arma en el orden EXACTO que manda el propio evento.
+  // El orden lo fija signature.properties del evento.
   const cadena =
     firma.properties.map((p) => leerRuta(datos, p)).join('') +
     String(evento.timestamp ?? '') +
@@ -91,8 +81,7 @@ Deno.serve(async (req) => {
 
   if (error) {
     console.error('[wompi] confirmar_pago:', error.message);
-    // Se responde 500 a propósito: Wompi reintenta, y es preferible a dar por
-    // procesado un pago que no se registró.
+    // 500 a propósito para que Wompi reintente.
     return json({ error: error.message }, 500);
   }
 

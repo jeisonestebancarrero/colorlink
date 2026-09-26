@@ -1,12 +1,8 @@
 import { z } from 'zod';
 
 /**
- * Validación de las variables de entorno expuestas al navegador.
- *
- * SEGURIDAD (MÓDULO 29/41): aquí solo se leen variables con prefijo `VITE_`, que son
- * las únicas que Vite inyecta en el bundle del cliente. La `service_role key` NUNCA
- * debe aparecer en este archivo ni en ningún módulo de `src/`: es exclusiva del
- * servidor (migraciones, seeds y Edge Functions).
+ * Variables de entorno del navegador; solo `VITE_*`, que Vite incrusta en el bundle.
+ * La service_role key no debe aparecer nunca en `src/`.
  */
 const clientEnvSchema = z.object({
   VITE_SUPABASE_URL: z.url('VITE_SUPABASE_URL debe ser una URL válida'),
@@ -22,7 +18,7 @@ function loadClientEnv(): ClientEnv {
   });
 
   if (!parsed.success) {
-    // No se imprime el valor de ninguna variable, solo qué falta (MÓDULO 43).
+    // Se informa qué falta, nunca el valor.
     const detalle = parsed.error.issues
       .map((issue) => `  - ${issue.path.join('.')}: ${issue.message}`)
       .join('\n');

@@ -4,39 +4,12 @@ import { conversacionPedidoService } from './conversacion';
 import { supabase } from '../lib/supabase';
 
 /**
- * Asistente de la tienda.
- *
- * QUÉ ES Y QUÉ NO ES, porque importa: **no hay modelo de lenguaje detrás**.
- * Es un asistente de reglas que responde CONSULTANDO el sistema —los pedidos
- * de quien pregunta, el catálogo real, las tiendas reales— y que, cuando no
- * sabe, lo dice y pasa la pregunta a una persona.
- *
- * Se hizo así a propósito. Un modelo generativo sin control sobre un catálogo
- * de pinturas inventa rendimientos, precios y tiempos de entrega con total
- * seguridad, y en este negocio eso significa un cliente comprando cuatro
- * galones de menos para una fachada. Aquí, si un dato no está en la base, el
- * asistente no lo dice.
- *
- * Lo que sí sabe hacer, todo con datos verificables:
- *   · dónde va un pedido y cuándo llega;
- *   · cuánta pintura hace falta para un área (con el motor del servidor, el
- *     mismo de la calculadora, no una cuenta aparte);
- *   · qué producto sirve para una superficie, buscando en el catálogo;
- *   · dónde está la tienda más cercana y su horario;
- *   · y pasar la conversación a una persona, escribiendo en el hilo del
- *     pedido, que es donde el equipo ya la ve.
+ * Asistente de la tienda basado en reglas: responde consultando datos reales
+ * (pedidos, catálogo, tiendas, motor de cálculo) y, si no sabe, lo dice y escala
+ * a una persona. No inventa rendimientos ni precios; la IA opcional solo redacta.
  */
 
-/**
- * El nombre del asistente.
- *
- * Se escribe UNA vez y se usa en todas partes —cabecera, saludo, respuestas y
- * las instrucciones del modelo— para que no se contradiga a sí mismo. Cambiarlo
- * es cambiar esta línea.
- *
- * «Pintu» por lo obvio: es de Pintuco, se dice fácil y nadie lo confunde con
- * una persona, que es justo lo que se busca.
- */
+/** Nombre único del asistente, usado en cabecera, saludo, respuestas e instrucciones del modelo. */
 export const NOMBRE = 'Pintu';
 
 export type AutorMensaje = 'CLIENTE' | 'ASISTENTE';
@@ -45,41 +18,33 @@ export interface MensajeAsistente {
   id: string;
   autor: AutorMensaje;
   texto: string;
-  /** Botones que ofrece la respuesta. */
   acciones?: AccionAsistente[];
-  /** Si la respuesta salió de una consulta, de dónde. */
+  /** Origen de la respuesta, si salió de una consulta. */
   fuente?: string;
-  /**
-   * Lista para elegir, cuando hay más de un pedido.
-   *
-   * Con botones no se puede: quien tiene treinta pedidos vería treinta
-   * botones, y en una burbuja de 24 rem eso no cabe ni se lee. Un desplegable
-   * con filtro por estado sí escala.
-   */
+  /** Desplegable filtrable cuando hay varios pedidos; los botones no escalan. */
   selector?: SelectorPedidos;
 }
 
 export interface OpcionPedido {
   numero: string;
   estado: string;
-  /** En palabras, para que el desplegable se entienda sin saber los códigos. */
+  /** Descripción legible sin conocer los códigos. */
   descripcion: string;
   enCurso: boolean;
 }
 
 export interface SelectorPedidos {
   opciones: OpcionPedido[];
-  /** Qué se pregunta al elegir uno. `{numero}` se sustituye. */
+  /** Pregunta al elegir uno; `{numero}` se sustituye. */
   plantilla: string;
 }
 
 export interface AccionAsistente {
   etiqueta: string;
-  /** Navegar dentro de la tienda. */
   ir?: { pagina: string; param?: string };
-  /** Texto que se envía como si lo hubiera escrito la persona. */
+  /** Se envía como si lo hubiera escrito la persona. */
   preguntar?: string;
-  /** Pasar la conversación a una persona, en el hilo de este pedido. */
+  /** Escala a una persona en el hilo de este pedido. */
   escalarA?: string;
 }
 
@@ -95,22 +60,14 @@ export const decir = (
 export const dijoElCliente = (texto: string): MensajeAsistente =>
   ({ id: nuevoId(), autor: 'CLIENTE', texto });
 
-// ------------------------------------------------------------
 // Entender la pregunta
-// ------------------------------------------------------------
 
-/** Quita tildes y baja a minúsculas: «Dónde está» y «donde esta» son lo mismo. */
+/** Sin tildes y en minúsculas. */
 function normalizar(t: string): string {
   return t.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
 }
 
-/**
- * Se buscan RAÍCES, no palabras completas.
- *
- * La gente escribe «ya despacharon lo mío», no «despacho»; «me lo entregaron»,
- * no «entrega». Con la palabra entera el asistente no entendía la mitad de las
- * frases reales y contestaba «no te entendí» a una pregunta clarísima.
- */
+/** Se buscan raíces, no palabras completas, para cubrir cómo escribe la gente. */
 const INTENCIONES: Array<{ nombre: string; palabras: string[] }> = [
   { nombre: 'PEDIDO', palabras: ['pedido', 'orden', 'envi', 'entreg', 'lleg', 'despach', 'guia', 'rastre', 'seguimiento'] },
   { nombre: 'CANTIDAD', palabras: ['cuanta', 'cuanto', 'galon', 'litro', 'alcanza', 'rinde', 'rendimiento', 'metro', 'm2', 'calcul'] },
@@ -118,46 +75,25 @@ const INTENCIONES: Array<{ nombre: string; palabras: string[] }> = [
   { nombre: 'TIENDA', palabras: ['tienda', 'sede', 'punto', 'donde queda', 'direccion', 'horario', 'recoger', 'retiro'] },
   { nombre: 'FACTURA', palabras: ['factura', 'iva', 'precio', 'cuesta', 'vale', 'pago', 'pagar', 'credito'] },
   { nombre: 'PERSONA', palabras: ['asesor', 'persona', 'humano', 'hablar con', 'reclamo', 'queja'] },
-  // Lo social va al final a propósito: si alguien escribe «hola, dónde va mi
-  // pedido», gana PEDIDO por número de aciertos y se le responde lo que de
-  // verdad preguntó, en vez de devolverle un saludo.
+  // Lo social va al final: con «hola, dónde va mi pedido» gana PEDIDO por número de aciertos.
   { nombre: 'SALUDO', palabras: ['hola', 'buenas', 'buenos dias', 'buen dia', 'buenas tardes', 'buenas noches', 'que mas', 'quiubo', 'hey', 'saludos'] },
   { nombre: 'GRACIAS', palabras: ['gracias', 'muchas gracias', 'mil gracias', 'te pasaste', 'excelente', 'perfecto', 'listo'] },
   { nombre: 'DESPEDIDA', palabras: ['chao', 'adios', 'hasta luego', 'nos vemos', 'bye'] },
   { nombre: 'QUIEN_ERES', palabras: ['quien eres', 'como te llamas', 'eres un bot', 'eres humano', 'eres una persona', 'eres real', 'que eres'] },
 ];
 
-/**
- * Un numero de pedido escrito en la frase.
- *
- * `ORD-PNT-000029`, `DEMO-2411-35427`: un codigo con guiones y digitos. Basta
- * para saber que se pregunta por un pedido, aunque la palabra «pedido» no
- * aparezca por ningun lado.
- */
+/** Código con guiones y dígitos (`ORD-PNT-000029`): basta para saber que se pregunta por un pedido. */
 const PARECE_NUMERO_DE_PEDIDO = /\b[a-z]{3,6}-[a-z0-9]{2,6}-\d{3,8}\b/i;
 
-/**
- * Formas de preguntar por un pedido sin nombrarlo.
- *
- * «¿Donde va...?», «¿como va...?», «¿que paso con...?». Se buscan como frase y
- * no como palabra suelta porque «va» o «paso» por su cuenta no significan nada.
- */
+/** Frases, no palabras sueltas: «va» o «paso» solos no significan nada. */
 const FRASES_DE_PEDIDO = ['donde va', 'como va', 'que paso con', 'en que va', 'ya salio'];
 
 export function intencionDe(texto: string): string {
   const t = normalizar(texto);
 
-  /*
-   * Un numero de pedido manda sobre todo lo demas.
-   *
-   * FALLO REAL que esto cierra: al elegir del desplegable se enviaba
-   * «¿Donde va ORD-PNT-000029?» y el asistente contestaba «no te entendi».
-   * Ninguna de sus palabras clave aparecia —«ord-pnt» no es «orden»— asi que
-   * la frase mas clara posible caia en desconocida. Que el propio asistente no
-   * entienda lo que el mismo acaba de ofrecer es de lo peor que puede pasar.
-   */
+  // Un número de pedido manda sobre todo, incluido el que ofrece el propio desplegable.
   if (PARECE_NUMERO_DE_PEDIDO.test(texto) || FRASES_DE_PEDIDO.some((f) => t.includes(f))) {
-    // Salvo que ademas pidan una persona: eso pesa mas que consultar el estado.
+    // Salvo que pidan una persona, que pesa más que consultar el estado.
     const pidePersona = INTENCIONES.find((i) => i.nombre === 'PERSONA');
     if (pidePersona && pidePersona.palabras.some((w) => t.includes(w))) return 'PERSONA';
     return 'PEDIDO';
@@ -171,7 +107,7 @@ export function intencionDe(texto: string): string {
   return mejor.nombre;
 }
 
-/** Área en m² mencionada en la frase: «tengo 85 metros», «120 m2». */
+/** Área en m² mencionada: «tengo 85 metros», «120 m2». */
 export function areaMencionada(texto: string): number | null {
   const t = normalizar(texto);
   const m = t.match(/(\d+(?:[.,]\d+)?)\s*(?:m2|m²|metros?|mts)/);
@@ -180,7 +116,7 @@ export function areaMencionada(texto: string): number | null {
   return Number.isFinite(n) && n > 0 ? n : null;
 }
 
-/** Número de pedido mencionado: «ORD-PNT-000106» o solo «106». */
+/** Pedido mencionado: «ORD-PNT-000106» o solo «106». */
 export function pedidoMencionado(texto: string, pedidos: PedidoCliente[]): PedidoCliente | null {
   const t = texto.toUpperCase();
   const exacto = pedidos.find((p) => t.includes(p.numero.toUpperCase()));
@@ -191,9 +127,7 @@ export function pedidoMencionado(texto: string, pedidos: PedidoCliente[]): Pedid
     ?? null;
 }
 
-// ------------------------------------------------------------
 // Responder
-// ------------------------------------------------------------
 
 const ESTADO_EN_PALABRAS: Record<string, string> = {
   PENDIENTE: 'está pendiente de pago',
@@ -205,13 +139,7 @@ const ESTADO_EN_PALABRAS: Record<string, string> = {
   CANCELADO: 'fue cancelado',
 };
 
-/**
- * ¿Preguntan por UNO o por TODOS?
- *
- * «¿Qué pedidos he hecho?» es una lista; «¿dónde va mi pedido?» es uno. Antes
- * no se distinguía y a la pregunta en plural se le contestaba con un solo
- * pedido —el más reciente—, que dejaba fuera todo lo demás.
- */
+/** Distingue la pregunta por la lista de pedidos de la pregunta por uno. */
 function pideLaLista(texto: string): boolean {
   const t = normalizar(texto);
   return /\bpedidos\b/.test(t)
@@ -220,7 +148,7 @@ function pideLaLista(texto: string): boolean {
     || /historial/.test(t);
 }
 
-/** Los que todavía están vivos: es de lo que la gente pregunta. */
+/** Pedidos en curso, que son por los que se pregunta. */
 const enCurso = (p: PedidoCliente) =>
   p.estado !== 'ENTREGADO' && p.estado !== 'CANCELADO';
 
@@ -235,7 +163,7 @@ async function responderPedido(texto: string): Promise<MensajeAsistente> {
     );
   }
 
-  // ── Pregunta en plural: se listan, no se elige uno ──
+  // Pregunta en plural: se listan, no se elige uno.
   if (pideLaLista(texto) && !pedidoMencionado(texto, pedidos)) {
     const activos = pedidos.filter(enCurso);
     const lista = (activos.length > 0 ? activos : pedidos)
@@ -256,8 +184,7 @@ async function responderPedido(texto: string): Promise<MensajeAsistente> {
       'Consultado en tus pedidos',
     );
 
-    // El desplegable lleva TODOS, no solo los cinco que se enumeran arriba:
-    // el texto resume y la lista sirve para llegar a cualquiera.
+    // El desplegable incluye todos; el texto solo resume.
     respuesta.selector = {
       plantilla: '¿Dónde va {numero}?',
       opciones: pedidos.map((p) => ({
@@ -270,21 +197,13 @@ async function responderPedido(texto: string): Promise<MensajeAsistente> {
     return respuesta;
   }
 
-  /*
-   * Cuál se elige cuando no se nombra ninguno.
-   *
-   * El más reciente EN CURSO, no el más reciente a secas. Antes se cogía
-   * `pedidos[0]` y podía salir uno cancelado o ya entregado, que es
-   * justamente de lo que nadie pregunta: quien escribe quiere saber por lo
-   * que está esperando.
-   */
+  // Sin pedido nombrado se elige el más reciente en curso, no uno cancelado o entregado.
   const elegido = pedidoMencionado(texto, pedidos)
     ?? pedidos.find(enCurso)
     ?? pedidos[0];
   const estado = ESTADO_EN_PALABRAS[elegido.estado] ?? `está en ${elegido.estado}`;
 
-  // La fecha estimada la calcula la base con los días de la ciudad; no se
-  // inventa aquí una promesa de entrega.
+  // La fecha estimada la calcula la base; aquí no se inventa.
   const cuando = elegido.estimada
     ? ` La fecha estimada es el ${new Date(elegido.estimada).toLocaleDateString('es-CO', {
         day: 'numeric', month: 'long',
@@ -295,9 +214,7 @@ async function responderPedido(texto: string): Promise<MensajeAsistente> {
     ? `Va con envío${elegido.ciudad ? ` a ${elegido.ciudad}` : ''}.`
     : 'Es para retiro en tienda.';
 
-  // Sobre un pedido terminado ya no se puede abrir conversación: la base la
-  // cierra al llegar a entregado o cancelado. Ofrecerlo sería mandar a la
-  // persona a un botón que va a fallar.
+  // La base cierra la conversación al entregar o cancelar; no se ofrece un botón que fallaría.
   const vivo = enCurso(elegido);
 
   return decir(
@@ -316,8 +233,7 @@ async function responderPedido(texto: string): Promise<MensajeAsistente> {
 async function responderProducto(texto: string): Promise<MensajeAsistente> {
   const t = normalizar(texto);
 
-  // Se traduce lo que dice la persona a lo que el catálogo entiende. Si no
-  // reconoce la superficie, se pregunta en vez de recomendar cualquier cosa.
+  // Traduce la superficie al vocabulario del catálogo; si no la reconoce, pregunta.
   const superficies: Array<[string[], string]> = [
     [['fachada', 'exterior', 'afuera'], 'Fachadas & Exteriores'],
     [['interior', 'sala', 'cuarto', 'habitacion', 'adentro'], 'Vinilos & Interiores'],
@@ -395,10 +311,7 @@ function responderCantidad(texto: string): MensajeAsistente {
     );
   }
 
-  // El cálculo NO se hace aquí: lo hace `calculate_paint` en el servidor,
-  // que lee el rendimiento del producto de la base. Repetir la fórmula en el
-  // asistente era el error que ya existió, con dos motores dando cifras
-  // distintas.
+  // El cálculo lo hace `calculate_paint` en el servidor; no duplicar la fórmula aquí.
   return decir(
     `Para ${area} m² el cálculo depende del producto: cada pintura rinde distinto y `
     + 'el rendimiento está guardado por referencia. Te abro la calculadora con esa '
@@ -428,17 +341,10 @@ async function responderPersona(texto = ''): Promise<MensajeAsistente> {
       + 'del constructor: 01 8000 111-247.',
     );
   }
-  // Solo los que siguen en curso: en un pedido terminado la conversación está
-  // cerrada y el botón no haría nada.
+  // Solo pedidos en curso: en los terminados la conversación está cerrada.
   const abiertos = pedidos.filter(enCurso);
 
-  /*
-   * Si ya dijeron cuál, no se vuelve a preguntar.
-   *
-   * Pasa al elegir del desplegable: llega «Quiero hablar con un asesor sobre
-   * ORD-PNT-000029». Volver a pedir el pedido después de haberlo elegido es
-   * hacerle repetir a la persona algo que acaba de decir.
-   */
+  // Si ya se nombró el pedido (p. ej. desde el desplegable), no se vuelve a preguntar.
   const nombrado = pedidoMencionado(texto, pedidos);
   if (nombrado) {
     if (!enCurso(nombrado)) {
@@ -461,7 +367,7 @@ async function responderPersona(texto = ''): Promise<MensajeAsistente> {
     );
   }
 
-  // Hasta tres, botones directos; a partir de ahí no caben y se usa la lista.
+  // Hasta tres, botones directos; más, desplegable.
   if (abiertos.length <= 3) {
     return decir(
       '¿Sobre cuál de tus pedidos? Le escribo al equipo en ese hilo y te responden ahí '
@@ -486,7 +392,7 @@ async function responderPersona(texto = ''): Promise<MensajeAsistente> {
   return conLista;
 }
 
-/** Se presenta. Sin fingir ser una persona, que es lo que se le pregunta. */
+/** Se presenta sin fingir ser una persona. */
 function responderQuienEres(haySesion: boolean): MensajeAsistente {
   return decir(
     `Soy ${NOMBRE}, el asistente de la tienda de Pintuco. No soy una persona: `
@@ -501,7 +407,7 @@ function responderQuienEres(haySesion: boolean): MensajeAsistente {
   );
 }
 
-/** Franja del día, para que el saludo no desentone con el reloj. */
+/** Franja del día para el saludo. */
 function momentoDelDia(): string {
   const h = new Date().getHours();
   if (h < 12) return 'Buenos días';
@@ -542,38 +448,25 @@ function responderDespedida(): MensajeAsistente {
   return decir(`Hasta luego. Que te rinda la pintura.`);
 }
 
-/**
- * La respuesta a un mensaje.
- *
- * Si no entiende, lo dice y ofrece lo que sí sabe hacer. No adivina: una
- * respuesta plausible pero inventada sobre cuánta pintura comprar cuesta
- * dinero de verdad.
- */
+/** Responde un mensaje; si no entiende, lo dice y ofrece lo que sabe hacer, sin adivinar. */
 export async function responder(
   texto: string,
   historial: Array<{ autor: AutorMensaje; texto: string }> = [],
   haySesion = true,
 ): Promise<MensajeAsistente> {
-  // Las intenciones que la aplicación resuelve MEJOR que un modelo se atienden
-  // con reglas aunque la IA esté encendida: el estado de un pedido y las
-  // tiendas son datos exactos, y hacerlos pasar por un redactor solo añade
-  // latencia, costo y una oportunidad de que se equivoque.
   const intencion = intencionDe(texto);
-  // Lo social y los datos exactos se resuelven con reglas aunque la IA esté
-  // encendida: un «hola» no necesita una llamada al proveedor, y el estado de
-  // un pedido es un dato que no mejora por redactarlo.
+  // Lo social y los datos exactos (pedido, tiendas) van por reglas aunque la IA esté
+  // encendida: redactarlos solo añade latencia, costo y riesgo de error.
   const mejorConReglas = ['PEDIDO', 'TIENDA', 'PERSONA', 'SALUDO', 'GRACIAS',
     'DESPEDIDA', 'QUIEN_ERES'].includes(intencion);
 
   if (!mejorConReglas && await hayIA()) {
     const conIA = await responderConIA(texto, historial);
     if (conIA) return conIA;
-    // Si falla, sigue de largo a las reglas sin decirle nada al cliente.
+    // Si falla, sigue con las reglas sin avisar al cliente.
   }
 
-  // Sin sesión hay cosas que sencillamente no se pueden responder, y decirlo
-  // es mejor que intentarlo: consultar pedidos sin sesión devuelve una lista
-  // vacía, y el asistente diría «no tienes pedidos» a alguien que sí los tiene.
+  // Sin sesión la lista de pedidos viene vacía; responder diría «no tienes pedidos».
   if (!haySesion && (intencion === 'PEDIDO' || intencion === 'PERSONA')) {
     return decir(
       intencion === 'PEDIDO'
@@ -621,17 +514,9 @@ export async function responder(
   }
 }
 
-// ------------------------------------------------------------
-// La capa de IA, cuando está encendida
-// ------------------------------------------------------------
+// Capa de IA opcional
 
-/**
- * ¿El asistente redacta con un modelo?
- *
- * Se consulta una sola vez y se guarda: preguntarlo en cada mensaje añade una
- * ida y vuelta a cada respuesta sin aportar nada, porque no cambia mientras la
- * persona está escribiendo.
- */
+/** Se consulta una vez y se cachea: no cambia durante la conversación. */
 let iaActiva: boolean | null = null;
 
 export async function hayIA(): Promise<boolean> {
@@ -645,19 +530,12 @@ export async function hayIA(): Promise<boolean> {
   return iaActiva;
 }
 
-/** Para que la pantalla de configuración refresque tras encenderla. */
+/** Invalida la caché tras cambiar la configuración. */
 export function olvidarEstadoIA(): void {
   iaActiva = null;
 }
 
-/**
- * Intenta que el modelo redacte la respuesta.
- *
- * Devuelve `null` cuando no se puede —sin llave, sin cupo, proveedor caído— y
- * entonces manda el asistente de reglas. La IA MEJORA la redacción; no es de
- * lo que depende que el asistente funcione, y por eso ningún fallo suyo se le
- * muestra al cliente como un error.
- */
+/** Redacción con modelo; devuelve null si no es posible y mandan las reglas, sin mostrar error. */
 async function responderConIA(
   pregunta: string,
   historial: Array<{ autor: AutorMensaje; texto: string }>,
@@ -676,8 +554,7 @@ async function responderConIA(
 
     return decir(
       r.data.texto,
-      // Las acciones las siguen poniendo las reglas: el modelo redacta, no
-      // decide a dónde te lleva la aplicación.
+      // Las acciones las ponen las reglas: el modelo redacta, no decide la navegación.
       [{ etiqueta: 'Hablar con una persona', preguntar: 'Quiero hablar con un asesor' }],
       `Con tus ${r.data.contexto.pedidos} pedidos y el catálogo`,
     );
@@ -686,12 +563,11 @@ async function responderConIA(
   }
 }
 
-/** El saludo. Se dice desde el principio qué es esto y qué no. */
+/** Saludo inicial que aclara qué es el asistente. */
 export function saludo(nombre?: string | null, haySesion = true): MensajeAsistente {
   const quien = nombre ? `, ${nombre.split(' ')[0]}` : '';
 
-  // A quien no ha entrado no se le ofrece lo que no puede hacer: un botón
-  // «¿Dónde va mi pedido?» que acaba pidiéndole la cuenta es una promesa rota.
+  // Al invitado no se le ofrecen acciones que exigen cuenta.
   if (!haySesion) {
     return decir(
       `${momentoDelDia()}. Soy ${NOMBRE}, el asistente de Pintuco. Te ayudo a `
@@ -719,17 +595,9 @@ export function saludo(nombre?: string | null, haySesion = true): MensajeAsisten
   );
 }
 
-/**
- * Pasa la conversación a una persona.
- *
- * Escribe en el hilo del pedido, que es donde el equipo ya mira: así no se
- * abre un canal nuevo que nadie atiende, y el cliente ve la respuesta en el
- * mismo sitio donde sigue su pedido.
- */
+/** Escala a una persona escribiendo en el hilo del pedido, donde ya mira el equipo. */
 export async function escalar(orderId: string, resumen: string): Promise<void> {
-  // `escalar` y no `escribir`: si la conversación se había dado por terminada,
-  // pedir una persona otra vez tiene que volver a abrirla. Con `escribir` la
-  // petición se rechazaría y el cliente se quedaría sin saber por qué.
+  // `escalar` reabre la conversación si estaba cerrada; `escribir` sería rechazado.
   await conversacionPedidoService.escalar(
     orderId,
     `[Desde el asistente] ${resumen}`,

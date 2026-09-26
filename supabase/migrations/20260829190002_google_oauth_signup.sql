@@ -1,20 +1,5 @@
--- ============================================================
--- Acceso con Google — adaptación del alta de usuario
--- ============================================================
--- Un registro con correo y contraseña llega con metadata completa desde
--- RegisterPage: first_name, last_name, phone, city, client_type y company.
---
--- Un acceso con Google NO trae nada de eso. Google entrega `full_name` (o
--- `name`), `avatar_url`, `email` y poco más. Sin adaptar el trigger, esos
--- usuarios quedarían con nombre vacío y sin foto.
---
--- DECISIÓN SOBRE LA EMPRESA:
--- El alta por Google NO crea empresa. Un registro por formulario sí lo hace
--- porque el usuario escribió su razón social de forma explícita; con Google
--- no hay ese dato y no se puede inventar. El usuario entra como CLIENTE y
--- completará su empresa desde el perfil. Esto además mantiene la regla de
--- la FASE 2: nunca vincular a una empresa preexistente automáticamente.
--- ============================================================
+-- handle_new_user admite proveedores externos: deriva nombre y avatar de la metadata
+-- de Google. Sin razón social declarada no crea empresa; nunca se inventa.
 
 create or replace function public.handle_new_user()
 returns trigger
@@ -42,8 +27,7 @@ begin
   v_city         := nullif(trim(coalesce(new.raw_user_meta_data ->> 'city', '')), '');
   v_company_name := nullif(trim(coalesce(new.raw_user_meta_data ->> 'company', '')), '');
 
-  -- Nombre: primero los campos del formulario propio; si no existen, se
-  -- deriva del nombre completo que envía el proveedor externo.
+  -- Prioriza los campos del formulario; si faltan, parte el nombre del proveedor.
   v_first_name := nullif(trim(coalesce(new.raw_user_meta_data ->> 'first_name', '')), '');
   v_last_name  := nullif(trim(coalesce(new.raw_user_meta_data ->> 'last_name', '')), '');
 
@@ -56,8 +40,7 @@ begin
 
     if v_full_name is not null then
       v_first_name := split_part(v_full_name, ' ', 1);
-      -- Todo lo que sigue al primer espacio se toma como apellidos: en
-      -- Colombia son habituales dos apellidos y partirlos sería peor.
+      -- Todo tras el primer espacio son apellidos (en Colombia suelen ser dos).
       v_last_name  := coalesce(
         nullif(trim(substr(v_full_name, length(split_part(v_full_name, ' ', 1)) + 1)), ''),
         v_last_name
@@ -71,7 +54,6 @@ begin
     ''
   )), '');
 
-  -- 1) Perfil
   insert into public.profiles (
     id, email, first_name, last_name, phone, city, client_type, avatar_url
   )
@@ -87,12 +69,11 @@ begin
   )
   on conflict (id) do nothing;
 
-  -- 2) Rol base
   insert into public.user_roles (user_id, role)
   values (new.id, 'CLIENTE')
   on conflict on constraint user_roles_unicos do nothing;
 
-  -- 3) Empresa propia, SOLO si el usuario la declaró explícitamente.
+  -- Empresa propia solo si el usuario la declaró.
   if v_company_name is not null then
     insert into public.companies (name, city, email, status)
     values (v_company_name, v_city, new.email, 'ACTIVA')

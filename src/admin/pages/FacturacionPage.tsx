@@ -14,7 +14,7 @@ import {
 
 /** Facturación POS: emitir, consultar y reimprimir. */
 interface FacturacionPageProps {
-  /** Factura que pide la URL, por su NÚMERO (`/facturacion/POS-000004`). */
+  /** Factura de la URL, por número (`/facturacion/POS-000004`). */
   idAbierto?: string | null;
   onAbrir?: (numero: string) => void;
   onCerrar?: () => void;
@@ -53,12 +53,7 @@ export const FacturacionPage: React.FC<FacturacionPageProps> = ({
 
   useEffect(() => { void cargar(); }, []);
 
-  /**
-   * Abre la factura que pide la URL en cuanto la lista está cargada.
-   *
-   * `abrio` evita que cerrar el recibo lo reabra: el id sigue en la URL hasta
-   * que `onCerrar` lo quita, y sin la guarda el efecto volvería a dispararse.
-   */
+  /** Abre la factura de la URL al cargar la lista; `abrio` evita reabrirla al cerrar el recibo. */
   const [abrio, setAbrio] = useState<string | null>(null);
   useEffect(() => {
     if (!idAbierto || abrio === idAbierto || facturas.length === 0) return;
@@ -85,19 +80,10 @@ export const FacturacionPage: React.FC<FacturacionPageProps> = ({
   const fecha = (iso: string) =>
     new Date(iso).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' });
 
-  // Lo que se ve queda acotado a las sedes ACTIVAS del selector. RLS ya limitó
-  // las filas a lo permitido; esto es la selección de pantalla.
-  // DOS listas a propósito:
-  //   `porSede`  — solo la selección GLOBAL: es la que alimenta los contadores,
-  //                para que las demás sedes no aparezcan en 0 al aislar una.
-  //   `visibles` — global ∩ aislamiento local: es lo que se muestra.
-  /**
-   * Años con facturas, para el filtro. Se derivan de los datos y no se
-   * escriben a mano: una lista fija quedaría desactualizada en enero.
-   */
-  // Se arma con un bucle y no con `[...new Set(...)]`: el proyecto compila sin
-  // `strictNullChecks` (ver tsconfig.json) y ahí la inferencia del `Set`
-  // degenera a `unknown`. Así queda explícito y no depende de eso.
+  // RLS ya limitó a lo permitido; aquí se aplica la selección de pantalla.
+  // `porSede` (selección global) alimenta los contadores; `visibles` suma el aislamiento local.
+  /** Años presentes en los datos, para el filtro. */
+  // Bucle en vez de `[...new Set()]`: sin `strictNullChecks` el Set se infiere como `unknown`.
   const anios: string[] = [];
   for (const f of facturas) {
     const a = f.emitida.slice(0, 4);
@@ -141,8 +127,7 @@ export const FacturacionPage: React.FC<FacturacionPageProps> = ({
         ))}
       </div>
 
-      {/* Con varias sedes activas, el total no dice cómo se reparte: la
-          comparación entre sedes es justo lo que se busca al activar varias. */}
+      {/* Con varias sedes activas, desglose por sede. */}
       <ContadorPorSede
         filas={porSede}
         sustantivo="Facturas"
@@ -151,7 +136,7 @@ export const FacturacionPage: React.FC<FacturacionPageProps> = ({
       />
 
       <div className="flex flex-wrap gap-2 items-center">
-        {/* Año: el caso concreto es «descargar el listado de facturas 2025». */}
+        {/* Filtro por año. */}
         {anios.length > 0 && (
           <select
             value={anio}
@@ -166,7 +151,7 @@ export const FacturacionPage: React.FC<FacturacionPageProps> = ({
           </select>
         )}
 
-        {/* Exporta EXACTAMENTE lo que se ve: año, sede y pestaña incluidos. */}
+        {/* Exporta lo visible: año, sede y pestaña. */}
         <ExportarBoton<FacturaLista>
           filas={visibles}
           nombre={`facturas${anio === 'TODOS' ? '' : '-' + anio}`}
@@ -250,9 +235,7 @@ export const FacturacionPage: React.FC<FacturacionPageProps> = ({
                   <td className="px-4 py-3 text-slate-500 whitespace-nowrap">{fecha(f.emitida)}</td>
                   <td className="px-5 py-3 text-right">
                     <div className="flex items-center justify-end gap-1.5">
-                      {/* El estado se ve en la fila: una factura anulada que
-                          se lee igual que una válida es la forma más fácil de
-                          cobrar dos veces. */}
+                      {/* Estado visible para no confundir anuladas con válidas. */}
                       {f.estado === 'ANULADA' && (
                         <span className="text-[10px] font-extrabold uppercase tracking-wider
                                          px-2 py-1 rounded-md bg-rose-50 text-rose-700

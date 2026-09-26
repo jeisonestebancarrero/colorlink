@@ -1,19 +1,6 @@
--- ============================================================
--- Informes contables
--- ============================================================
--- Las dos vistas leen como sus dueñas y ponen su propia puerta con
--- `has_permission('accounting.read')`. Con `security_invoker` no funcionarían:
--- las líneas del libro cruzan tablas cuyo acceso el usuario no tiene por qué
--- tener directamente, y el resultado sería un informe vacío sin explicación.
---
--- Los comprobantes ANULADOS se excluyen de los saldos pero no desaparecen:
--- siguen consultables, con su reverso, porque en contabilidad la prueba de
--- que algo se anuló es parte del libro.
--- ============================================================
+-- Informes contables. Las vistas leen como su dueña y filtran con
+-- has_permission('accounting.read'); los anulados se excluyen de los saldos.
 
--- ------------------------------------------------------------
--- Libro auxiliar: cada movimiento, cuenta por cuenta
--- ------------------------------------------------------------
 create view public.v_libro_auxiliar as
 select
   l.id            as line_id,
@@ -43,12 +30,7 @@ grant select on public.v_libro_auxiliar to authenticated;
 comment on view public.v_libro_auxiliar is
   'Cada línea contable con su cuenta y su comprobante. Incluye los anulados, marcados como tales.';
 
--- ------------------------------------------------------------
--- Balance de prueba: saldo por cuenta
--- ------------------------------------------------------------
--- El saldo se calcula según la NATURALEZA de la cuenta. Restar siempre
--- crédito de débito daría saldos negativos en todos los pasivos e ingresos, y
--- obligaría a cada informe a corregir el signo por su cuenta.
+-- El saldo sigue la naturaleza de la cuenta para que pasivos e ingresos no salgan negativos.
 create view public.v_balance_prueba as
 select
   a.code                        as cuenta,
@@ -75,12 +57,7 @@ grant select on public.v_balance_prueba to authenticated;
 comment on view public.v_balance_prueba is
   'Saldo por cuenta de movimiento, con el signo según su naturaleza. Excluye comprobantes anulados.';
 
--- ------------------------------------------------------------
--- Comprobación de que los libros cuadran
--- ------------------------------------------------------------
--- La suma de todos los débitos debe igualar la de todos los créditos. Si
--- alguna vez deja de cumplirse, algo se rompió y hay que saberlo antes de que
--- lo descubra el contador.
+-- Débitos totales deben igualar créditos totales.
 create or replace function public.contabilidad_cuadra()
 returns jsonb
 language sql
@@ -103,9 +80,6 @@ $$;
 revoke all on function public.contabilidad_cuadra() from public, anon;
 grant execute on function public.contabilidad_cuadra() to authenticated;
 
--- ------------------------------------------------------------
--- La aplicación ya existe en el tablero; se le da color y descripción
--- ------------------------------------------------------------
 update public.app_views
    set color = '#7C3AED', description = 'Comprobantes, libro auxiliar y balance'
  where code = 'bo.accounting';

@@ -2,14 +2,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { readFileSync, existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-/**
- * Asesoría técnica — corrección de regresión.
- *
- * Estas pruebas existen porque el botón "Solicitar acompañamiento técnico"
- * quedó sin efecto al migrar los proyectos a Supabase: cerraba el modal y
- * mostraba un toast de éxito sin guardar nada. Cubrirlo evita que un
- * pendiente vuelva a disfrazarse de funcionalidad.
- */
+/** Regresión: "Solicitar acompañamiento técnico" cerraba el modal con éxito sin guardar nada. */
 
 function leerEnvLocal(): Record<string, string> {
   const ruta = resolve(process.cwd(), '.env.local');
@@ -105,7 +98,7 @@ describe.skipIf(!disponible)('Asesoría técnica (MÓDULO 21/22)', () => {
     expect(asesoria.status).toBe('SOLICITADO');
     expect(asesoria.description).toBe('Necesito acompañamiento en obra');
     expect(asesoria.contact_phone).toBe('+57 312 458 9201');
-    // "Asesoría técnica en obra — $0 COP" (MÓDULO 21)
+    // "Asesoría técnica en obra — $0 COP"
     expect(Number(asesoria.cost_cop)).toBe(0);
   });
 

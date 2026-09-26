@@ -1,24 +1,5 @@
--- ============================================================
--- FASE 5 · 06 — Creación transaccional de proyecto
--- ============================================================
--- Crear un proyecto escribe en CINCO tablas: projects, project_surfaces,
--- project_pathologies, project_diagnoses y project_timeline_steps.
---
--- Hacerlo con cinco llamadas desde el navegador deja proyectos a medias en
--- cuanto una falle: un proyecto sin diagnóstico, o con superficies pero sin
--- cronología. Una función es UNA transacción: o se escribe todo, o nada.
---
--- ⚠️ ESTADO TRANSITORIO CONOCIDO:
--- El contenido del diagnóstico todavía lo calcula el frontend
--- (generatePreliminaryAnalysis en src/services/storage.ts) y viaja en el
--- payload. Eso incumple el MÓDULO 5 y es deliberadamente temporal: la
--- FASE 6 traslada ese motor al servidor y esta función pasará a invocarlo
--- en lugar de aceptar su resultado. Lo que sí se valida ya aquí:
---   - el proyecto se crea SIEMPRE a nombre del usuario autenticado;
---   - la empresa debe ser una a la que pertenezca;
---   - el código lo genera la secuencia del servidor, no el cliente;
---   - las patologías deben existir en el catálogo.
--- ============================================================
+-- Crea el proyecto y sus tablas hijas en una sola transacción. Usuario, empresa y
+-- código los fija el servidor; el diagnóstico aún llega calculado desde el frontend.
 
 create or replace function public.create_project(_payload jsonb)
 returns uuid
@@ -50,12 +31,11 @@ begin
       using errcode = '22023';
   end if;
 
-  -- La empresa NO se acepta del cliente: se toma del perfil del usuario.
+  -- La empresa sale del perfil, nunca del cliente.
   select p.company_id into v_company_id
   from public.profiles p
   where p.id = v_user_id;
 
-  -- ---------- 1. Proyecto ----------
   insert into public.projects (
     user_id, company_id, name, description, city, address, project_type,
     area_m2, required_date, surface, environment, current_color,
@@ -77,15 +57,13 @@ begin
     _payload ->> 'current_color',
     _payload -> 'selected_color',
     _payload ->> 'custom_condition',
-    -- Un proyecto recién creado entra en análisis, nunca en un estado
-    -- avanzado elegido por el cliente.
+  -- Siempre entra en análisis, no en un estado elegido por el cliente.
     'EN_ANALISIS',
     3,
     _payload -> 'next_recommended_action'
   )
   returning id into v_project_id;
 
-  -- ---------- 2. Superficie principal ----------
   if coalesce(_payload ->> 'surface', '') <> '' then
     select s.id into v_surface_id
     from public.surfaces s
@@ -103,7 +81,6 @@ begin
     );
   end if;
 
-  -- ---------- 3. Patologías ----------
   for v_condicion in
     select jsonb_array_elements_text(coalesce(_payload -> 'conditions', '[]'::jsonb))
   loop
@@ -114,7 +91,6 @@ begin
     on conflict on constraint project_pathologies_unica do nothing;
   end loop;
 
-  -- ---------- 4. Diagnóstico preliminar ----------
   insert into public.project_diagnoses (
     project_id, kind, solution_category, attention_level,
     requires_technical_visit, key_considerations, missing_information,
@@ -142,7 +118,6 @@ begin
     v_user_id
   );
 
-  -- ---------- 5. Cronología ----------
   for v_paso in
     select jsonb_array_elements(coalesce(_payload -> 'timeline', '[]'::jsonb))
   loop

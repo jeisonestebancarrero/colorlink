@@ -7,16 +7,8 @@ import {
 } from '../../services/pagos';
 
 /**
- * Pago del pedido.
- *
- * Se abre apenas el pedido queda creado, porque el pedido todavía no es una
- * venta: hasta que el cobro no se confirma, nadie alista nada. El servidor lo
- * hace cumplir —un pedido sin cobro no puede pasar de PENDIENTE—, así que esta
- * pantalla no es una formalidad que se pueda saltar cerrando la ventana.
- *
- * Dos caminos, según quién compra:
- *   · Particular o empresa de contado → paga ahora por la pasarela.
- *   · Empresa con crédito aprobado → confirma contra su cupo y paga después.
+ * Pago del pedido: pasarela Wompi, o cupo de crédito para empresas con crédito aprobado.
+ * No es saltable: el servidor impide que un pedido sin cobro salga de PENDIENTE.
  */
 export const PagoModal: React.FC<{
   orderId: string;
@@ -49,8 +41,7 @@ export const PagoModal: React.FC<{
         ]);
         setCondiciones(c);
         setConfig(k);
-        // El crédito viene marcado por defecto cuando existe y alcanza: es la
-        // forma en que estas empresas compran habitualmente.
+        // Crédito marcado por defecto si existe y alcanza: así compran estas empresas.
         if (c.aCredito && (c.disponible ?? 0) >= total) setACredito(true);
       } catch (e) {
         setError(e instanceof Error ? e.message : 'No fue posible cargar las opciones de pago.');
@@ -74,8 +65,7 @@ export const PagoModal: React.FC<{
       }
 
       if (i.modo === 'WOMPI' && i.llavePublica && i.firma) {
-        // Con credenciales reales se entrega el control a Wompi. La vuelta la
-        // da el webhook, no el navegador.
+        // El pago se confirma por webhook, no por el retorno del navegador.
         const form = document.createElement('form');
         form.method = 'GET';
         form.action = 'https://checkout.wompi.co/p/';
@@ -85,9 +75,7 @@ export const PagoModal: React.FC<{
           'amount-in-cents': String(i.centavos ?? 0),
           reference: i.referencia ?? '',
           'signature:integrity': i.firma,
-          // `/mis-pedidos` NO existe como ruta: la buena es `/pedidos`. Quien
-          // pagaba en la pasarela volvía a la portada, sin ver su pedido y sin
-          // saber si el pago había quedado.
+          // La ruta es `/pedidos`; `/mis-pedidos` no existe.
           'redirect-url': `${window.location.origin}/pedidos`,
         };
         for (const [k, v] of Object.entries(campos)) {
@@ -102,8 +90,7 @@ export const PagoModal: React.FC<{
         return;
       }
 
-      // Modo prueba: sin credenciales, se aprueba localmente para poder
-      // recorrer el flujo completo hasta la contabilidad.
+      // Modo prueba (sin credenciales Wompi): se aprueba localmente para recorrer el flujo completo.
       const r = await pagoService.simular(orderId, true);
       if (r === 'PAGADO') {
         setListo('PAGADO');

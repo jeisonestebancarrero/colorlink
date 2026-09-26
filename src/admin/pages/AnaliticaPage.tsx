@@ -17,27 +17,20 @@ import { useSedes } from '../SedeContext';
 import { IconoModulo } from '../IconosDeModulo';
 
 /**
- * Tablero de ventas.
- *
- * Todo se dibuja con CSS: para comparar magnitudes relativas no hace falta
- * traerse una librería de gráficos de 200 KB, y así el tablero abre al
- * instante incluso con la conexión de una tienda.
- *
- * Las cifras se calculan por LÍNEA de pedido, no por pedido. Es lo que permite
- * filtrar por producto sin tener que repartir el total del pedido entre sus
- * productos con una regla inventada.
+ * Tablero de ventas sin librería de gráficos. Las cifras salen por línea de pedido para poder
+ * filtrar por producto sin prorratear el total.
  */
 
 type Medida = 'ingresos' | 'margen' | 'pedidos';
 type Corte = 'punto' | 'categoria' | 'producto';
 
-/** Último día del mes de una fecha, en ISO. Evita el desfase de zona horaria. */
+/** Último día del mes en ISO, sin desfase de zona horaria. */
 const finDeMes = (d: Date) =>
   new Date(d.getFullYear(), d.getMonth() + 1, 0).toISOString().slice(0, 10);
 const inicioDeMes = (d: Date) =>
   new Date(d.getFullYear(), d.getMonth(), 1).toISOString().slice(0, 10);
 
-/** Rangos rápidos. El nombre es el que usaría alguien de la tienda, no un rango técnico. */
+/** Rangos rápidos. */
 function rangosRapidos(): Array<{ clave: string; texto: string; desde: string; hasta: string }> {
   const hoy = new Date();
   const anio = hoy.getFullYear();
@@ -58,14 +51,13 @@ const MESES = [
   'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
 ];
 
-/** '2026-08' → 'agosto 2026'. Se parte el texto en vez de usar Date: un
- *  'YYYY-MM-01' se interpreta en UTC y en Colombia retrocede un mes. */
+/** '2026-08' → 'agosto 2026'. Sin Date: 'YYYY-MM-01' se lee en UTC y retrocede un mes. */
 function nombreMes(iso: string): string {
   const [anio, mes] = iso.split('-');
   return `${MESES[Number(mes) - 1] ?? mes} ${anio}`;
 }
 
-/** Solo el mes, sin el año. Para el eje del gráfico. */
+/** Mes sin año, para el eje. */
 function soloMes(iso: string): string {
   return MESES[Number(iso.split('-')[1]) - 1] ?? iso;
 }
@@ -84,14 +76,7 @@ export const AnaliticaPage: React.FC = () => {
   const [desde, setDesde] = useState(rangos.find((r) => r.clave === '12m')!.desde);
   const [hasta, setHasta] = useState(rangos.find((r) => r.clave === '12m')!.hasta);
 
-  /**
-   * Puntos elegidos DENTRO de Analítica.
-   *
-   * EL SELECTOR GLOBAL MANDA: lo que se elija aquí se cruza con las sedes
-   * activas de la cabecera y nunca las amplía. Antes eran dos mecanismos
-   * independientes para lo mismo, y se podía tener «Medellín» arriba y
-   * «Barranquilla» abajo sin saber cuál estaba viendo.
-   */
+  /** Puntos elegidos en Analítica; se cruzan con las sedes activas y nunca las amplían. */
   const [puntos, setPuntos] = useState<string[]>([]);
   const [categorias, setCategorias] = useState<string[]>([]);
   const [producto, setProducto] = useState('');
@@ -104,13 +89,7 @@ export const AnaliticaPage: React.FC = () => {
 
   const { filtroSedes, permitidas } = useSedes();
 
-  /**
-   * Puntos que de verdad se consultan: la elección local ∩ las sedes activas.
-   *
-   * Si no se eligió ningún punto aquí, valen las sedes activas. `useMemo` con
-   * la clave serializada para que el arreglo no cambie de identidad en cada
-   * render y dispare la recarga en bucle.
-   */
+  /** Elección local ∩ sedes activas. Clave serializada para no cambiar identidad y recargar en bucle. */
   const clavePuntos = `${puntos.join(',')}|${(filtroSedes ?? []).join(',')}`;
   const puntosEfectivos = useMemo(() => {
     if (!filtroSedes) return puntos;                 // todas las sedes activas
@@ -142,11 +121,7 @@ export const AnaliticaPage: React.FC = () => {
 
   useEffect(() => { void cargar(); }, [cargar]);
 
-  /**
-   * La comparación entre años necesita el histórico completo, no el rango
-   * elegido: acotar a 2026 dejaría una sola línea y el gráfico perdería su
-   * razón de ser. Sí respeta los filtros de punto, categoría y producto.
-   */
+  /** Histórico completo para comparar años; ignora el rango pero respeta los demás filtros. */
   useEffect(() => {
     (async () => {
       try {
@@ -186,11 +161,7 @@ export const AnaliticaPage: React.FC = () => {
     setHasta(r.hasta);
   };
 
-  /**
-   * Elegir un año acota TODO el tablero a ese año: el gráfico mensual, el
-   * desglose por punto, por categoría y por producto. Es un filtro más, no una
-   * vista aparte.
-   */
+  /** Elegir un año acota todo el tablero a ese año. */
   const aplicarAnio = (a: number | null) => {
     setAnio(a);
     setRango(a === null ? 'todo' : 'anio-elegido');
@@ -198,7 +169,7 @@ export const AnaliticaPage: React.FC = () => {
     setHasta(a === null ? '' : `${a}-12-31`);
   };
 
-  /** Al pulsar un mes del gráfico, el tablero entero se acota a ese mes. */
+  /** Pulsar un mes acota el tablero a ese mes. */
   const irAlMes = (iso: string) => {
     const [a, m] = iso.split('-').map(Number);
     const d = new Date(a, m - 1, 1);
@@ -218,10 +189,8 @@ export const AnaliticaPage: React.FC = () => {
 
   const filtrosActivos = puntos.length + categorias.length + (producto ? 1 : 0);
 
-  // Los hooks van todos antes de cualquier `return`: React exige que se
-  // ejecuten siempre en el mismo orden, y colocarlos después del estado de
-  // carga dejaba la pantalla en blanco al terminar de cargar.
-  /** El histórico pivotado a una línea por año, doce posiciones cada una. */
+  // Todos los hooks antes de cualquier `return` (reglas de hooks).
+  /** Histórico pivotado: una línea por año, doce meses. */
   const seriesAnuales: SerieAnual[] = useMemo(() => {
     const fuente = historico?.porMes ?? datos?.porMes ?? [];
     const porAnio = new Map<number, Array<number | null>>();
@@ -281,7 +250,7 @@ export const AnaliticaPage: React.FC = () => {
     categoria: { titulo: 'Categoría', icono: <Tag className="w-3.5 h-3.5" />, filas: d.porCategoria },
     producto: { titulo: 'Producto', icono: <Package className="w-3.5 h-3.5" />, filas: d.porProducto },
   };
-  /** Cómo se describe el recorte activo en el encabezado del documento. */
+  /** Recorte activo para el encabezado del documento. */
   const descripcionDelPeriodo = [
     anio !== null ? `Año ${anio}` : `${desde} a ${hasta}`,
     puntos.length > 0 ? `${puntos.length} punto(s) de venta` : 'Sedes activas',
@@ -337,7 +306,7 @@ export const AnaliticaPage: React.FC = () => {
         </button>
       </div>
 
-      {/* ── Periodo ─────────────────────────────────────────────────────── */}
+      {/* Periodo */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-2xs p-4 space-y-3">
         <div className="flex flex-wrap gap-1.5">
           {rangos.map((r) => (
@@ -408,7 +377,7 @@ export const AnaliticaPage: React.FC = () => {
         </div>
       </div>
 
-      {/* ── Filtros ─────────────────────────────────────────────────────── */}
+      {/* Filtros */}
       {verFiltros && opciones && (
         <div className="bg-white rounded-xl border border-slate-200 shadow-2xs p-5 space-y-4">
           <div className="flex items-center justify-between">
@@ -433,8 +402,7 @@ export const AnaliticaPage: React.FC = () => {
               )}
             </p>
             <div className="flex flex-wrap gap-1.5">
-              {/* Solo las sedes ACTIVAS del selector: ofrecer una que el
-                  selector excluyó daría cero y parecería que no hubo ventas. */}
+              {/* Solo sedes activas: una excluida daría cero ventas engañosas. */}
               {opciones.puntos
                 .filter((p) => !filtroSedes || filtroSedes.includes(p.id))
                 .map((p) => {
@@ -513,7 +481,7 @@ export const AnaliticaPage: React.FC = () => {
         </div>
       )}
 
-      {/* ── Indicadores ─────────────────────────────────────────────────── */}
+      {/* Indicadores */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
         {tarjetas.map((t) => (
           <div
@@ -551,7 +519,7 @@ export const AnaliticaPage: React.FC = () => {
         </p>
       )}
 
-      {/* ── Mejor mes ───────────────────────────────────────────────────── */}
+      {/* Mejor mes */}
       {d.mejorMes && (
         <div className="bg-gradient-to-r from-[#004F9F] to-[#0068d4] rounded-xl p-5 text-white shadow-2xs">
           <div className="flex flex-wrap items-center gap-x-8 gap-y-2">
@@ -585,7 +553,7 @@ export const AnaliticaPage: React.FC = () => {
         </div>
       )}
 
-      {/* ── Evolución mensual ───────────────────────────────────────────── */}
+      {/* Evolución mensual */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-2xs p-5">
         <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
           <h2 className="text-sm font-extrabold text-slate-900 inline-flex items-center gap-2">
@@ -611,9 +579,7 @@ export const AnaliticaPage: React.FC = () => {
               </button>
             ))}
 
-            {/* La serie mensual en tabla: es la que se pega en una hoja de
-                cálculo para comparar contra presupuesto o contra el año
-                anterior, algo que la gráfica no permite hacer. */}
+            {/* Exporta la serie mensual. */}
             <ExportarBoton<SerieMes>
               filas={d.porMes}
               nombre="ventas-por-mes"
@@ -653,8 +619,7 @@ export const AnaliticaPage: React.FC = () => {
               onElegir={irAlMes}
             />
 
-            {/* Con hasta 12 puntos cabe el nombre completo del mes; con más,
-                solo tres letras, que es lo que entra sin encimarse. */}
+            {/* Mes completo hasta 12 puntos; con más, abreviado. */}
             <div className="flex gap-1 mt-1.5">
               {d.porMes.map((m) => (
                 <span
@@ -687,7 +652,7 @@ export const AnaliticaPage: React.FC = () => {
         )}
       </div>
 
-      {/* ── Estacionalidad: un año contra otro ──────────────────────────── */}
+      {/* Estacionalidad: un año contra otro */}
       {seriesAnuales.length > 1 && (
         <div className="bg-white rounded-xl border border-slate-200 shadow-2xs p-5">
           <h2 className="text-sm font-extrabold text-slate-900 mb-1 inline-flex items-center gap-2">
@@ -702,7 +667,7 @@ export const AnaliticaPage: React.FC = () => {
         </div>
       )}
 
-      {/* ── Comparación por año ─────────────────────────────────────────── */}
+      {/* Comparación por año */}
       {d.porAnio.length > 1 && (
         <div className="bg-white rounded-xl border border-slate-200 shadow-2xs overflow-hidden">
           <h2 className="px-5 py-3.5 text-sm font-extrabold text-slate-900 border-b border-slate-100">
@@ -761,7 +726,7 @@ export const AnaliticaPage: React.FC = () => {
         </div>
       )}
 
-      {/* ── Aperturas ───────────────────────────────────────────────────── */}
+      {/* Aperturas */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-2xs">
         <div className="px-5 py-3.5 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-sm font-extrabold text-slate-900">Desglose</h2>
@@ -781,9 +746,7 @@ export const AnaliticaPage: React.FC = () => {
               </button>
             ))}
 
-            {/* El desglose es la tabla que se lleva a un comité; la gráfica
-                sirve para mirarla, no para trabajarla. Sale el corte abierto
-                con el período y los filtros que están puestos. */}
+            {/* Exporta el desglose abierto con período y filtros. */}
             <ExportarBoton<CorteVentas>
               filas={filasCorte}
               nombre={`ventas-por-${corte}`}
@@ -795,8 +758,7 @@ export const AnaliticaPage: React.FC = () => {
                 { titulo: 'Ingresos', valor: (f) => f.ingresos, numerica: true },
                 { titulo: 'Pedidos', valor: (f) => f.pedidos, numerica: true },
                 { titulo: 'Unidades', valor: (f) => f.unidades, numerica: true },
-                // El margen solo llega a quien puede verlo; si no, va vacío en
-                // toda la columna y el archivo lo refleja tal cual.
+                // Sin permiso de costos el margen llega vacío.
                 ...(d.verCostos ? [
                   { titulo: 'Margen', valor: (f: CorteVentas) => f.margen, numerica: true },
                   { titulo: 'Margen (%)', valor: (f: CorteVentas) => f.margenPct, numerica: true },
@@ -810,8 +772,7 @@ export const AnaliticaPage: React.FC = () => {
           <p className="text-sm text-slate-400 text-center py-12">Sin datos en este periodo.</p>
         ) : (
           <>
-          {/* Composición antes del detalle: primero cuánto pesa cada uno sobre
-              el total, después la cifra de cada uno. */}
+          {/* Composición antes del detalle. */}
           {filasCorte.length > 1 && (
             <div className="px-5 py-4 border-b border-slate-100">
               <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-2">
@@ -858,7 +819,7 @@ export const AnaliticaPage: React.FC = () => {
         )}
       </div>
 
-      {/* ── Rentabilidad contra volumen ─────────────────────────────────── */}
+      {/* Rentabilidad contra volumen */}
       {d.verCostos && dispersion.length > 1 && (
         <div className="bg-white rounded-xl border border-slate-200 shadow-2xs p-5">
           <h2 className="text-sm font-extrabold text-slate-900 mb-1 inline-flex items-center gap-2">
@@ -879,7 +840,7 @@ export const AnaliticaPage: React.FC = () => {
         </div>
       )}
 
-      {/* ── Ranking comercial ───────────────────────────────────────────── */}
+      {/* Ranking comercial */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-2xs p-5">
         <h2 className="text-sm font-extrabold text-slate-900 mb-4 inline-flex items-center gap-2">
           <Award className="w-4 h-4 text-[#004F9F]" />

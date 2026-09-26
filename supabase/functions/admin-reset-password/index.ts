@@ -1,25 +1,6 @@
 /**
- * Restablecer la contraseña de otro usuario — Edge Function
- * ============================================================
- * Un administrador necesita poder destrabar a alguien que perdió el acceso.
- * Cambiar la contraseña de otra cuenta exige la clave `service_role`, que
- * jamás puede estar en el navegador; de ahí que pase por aquí.
- *
- * Hay dos caminos, y el orden importa:
- *
- *   'correo'   — se le manda un enlace de recuperación y la persona elige su
- *                propia contraseña. Es el camino preferido: el administrador
- *                nunca llega a conocerla.
- *
- *   'temporal' — una contraseña provisional que se muestra UNA vez. La escribe
- *                el administrador o, si no la escribe, se genera. En ambos
- *                casos la cuenta queda obligada a cambiarla al entrar.
- *                Solo para cuando el correo no es alcanzable, que en obra
- *                pasa. Queda registrado en la auditoría porque, a partir de
- *                ese momento, dos personas conocen esa contraseña.
- *
- * Quién puede hacerlo lo decide la base con `is_admin()`, que a su vez exige
- * que el administrador haya superado su propio segundo factor.
+ * Restablece la contraseña de otro usuario (service_role). 'correo' envía enlace y es lo preferido;
+ * 'temporal' se muestra una vez, obliga a cambiarla y queda auditada. Autoriza is_admin() con MFA.
  */
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { CORS } from '../_shared/cors.ts';
@@ -30,12 +11,7 @@ const respuesta = (cuerpo: unknown, status = 200) =>
     headers: { ...CORS, 'Content-Type': 'application/json' },
   });
 
-/**
- * Contraseña provisional legible pero no adivinable.
- *
- * Se excluyen los caracteres que se confunden al dictarla por teléfono —O y
- * 0, l y 1, I— porque la vía de entrega real de esto es una llamada.
- */
+/** Temporal aleatoria sin caracteres ambiguos (O/0, l/1, I), pensada para dictarse. */
 function contrasenaTemporal(): string {
   const letras = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz';
   const digitos = '23456789';
@@ -46,8 +22,7 @@ function contrasenaTemporal(): string {
   crypto.getRandomValues(bytes);
   let clave = Array.from(bytes, (b) => alfabeto[b % alfabeto.length]).join('');
 
-  // Se garantiza al menos un dígito y un símbolo: algunas políticas los
-  // exigen y una temporal que el servidor rechace no sirve de nada.
+  // Garantiza dígito y símbolo para cumplir políticas de contraseña.
   const extra = new Uint8Array(2);
   crypto.getRandomValues(extra);
   clave += digitos[extra[0] % digitos.length] + simbolos[extra[1] % simbolos.length];
@@ -89,7 +64,7 @@ Deno.serve(async (req: Request) => {
 
   let userId = '';
   let modo = 'correo';
-  /** Contraseña escrita por el administrador. Vacía = se genera una. */
+  /** Vacía: se genera una. */
   let escrita = '';
   try {
     ({ userId, modo = 'correo', password: escrita = '' } = await req.json());
@@ -97,9 +72,7 @@ Deno.serve(async (req: Request) => {
     return respuesta({ success: false, error: { code: 'BAD_REQUEST' } }, 400);
   }
 
-  // Si el administrador la escribe, se respeta, pero con un mínimo. Una clave
-  // corta puesta a mano es peor que la generada, y la persona la va a cambiar
-  // al entrar de todos modos.
+  // Mínimo de 8 para la escrita a mano.
   escrita = String(escrita ?? '').trim();
   if (modo === 'temporal' && escrita && escrita.length < 8) {
     return respuesta({
@@ -148,15 +121,10 @@ Deno.serve(async (req: Request) => {
     return respuesta({ success: true, data: { modo: 'correo', correo: cuenta.user.email } });
   }
 
-  // La que escribió el administrador, o una generada si no escribió ninguna.
-  // Generarla es lo preferible —nadie elige una débil por comodidad— pero a
-  // veces hay que dictarla por teléfono y conviene que sea pronunciable.
   const temporal = escrita || contrasenaTemporal();
   const { error } = await admin.auth.admin.updateUserById(userId, { password: temporal });
 
-  // Una contraseña puesta por otra persona tiene que cambiarse al entrar: se
-  // entrega de viva voz o por chat, y si no se obliga sigue siendo válida
-  // indefinidamente en manos de quien haya visto el mensaje.
+  // La puesta por otra persona debe cambiarse al entrar.
   if (!error) {
     const { error: errorMarca } = await admin
       .from('profiles')
@@ -173,8 +141,7 @@ Deno.serve(async (req: Request) => {
     );
   }
 
-  // Se registra con nombre y fecha: a partir de aquí, dos personas conocen
-  // esa contraseña, y eso tiene que quedar por escrito.
+  // Se audita: desde aquí dos personas conocen la contraseña.
   await admin.from('audit_logs').insert({
     user_id: solicitante.id,
     action: 'PASSWORD_SET_TEMPORARY',

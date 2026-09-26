@@ -1,24 +1,5 @@
--- ============================================================
--- Diccionario oficial de departamentos y municipios (DANE DIVIPOLA)
--- ============================================================
--- La ciudad venía siendo texto libre. El resultado ya está en la base: hay
--- perfiles en 'Bogotá' y puntos de venta en 'Bogotá D.C.', que para cualquier
--- consulta son dos ciudades distintas. Con el catálogo cerrado, el cliente
--- elige y no escribe, y el despacho puede agrupar por ciudad de verdad.
---
--- FUENTE: DIVIPOLA del DANE, publicada en datos.gov.co
---   Departamentos: https://www.datos.gov.co/resource/vcjz-niiq.json
---   Municipios:    https://www.datos.gov.co/resource/gdxc-w37w.json
--- 33 departamentos y 1.122 municipios, con su código oficial.
---
--- `name_dane` guarda el nombre EXACTO como lo publica el DANE, en mayúsculas,
--- para cualquier trámite o exportación que deba coincidir con la fuente.
--- `name` es el mismo nombre escrito como se lee ("MEDELLÍN" → "Medellín"):
--- solo cambia mayúsculas y minúsculas, no se alteró ni una letra.
---
--- Se incluyen los tres tipos que publica el DANE (Municipio, Isla y Área no
--- municipalizada) sin filtrar: decidir a dónde se despacha es política
--- comercial de Pintuco, no algo que deba faltar en el diccionario.
+-- Departamentos y municipios de DIVIPOLA (DANE, datos.gov.co: vcjz-niiq y gdxc-w37w).
+-- name_dane conserva el nombre oficial; name solo cambia mayúsculas.
 
 create table if not exists public.departments (
   code       text primary key,
@@ -40,7 +21,6 @@ create table if not exists public.municipalities (
 
 create index if not exists municipalities_department_idx
   on public.municipalities (department_code);
--- Ordenar el desplegable por nombre es la consulta que hace el formulario.
 create index if not exists municipalities_nombre_idx
   on public.municipalities (department_code, name);
 
@@ -49,12 +29,7 @@ comment on table public.departments is
 comment on table public.municipalities is
   'Municipios, islas y áreas no municipalizadas. Fuente: DIVIPOLA del DANE.';
 
--- ------------------------------------------------------------
--- Lectura pública, escritura de nadie.
--- ------------------------------------------------------------
--- El visitante sin sesión necesita elegir ciudad para cotizar, así que `anon`
--- lee. Nadie escribe desde el cliente: este catálogo lo actualiza el DANE, y
--- se cambia con una migración. Sin política de escritura, RLS la niega.
+-- anon lee para poder cotizar; sin políticas de escritura, el catálogo solo cambia por migración.
 alter table public.departments    enable row level security;
 alter table public.municipalities enable row level security;
 
@@ -68,9 +43,7 @@ create policy municipalities_lectura_publica
 
 grant select on public.departments, public.municipalities to anon, authenticated;
 
--- ------------------------------------------------------------
--- Carga. Idempotente: repetir la migración no duplica ni pierde nada.
--- ------------------------------------------------------------
+-- Idempotente.
 insert into public.departments (code, name, name_dane, latitude, longitude) values
   ('05', 'Antioquia', 'ANTIOQUIA', 6.702032125, -75.504557037),
   ('08', 'Atlántico', 'ATLÁNTICO', 10.677009534, -74.965219492),

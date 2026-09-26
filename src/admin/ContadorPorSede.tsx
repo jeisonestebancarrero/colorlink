@@ -4,46 +4,25 @@ import { useSedes } from './SedeContext';
 import { imagenPunto } from '../assets/puntosVenta';
 
 /**
- * Cuando hay VARIAS sedes activas, muestra una tarjeta por sede con su
- * contador, para poder verlas por separado sin perder el total.
- *
- * Por qué existe: con dos o más sedes activas, un "TOTAL: 47" no dice nada
- * útil —¿47 repartidas cómo?—. La comparación entre sedes es justo la
- * información que se busca al activar varias.
- *
- * Con UNA sola sede activa no se muestra: sería una tarjeta repitiendo el
- * total que ya está arriba.
- *
- * Al pulsar una tarjeta se aísla esa sede (equivale al «solo» del selector de
- * la cabecera), y «Todas» vuelve a la vista completa. Es el mismo estado del
- * selector, no uno propio: dos selecciones distintas de sede en la misma
- * pantalla sería mentirle a quien la mira.
+ * Con varias sedes activas, una tarjeta de conteo por sede (con una sola no se muestra).
+ * Pulsar una tarjeta aísla esa sede solo en la pantalla actual.
  */
 
-/** Cualquier fila que sepa a qué sede pertenece. */
+/** Fila con sede. */
 export interface FilaConSede {
   locationId: string | null;
 }
 
 interface Props {
-  /**
-   * Filas acotadas por la selección GLOBAL, sin aplicar el aislamiento local.
-   *
-   * Tiene que ser la lista previa al aislamiento: si se pasara la lista ya
-   * filtrada, al entrar a una sede las demás tarjetas mostrarían 0 y se
-   * perdería justo la comparación que el contador viene a dar.
-   */
+  /** Filas de la selección global, antes del aislamiento local; si no, las otras sedes darían 0. */
   filas: readonly FilaConSede[];
-  /** Etiqueta del conteo, en plural: "facturas", "pedidos", "movimientos". */
+  /** En plural: "facturas", "pedidos". */
   sustantivo: string;
-  /**
-   * Etiqueta para las filas sin sede. Existen a propósito: un egreso de
-   * tesorería o una visita no pertenecen a una tienda.
-   */
+  /** Etiqueta de filas sin sede (egresos, visitas), que existen a propósito. */
   etiquetaSinSede?: string;
-  /** Sede aislada EN ESTA PANTALLA. `null` = se ven todas las activas. */
+  /** Sede aislada en esta pantalla; `null` = todas las activas. */
   sedeAislada: string | null;
-  /** Alterna el aislamiento local. No toca la sede activa del portal. */
+  /** Alterna el aislamiento local sin tocar la sede activa del portal. */
   onAislar: (locationId: string | null) => void;
 }
 
@@ -62,7 +41,6 @@ export const ContadorPorSede: React.FC<Props> = ({
     return { porSede: m, sinSede };
   }, [filas]);
 
-  // Con una sola sede activa esto no aporta nada sobre el total de arriba.
   if (activas.length < 2) return null;
 
   const visibles = permitidas.filter((s) => activas.includes(s.id));
@@ -92,10 +70,7 @@ export const ContadorPorSede: React.FC<Props> = ({
           return (
             <button
               key={s.id}
-              // Alterna el aislamiento SOLO de esta pantalla. Antes llamaba a
-              // `soloEsta` del selector y cambiaba la sede activa de todo el
-              // portal: entrar a ver las facturas de Barranquilla dejaba el
-              // resto de los módulos acotados a Barranquilla sin pedirlo.
+              // Aislamiento local; `soloEsta` del selector cambiaría todo el portal.
               onClick={() => onAislar(sedeAislada === s.id ? null : s.id)}
               title={sedeAislada === s.id
                 ? `Quitar el filtro de ${s.nombre}`
@@ -107,12 +82,7 @@ export const ContadorPorSede: React.FC<Props> = ({
                   : 'border-slate-200 hover:border-[#004F9F] hover:shadow-2xs'
               }`}
             >
-              {/* La foto del punto de venta como fondo de la tarjeta.
-                  Es la MISMA imagen que ya usa la pantalla de Puntos de venta
-                  (`imagenPunto`), así que Medellín se reconoce por su skyline
-                  y Barranquilla por la Ventana al Mundo sin leer la etiqueta.
-                  Atenuada y con un velo blanco encima: la cifra es lo que se
-                  viene a leer y tiene que ganarle a la imagen siempre. */}
+              {/* Foto del punto (`imagenPunto`) atenuada como fondo, para que la cifra domine. */}
               {(() => {
                 const img = imagenPunto(s.externalRef, s.imageUrl);
                 return (
@@ -122,8 +92,7 @@ export const ContadorPorSede: React.FC<Props> = ({
                       alt=""
                       aria-hidden
                       className={`absolute inset-0 w-full h-full pointer-events-none select-none ${
-                        // El fondo de marca es un logotipo: recortarlo lo
-                        // estropea, así que se centra en lugar de cubrir.
+                        // El respaldo es un logotipo: se centra en vez de recortarlo.
                         img.esFoto ? 'object-cover' : 'object-contain p-4'
                       }`}
                     />
@@ -158,8 +127,7 @@ export const ContadorPorSede: React.FC<Props> = ({
           );
         })}
 
-        {/* Las filas sin sede se muestran aparte y solo si hay: esconderlas
-            haría que la suma de las tarjetas no diera el total. */}
+        {/* Filas sin sede aparte, para que la suma cuadre con el total. */}
         {conteos.sinSede > 0 && (
           <div className="bg-slate-50 border border-dashed border-slate-300 rounded-xl px-3.5 py-2.5">
             <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
@@ -185,27 +153,19 @@ export const ContadorPorSede: React.FC<Props> = ({
 };
 
 /**
- * Aislamiento de sede DENTRO de una pantalla.
- *
- * Separa dos cosas que se estaban confundiendo:
- *   * la SEDE ACTIVA del selector de la cabecera, que acota todo el portal;
- *   * el AISLAMIENTO local, que acota solo la pantalla en la que se está.
- *
- * Entrar a ver las facturas de Barranquilla no puede dejar el inventario y los
- * pedidos acotados a Barranquilla sin haberlo pedido. `filtroEfectivo` es la
- * intersección: nunca deja ver una sede fuera de las activas.
+ * Aislamiento de sede local a una pantalla, distinto de la sede activa del portal.
+ * `filtroEfectivo` es la intersección y nunca sale de las sedes activas.
  */
 export function useAislamientoDeSede(): {
   sedeAislada: string | null;
   aislar: (locationId: string | null) => void;
-  /** Global ∩ local. Es lo que el módulo debe usar para filtrar sus filas. */
+  /** Global ∩ local: lo que el módulo usa para filtrar. */
   filtroEfectivo: string[] | null;
 } {
   const { filtroSedes, activas } = useSedes();
   const [sedeAislada, setSedeAislada] = React.useState<string | null>(null);
 
-  // Si dejan de estar activas la sede aislada, el aislamiento se cae solo:
-  // mantenerlo mostraría una pantalla vacía sin explicación.
+  // Si la sede aislada deja de estar activa, se anula el aislamiento.
   React.useEffect(() => {
     if (sedeAislada && !activas.includes(sedeAislada)) setSedeAislada(null);
   }, [sedeAislada, activas]);
@@ -218,29 +178,8 @@ export function useAislamientoDeSede(): {
 }
 
 /**
- * Acota una lista a las sedes activas.
- *
- * Se usa en los módulos junto con `ContadorPorSede`: el contador cuenta sobre
- * lo YA acotado por RLS, y este filtro aplica la selección de pantalla.
- *
- * `null` en `filtroSedes` significa "todas activas": no se filtra nada. Las
- * filas SIN sede se conservan siempre, porque no pertenecen a ninguna y
- * esconderlas al elegir una sede las haría desaparecer sin explicación.
- */
-/**
- * ¿Esta fila entra en la selección de pantalla?
- *
- * Sin genéricos a propósito. Este proyecto compila SIN `strictNullChecks`
- * (ver tsconfig.json), así que `string | null` colapsa a `string` y una
- * restricción del tipo `<T extends { locationId: string | null }>` degenera:
- * TypeScript infiere `T` desde la restricción y la fila pierde todos sus
- * campos. Con esta forma, el `.filter()` del llamante conserva su tipo y no
- * hay nada que inferir.
- *
- * Las filas SIN sede entran siempre: no pertenecen a ninguna, y esconderlas al
- * elegir una sede las haría desaparecer sin explicación.
- *
- *   const visibles = facturas.filter((f) => sedeVisible(f.locationId, filtroSedes));
+ * ¿La fila entra en la selección? `null` = todas; las filas sin sede entran siempre.
+ * Sin genéricos: sin `strictNullChecks` la restricción degenera y la fila pierde sus campos.
  */
 export function sedeVisible(
   locationId: string | null | undefined,

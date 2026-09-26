@@ -1,18 +1,5 @@
--- ============================================================
--- BACK-OFFICE · 02 — Permisos editables por el administrador
--- ============================================================
--- Hasta ahora el acceso estaba escrito dentro de las políticas RLS: cambiar
--- qué puede hacer un rol exigía desplegar código.
---
--- El administrador debe poder manejar permisos, vistas y restricciones sin
--- que nadie toque el código. Para eso el rol deja de ser un valor fijo y
--- pasa a ser un PAQUETE DE PERMISOS editable.
---
--- Las políticas de datos existentes NO se tocan: siguen siendo la última
--- línea de defensa. Esta capa decide qué módulos y acciones se ofrecen, y la
--- RLS sigue garantizando que nadie vea filas ajenas aunque un permiso se
--- configure mal.
--- ============================================================
+-- Permisos y vistas por rol, editables por el administrador sin desplegar.
+-- Solo deciden qué ofrece la interfaz; RLS sigue siendo la última defensa.
 
 create table public.permissions (
   code        text primary key,
@@ -20,7 +7,7 @@ create table public.permissions (
   action      text not null,
   label       text not null,
   description text,
-  -- Un permiso crítico no puede quitarse al último administrador.
+  -- No puede quitarse al administrador.
   is_critical boolean not null default false,
   sort_order  int not null default 0
 );
@@ -39,9 +26,7 @@ create table public.role_permissions (
 
 create index role_permissions_role_idx on public.role_permissions (role);
 
--- ------------------------------------------------------------
--- Vistas del back-office: qué menús ve cada rol.
--- ------------------------------------------------------------
+-- Menús del back-office visibles por rol.
 create table public.app_views (
   code       text primary key,
   label      text not null,
@@ -61,9 +46,6 @@ create table public.role_views (
   primary key (role, view_code)
 );
 
--- ============================================================
--- ¿El usuario actual tiene este permiso?
--- ============================================================
 create or replace function public.has_permission(_code text)
 returns boolean
 language sql
@@ -81,7 +63,7 @@ as $$
   ) or public.is_admin();
 $$;
 
-/** Permisos y vistas del usuario actual, para que la interfaz sepa qué ofrecer. */
+-- Permisos y vistas del usuario actual, para la interfaz.
 create or replace function public.my_permissions()
 returns jsonb
 language sql
@@ -114,9 +96,7 @@ as $$
   );
 $$;
 
--- ============================================================
--- Cambiar un permiso: solo administración, y con bitácora.
--- ============================================================
+-- Solo administración, con bitácora.
 create or replace function public.set_role_permission(
   _role text, _permission_code text, _granted boolean
 )
@@ -136,8 +116,7 @@ begin
     raise exception 'NOT_FOUND: el permiso % no existe', _permission_code using errcode = 'P0002';
   end if;
 
-  -- Protección contra el bloqueo total: nadie puede dejar al administrador
-  -- sin la capacidad de volver a otorgar permisos.
+  -- Evita dejar al administrador sin poder volver a otorgar permisos.
   if v_critico and _role = 'ADMINISTRADOR' and not _granted then
     raise exception 'LOCKOUT: no se puede retirar un permiso crítico al administrador'
       using errcode = '23514';
@@ -178,9 +157,6 @@ begin
 end;
 $$;
 
--- ============================================================
--- RLS
--- ============================================================
 alter table public.permissions      enable row level security;
 alter table public.role_permissions enable row level security;
 alter table public.app_views        enable row level security;
@@ -191,8 +167,7 @@ revoke all on public.permissions, public.role_permissions, public.app_views, pub
 grant select on public.permissions, public.role_permissions, public.app_views, public.role_views
   to authenticated;
 
--- Cualquier usuario autenticado puede leer el catálogo (la interfaz lo
--- necesita para dibujar el menú), pero escribir pasa por las funciones.
+-- Lectura abierta para dibujar el menú; la escritura pasa por las funciones.
 create policy "permissions_lectura" on public.permissions
   for select to authenticated using (true);
 create policy "app_views_lectura" on public.app_views
@@ -209,8 +184,7 @@ grant execute on function public.set_role_permission(text, text, boolean) to aut
 grant execute on function public.set_role_view(text, text, boolean)       to authenticated;
 grant execute on function public.my_permissions()                          to authenticated;
 
--- is_staff debe reconocer a todo el personal interno, no solo a los tres
--- roles originales.
+-- is_staff incluye ahora todos los roles internos.
 create or replace function public.is_staff()
 returns boolean
 language sql

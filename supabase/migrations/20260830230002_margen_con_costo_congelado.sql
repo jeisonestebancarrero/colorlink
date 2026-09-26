@@ -1,19 +1,5 @@
--- ============================================================
--- El margen se calcula con el costo de la venta, no con el de hoy
--- ============================================================
--- Dos correcciones sobre `resumen_ventas`:
---
--- 1. Usaba `product_variants.cost_cop` directamente. Ese es el costo estándar
---    de HOY, así que subir el costo de un producto reescribía hacia atrás el
---    margen de ventas ya cerradas. El costo bueno es el que quedó congelado en
---    la línea del pedido (`order_items.unit_cost_cop`); el del catálogo solo
---    sirve de respaldo cuando la venta es anterior a que existiera esa columna.
---    Es el mismo orden que ya aplica la vista `v_ventas`.
---
--- 2. Se distingue el margen calculado con costo real del calculado con el
---    respaldo del catálogo. Sin esa señal, una cifra estimada se lee como un
---    hecho, y quien decide precios con ella no sabe que está mirando un
---    supuesto.
+-- resumen_ventas usa el costo congelado en la venta (respaldo: catálogo, como
+-- v_ventas) y marca cuándo el margen es estimado.
 create or replace function public.resumen_ventas(_desde date default null, _hasta date default null)
 returns jsonb
 language plpgsql
@@ -36,8 +22,7 @@ begin
            o.company_id, c.name as empresa,
            oi.quantity, oi.product_name, oi.subtotal_cop as linea_total,
            coalesce(oi.unit_cost_cop, pv.cost_cop) as cost_cop,
-           -- Estimada: la venta no guardó su costo y estamos usando el del
-           -- catálogo, que pudo cambiar desde entonces.
+             -- Estimado: la venta no guardó costo y se usa el del catálogo.
            (oi.unit_cost_cop is null and pv.cost_cop is not null) as costo_estimado,
            case when coalesce(oi.unit_cost_cop, pv.cost_cop) is null then null
                 else oi.subtotal_cop - (coalesce(oi.unit_cost_cop, pv.cost_cop) * oi.quantity)

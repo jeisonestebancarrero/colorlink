@@ -1,16 +1,6 @@
 /**
- * Envío de correo saliente — Edge Function
- * ============================================================
- * POR QUÉ VIVE AQUÍ Y NO EN RENDER:
- * En Render la aplicación se despliega como sitio ESTÁTICO: no hay proceso
- * de servidor donde ejecutar SMTP, y aunque lo hubiera, poner credenciales
- * de correo en un frontend es impensable. Esta función corre en la
- * infraestructura de Supabase, lee la configuración con `service_role` y es
- * el único punto del sistema que conoce la contraseña de aplicación.
- *
- * Configuración: Administración → Configuración → Correo saliente.
- * Para Gmail hace falta una CONTRASEÑA DE APLICACIÓN (no la de la cuenta),
- * con verificación en dos pasos activada.
+ * Envío SMTP; único punto que conoce la contraseña de correo (Render solo sirve estáticos).
+ * Gmail requiere contraseña de aplicación con verificación en dos pasos.
  */
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { SMTPClient } from 'https://deno.land/x/denomailer@1.6.0/mod.ts';
@@ -26,9 +16,9 @@ interface Peticion {
   template?: string;
   orderId?: string;
   projectId?: string;
-  /** true = correo de prueba disparado desde Administración. */
+  /** Correo de prueba lanzado desde Administración. */
   esPrueba?: boolean;
-  /** Para BIENVENIDA: a quién se le da la bienvenida. */
+  /** Destinatario de BIENVENIDA. */
   userId?: string;
 }
 
@@ -48,24 +38,15 @@ Deno.serve(async (req: Request) => {
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
   const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
-  // Cliente con el JWT de quien llama: sirve para saber QUIÉN pide el envío.
+  // Identifica a quien pide el envío.
   const authHeader = req.headers.get('Authorization') ?? '';
   const comoUsuario = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY')!, {
     global: { headers: { Authorization: authHeader } },
   });
-  // La base dispara estos correos sola, con la llave de servicio. No hay
-  // usuario detrás y no debe haberlo: el aviso de "pedido listo" no puede
-  // depender de que alguien tenga una pestaña abierta.
+  // La base dispara los correos con service_role, sin usuario detrás.
   const token = authHeader.replace(/^Bearer\s+/i, '');
 
-  /**
-   * El rol que DECLARA el token.
-   *
-   * Un JWT lleva su carga en claro —está firmado, no cifrado— y esta función
-   * corre con `verify_jwt`, así que el gateway YA comprobó la firma antes de
-   * dejar pasar la llamada. Leer el rol de ahí es fiable: nadie puede
-   * fabricarse un token que diga `service_role` sin la llave de firma.
-   */
+  /** Rol declarado en el JWT; fiable porque verify_jwt ya validó la firma en el gateway. */
   const rolDelToken = (t: string): string | null => {
     try {
       const carga = t.split('.')[1];
@@ -78,19 +59,8 @@ Deno.serve(async (req: Request) => {
     }
   };
 
-  // Antes esto era SOLO `token === serviceKey`, y era demasiado frágil.
-  //
-  // Un proyecto puede tener más de una llave de servicio válida, y la que el
-  // administrador copia del panel no tiene por qué ser byte a byte la misma
-  // que Supabase le inyecta a la función. Cuando no coincidían, la función
-  // buscaba un usuario detrás de una llave de servicio, no lo encontraba y
-  // respondía 401 «Sesión requerida». Como quien llamaba era la base —que
-  // encola y no espera respuesta—, el fallo no dejaba rastro en ningún lado:
-  // ni correo, ni error, ni registro. Costó encontrarlo leyendo la cola de
-  // pg_net.
-  //
-  // Se conserva la comparación exacta como primer camino, más rápido y sin
-  // decodificar nada, y el rol del token como el que de verdad decide.
+  // No basta comparar con serviceKey: puede haber varias llaves de servicio válidas.
+  // Decide el rol del token.
   const esServicio = token === serviceKey || rolDelToken(token) === 'service_role';
 
   let user: { id: string } | null = null;
@@ -109,8 +79,7 @@ Deno.serve(async (req: Request) => {
     return respuesta({ success: false, error: { code: 'BAD_REQUEST', message: 'JSON inválido' } }, 400);
   }
 
-  // Con plantilla, el asunto y el HTML los arma el servidor a partir de los
-  // datos reales; el que llama solo dice de qué pedido se trata.
+  // Con plantilla el servidor arma asunto y HTML; quien llama solo indica el pedido.
   if (!cuerpo.to || (!cuerpo.subject && !cuerpo.template)) {
     return respuesta(
       { success: false, error: { code: 'VALIDATION', message: 'Destinatario y asunto son obligatorios' } },
@@ -118,7 +87,7 @@ Deno.serve(async (req: Request) => {
     );
   }
 
-  // service_role: es el único contexto autorizado a leer la contraseña SMTP.
+  // Solo service_role puede leer la contraseña SMTP.
   const admin = createClient(supabaseUrl, serviceKey);
 
   // Un correo de prueba solo lo dispara administración.
@@ -138,9 +107,7 @@ Deno.serve(async (req: Request) => {
     .eq('id', 1)
     .single();
 
-  // Se exige el servidor; usuario y contraseña son opcionales para admitir
-  // un relé interno sin autenticación (escenario habitual en una red
-  // corporativa). Con Gmail siempre habrá credenciales.
+  // Credenciales opcionales para admitir un relé interno sin autenticación.
   if (errorConf || !conf?.smtp_host) {
     return respuesta(
       {
@@ -154,13 +121,7 @@ Deno.serve(async (req: Request) => {
     );
   }
 
-  // El registro se abre ANTES de componer la plantilla.
-  //
-  // Estaba después, y por eso un fallo al armar el correo no dejaba rastro:
-  // la función respondía 422 y se iba sin escribir nada. Desde fuera se veía
-  // un correo que sencillamente no existía —ni enviado, ni fallido, ni
-  // omitido—, y no había por dónde empezar a mirar. Cualquier cosa que se
-  // intenta enviar tiene que quedar anotada, sobre todo si sale mal.
+  // El registro se crea antes de componer para que un fallo de plantilla quede anotado.
   const { data: registro } = await admin
     .from('email_log')
     .insert({
@@ -174,7 +135,6 @@ Deno.serve(async (req: Request) => {
     .select('id')
     .single();
 
-  // ── Composición desde plantilla ──────────────────────────────────────
   if (cuerpo.template) {
     try {
       const armado = await armarDesdePlantilla(admin, cuerpo);
@@ -201,14 +161,10 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    // Gmail muestra la contraseña de aplicación en cuatro bloques separados
-    // por espacios ("abcd efgh ijkl mnop"). Casi todo el mundo la copia tal
-    // cual, y con los espacios la autenticación falla sin decir por qué.
+    // Gmail muestra la contraseña en bloques con espacios que rompen la autenticación.
     const clave = (conf.smtp_password ?? '').replace(/\s+/g, '');
 
-    // Gmail no deja enviar en nombre de otro dominio: si el remitente no es la
-    // cuenta autenticada (ni un alias verificado), rechaza la conexión. Se usa
-    // la cuenta real y el nombre configurado, que es lo que el destinatario ve.
+    // Gmail rechaza remitentes distintos a la cuenta autenticada: se usa la cuenta con el nombre configurado.
     const esGmail = /gmail|googlemail/i.test(conf.smtp_host ?? '');
     const remitente =
       esGmail && conf.smtp_user ? conf.smtp_user : (conf.smtp_from_email ?? conf.smtp_user);
@@ -216,16 +172,10 @@ Deno.serve(async (req: Request) => {
     const cliente = new SMTPClient({
       connection: {
         hostname: conf.smtp_host,
-        // Se fuerza el 465 con Gmail. El 587 negocia STARTTLS sobre una
-        // conexión ya abierta y esa negociación revienta dentro del runtime
-        // de Deno ("invalid cmd"), tumbando la función entera antes de que se
-        // pueda capturar el error. Con TLS directo en el 465 el envío es
-        // estable, y es un puerto que Gmail admite igual.
+        // 465 con TLS directo: STARTTLS en el 587 falla en Deno ("invalid cmd") y tumba la función.
         port: esGmail ? 465 : (conf.smtp_port ?? 465),
         tls: esGmail ? true : (conf.smtp_port ?? 465) === 465,
-        // La librería se niega a enviar credenciales por un canal sin
-        // cifrar, y hace bien: si no hay credenciales, se conecta sin
-        // autenticar en lugar de exponerlas.
+        // Sin credenciales se conecta sin autenticar; la librería no las enviaría sin cifrar.
         ...(conf.smtp_user && clave
           ? { auth: { username: conf.smtp_user, password: clave } }
           : {}),
@@ -238,9 +188,7 @@ Deno.serve(async (req: Request) => {
       subject: cuerpo.subject!,
       content: cuerpo.text ?? ' ',
       html: cuerpo.html,
-      // El logotipo viaja dentro del correo. Una URL remota no serviría: en
-      // desarrollo apunta a 127.0.0.1 y, aun publicada, Gmail y Outlook
-      // bloquean las imágenes externas hasta que el destinatario las acepta.
+      // Logo en línea (CID): los clientes bloquean imágenes remotas.
       attachments: cuerpo.html
         ? [{
             contentType: 'image/jpeg',
@@ -263,8 +211,7 @@ Deno.serve(async (req: Request) => {
     return respuesta({ success: true, data: { id: registro?.id }, message: 'Correo enviado correctamente' });
   } catch (e) {
     const detalle = e instanceof Error ? e.message : String(e);
-    // El detalle técnico queda en la bitácora; al usuario se le da una
-    // explicación accionable, no la traza del error.
+    // Detalle técnico a la bitácora; al usuario, un mensaje accionable.
     if (registro) {
       await admin.from('email_log').update({ status: 'FALLIDO', error: detalle }).eq('id', registro.id);
     }
@@ -288,11 +235,7 @@ Deno.serve(async (req: Request) => {
   }
 });
 
-/**
- * Arma el correo leyendo el pedido, sus líneas, el punto de retiro y los datos
- * de la empresa. Se hace aquí y no en quien llama para que ningún correo
- * pueda decir algo distinto de lo que la base contiene.
- */
+/** Arma el correo desde la base para que nunca contradiga los datos del pedido. */
 async function armarDesdePlantilla(
   admin: ReturnType<typeof createClient>,
   cuerpo: Peticion,
@@ -314,18 +257,7 @@ async function armarDesdePlantilla(
     logo: conf?.logo_url,
   };
 
-  // La dirección pública de la tienda sale de `internal_config`, que es lo que
-  // el portal deja editar en «Entorno de correo».
-  //
-  // Antes se leía SOLO de la variable de entorno de la función, y en el
-  // servidor nuevo esa variable no existía: todos los enlaces de todos los
-  // correos —«ver mi pedido», «explorar la tienda»— salieron apuntando a
-  // `http://127.0.0.1:8090`, o sea al computador de quien los recibía. Peor
-  // aún, había dos fuentes para el mismo dato y la que se podía configurar no
-  // era la que se usaba: cambiarla en el portal no surtía ningún efecto.
-  //
-  // Se conserva la variable de entorno como respaldo por si la configuración
-  // todavía no se ha llenado.
+  // URL pública desde internal_config (editable en el portal); la variable de entorno es respaldo.
   const { data: entorno } = await admin
     .from('internal_config')
     .select('site_url')
@@ -337,7 +269,7 @@ async function armarDesdePlantilla(
     Deno.env.get('SITE_URL') ||
     'http://127.0.0.1:8090';
 
-  // ── Bienvenida: no hay pedido, solo la persona ──────────────────────
+  // Bienvenida: no hay pedido, solo la persona.
   if (cuerpo.template === 'BIENVENIDA') {
     const { data: perfil } = await admin
       .from('profiles')

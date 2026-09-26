@@ -1,26 +1,14 @@
 import { supabase } from '../lib/supabase';
 
 /**
- * Pasarela de pagos y cupo de crédito por empresa.
- *
- * Las funciones de la base existían desde el principio pero no tenían
- * pantalla: cargar las llaves de Wompi, apagar el modo prueba o aprobarle
- * crédito a una constructora obligaba a entrar a la base a mano. Eso no lo
- * puede hacer quien administra el negocio, así que en la práctica no se hacía.
- *
- * LOS SECRETOS NUNCA VUELVEN. `estado_pasarela` solo dice si están puestos, no
- * su valor: devolverlos los filtraría a cualquiera que abra la consola del
- * navegador. Por eso la pantalla muestra «configurado» y no un campo relleno,
- * y un campo vacío al guardar significa «no lo cambies», no «bórralo».
+ * Pasarela de pagos y cupo de crédito por empresa. Los secretos nunca vuelven al
+ * navegador: `estado_pasarela` solo indica si existen y un campo vacío los conserva.
  */
 
 export interface EstadoPasarela {
-  /** Si está apagada, el cliente no ve la opción de pagar. */
+  /** Apagada, el cliente no ve la opción de pagar. */
   activa: boolean;
-  /**
-   * Modo prueba: **aprueba el cobro sin cobrar**. Es lo que hay hoy, y es la
-   * cosa más peligrosa de la configuración si se olvida al salir a producción.
-   */
+  /** Modo prueba: aprueba sin cobrar. Debe apagarse antes de producción. */
   prueba: boolean;
   llavePublica: string | null;
   tieneIntegridad: boolean;
@@ -30,7 +18,7 @@ export interface EstadoPasarela {
 export interface DatosPasarela {
   activa: boolean;
   prueba: boolean;
-  /** Vacío = conservar la que ya está guardada. */
+  /** Vacío = conservar la guardada. */
   llavePublica?: string;
   secretoIntegridad?: string;
   secretoEventos?: string;
@@ -44,7 +32,7 @@ export interface CreditoEmpresa {
   aCredito: boolean;
   dias: number;
   cupo: number;
-  /** Saldo pendiente hoy. Sirve para no aprobar un cupo por debajo de lo que ya debe. */
+  /** Saldo pendiente, para no aprobar un cupo menor que la deuda. */
   saldo: number;
 }
 
@@ -79,20 +67,12 @@ export interface EstadoAsistente {
   activa: boolean;
   proveedor: string;
   modelo: string;
-  /** Si la llave está puesta. Nunca cuál es. */
+  /** Si la llave está puesta; nunca su valor. */
   tieneLlave: boolean;
   configuradaEn: string | null;
 }
 
-/**
- * Asistente con IA.
- *
- * La llave NO se puede leer desde el navegador: la columna tiene el SELECT
- * revocado y solo la usa la función de borde. Mismo trato que la contraseña
- * del correo y los secretos de Wompi, y por la misma razón: una llave de API
- * en el paquete JavaScript se la lleva cualquiera que abra la consola, y se le
- * factura al dueño hasta que la cancele.
- */
+/** Asistente con IA. La llave tiene SELECT revocado y solo la usa la función de borde. */
 export const asistenteService = {
   async estado(): Promise<EstadoAsistente> {
     const { data, error } = await supabase.rpc('estado_asistente');
@@ -143,10 +123,7 @@ export const pasarelaService = {
     };
   },
 
-  /**
-   * Guarda la configuración. Los campos de secreto en blanco se omiten para
-   * que la base conserve el valor guardado.
-   */
+  /** Los secretos en blanco se omiten para que la base conserve el valor. */
   async guardar(datos: DatosPasarela): Promise<EstadoPasarela> {
     const cuerpo: Record<string, unknown> = {
       payments_enabled: datos.activa,
@@ -165,17 +142,9 @@ export const pasarelaService = {
     return this.estado();
   },
 
-  // ----------------------------------------------------------
   // Crédito por empresa
-  // ----------------------------------------------------------
 
-  /**
-   * Empresas con su condición de pago y lo que deben hoy.
-   *
-   * El saldo se trae de `v_cartera` para poder avisar cuando el cupo que se va
-   * a aprobar queda por debajo de la deuda existente: aprobar 1 millón a quien
-   * ya debe 3 bloquea sus pedidos sin que nadie entienda por qué.
-   */
+  /** Condición de pago y saldo (`v_cartera`), para avisar si el cupo queda por debajo de la deuda. */
   async empresas(busqueda = ''): Promise<CreditoEmpresa[]> {
     let q = supabase
       .from('companies')
@@ -197,7 +166,7 @@ export const pasarelaService = {
     }>;
     if (filas.length === 0) return [];
 
-    // Saldo por empresa. `v_cartera` es por factura, así que se agrupa aquí.
+    // `v_cartera` es por factura: se agrupa por empresa aquí.
     const { data: cartera } = await supabase
       .from('v_cartera')
       .select('company_id, saldo')
@@ -221,7 +190,7 @@ export const pasarelaService = {
     }));
   },
 
-  /** La condición de pago de UNA empresa, para su pantalla de detalle. */
+  /** Condición de pago de una empresa. */
   async credito(companyId: string): Promise<CreditoEmpresa | null> {
     const { data, error } = await supabase
       .from('companies')
@@ -236,8 +205,7 @@ export const pasarelaService = {
       payment_terms: string; credit_days: number; credit_limit_cop: string | number;
     };
 
-    // Lo que ya debe. Se consulta aparte porque vive en las facturas, no en la
-    // ficha de la empresa.
+    // La deuda vive en las facturas, no en la ficha de la empresa.
     const { data: cartera } = await supabase
       .from('v_cartera')
       .select('saldo')

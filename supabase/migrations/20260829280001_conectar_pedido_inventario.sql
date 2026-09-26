@@ -1,27 +1,9 @@
--- ============================================================
--- Conectar el pedido con el inventario
--- ============================================================
--- HUECO QUE CIERRA ESTA MIGRACIÓN:
--- Hasta ahora un pedido se creaba, se confirmaba y se despachaba sin tocar
--- las existencias. El inventario mostraba stock que en realidad ya estaba
--- vendido, y dos clientes podían comprar el último cuñete.
---
--- SE CONECTA EN LA MÁQUINA DE ESTADOS, no en la creación del pedido:
---   CONFIRMADO         -> RESERVA     (comprometido, aún no sale)
---   ENVIADO / LISTO    -> SALIDA      (sale de bodega de verdad)
---   CANCELADO          -> LIBERACIÓN  (vuelve a estar disponible)
---
--- Reservar al confirmar y no al crear es deliberado: un pedido pendiente de
--- pago no debe bloquear mercancía que otro cliente sí va a pagar.
--- ============================================================
+-- Mueve inventario según el estado del pedido: CONFIRMADO reserva, ENVIADO/LISTO da
+-- salida y CANCELADO libera. Se reserva al confirmar para que un pedido sin pagar
+-- no bloquee mercancía.
 
-/**
- * Bodega desde la que se sirve un pedido.
- * Para retiro en tienda, el punto de retiro elegido. Para envío, el punto
- * con más existencias de esa variante: es el criterio que menos traslados
- * genera. Si nadie tiene stock, devuelve el primero para que el movimiento
- * falle con un mensaje claro en lugar de perderse en silencio.
- */
+-- Retiro: el punto elegido. Envío: el de más existencias (menos traslados). Sin
+-- stock en ninguno devuelve uno activo para que el fallo sea explícito.
 create or replace function public.bodega_de_despacho(_order_id uuid, _variant_id uuid)
 returns uuid
 language sql
@@ -92,9 +74,8 @@ begin
     end if;
 
     if v_kind = 'RESERVA' then
-      -- No se bloquea la confirmación por falta de stock: se reserva lo que
-      -- haya y queda registrado. Frenar aquí dejaría al cliente con un pedido
-      -- pagado y sin poder avanzar; el faltante lo resuelve bodega.
+      -- No frena la confirmación por falta de stock: reserva lo que haya y el
+      -- faltante lo resuelve bodega.
       v_reservado := least(v_actual, v_reservado + r.quantity);
       v_nuevo := v_actual;
 
@@ -102,7 +83,7 @@ begin
       v_reservado := greatest(0, v_reservado - r.quantity);
       v_nuevo := v_actual;
 
-    else -- SALIDA: la mercancía sale de bodega y deja de estar reservada
+    else -- SALIDA: sale de bodega y deja de estar reservada.
       v_nuevo := greatest(0, v_actual - r.quantity);
       v_reservado := greatest(0, v_reservado - r.quantity);
     end if;

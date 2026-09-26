@@ -4,28 +4,9 @@ import { resolve } from 'node:path';
 import { limpiarCuentasDePrueba, clienteDeServicio } from './limpieza';
 
 /**
- * El documento no lo cambia el cliente.
- *
- * `profiles_update_propio` deja que cada quien edite su propia fila, y está
- * bien para el teléfono o la ciudad. Pero también dejaba cambiar el DOCUMENTO,
- * que no es un dato de contacto: identifica a la persona en la factura y por él
- * responde la empresa ante la DIAN. La pantalla no lo ofrecía, pero la puerta
- * estaba abierta: bastaba una llamada a la API para facturar a nombre de una
- * cédula ajena.
- *
- * Al escribir estas pruebas resultó que la protección YA EXISTÍA, y a un nivel
- * más bajo del que se estaba mirando: `authenticated` solo tiene permiso de
- * UPDATE sobre seis columnas —nombre, apellido, teléfono, ciudad, tipo de
- * cliente y foto— y el documento no está entre ellas. Ni siquiera hace falta
- * una política: Postgres lo rechaza antes.
- *
- * Se dejan igualmente escritas porque ese permiso por columna es fácil de
- * ampliar sin darse cuenta al agregar un campo nuevo al perfil, y ahí el
- * agujero volvería en silencio.
- *
- * El documento entra por `complete_profile`, que corre con permisos de dueño y
- * solo lo RELLENA si está vacío. Corregir uno ya puesto es de quien administra
- * clientes, que deja rastro y avisa.
+ * El cliente no puede cambiar su documento: `authenticated` solo tiene UPDATE por
+ * columna y el documento no está entre ellas. Se prueba porque ese grant es fácil de ampliar sin querer.
+ * El documento entra por `complete_profile`, que solo lo rellena si está vacío.
  */
 
 function leerEnvLocal(): Record<string, string> {
@@ -116,7 +97,7 @@ describe.skipIf(!disponible)('Documento del cliente · lo corrige quien administ
       body: JSON.stringify({ _document_type: 'CC', _document_number: '43.111.222' }),
     });
     expect(r.ok).toBe(true);
-    // Se guarda NORMALIZADO, sin puntos: es la forma en que se busca después.
+    // Se guarda normalizado, sin puntos, que es como se busca.
     expect(await documentoDe(id)).toBe('43111222');
   });
 

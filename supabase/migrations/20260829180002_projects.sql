@@ -1,7 +1,3 @@
--- ============================================================
--- FASE 5 · 02 — Proyectos (MÓDULO 9)
--- ============================================================
-
 create table public.projects (
   id          uuid primary key default gen_random_uuid(),
   code        text not null unique,
@@ -15,18 +11,14 @@ create table public.projects (
   project_type public.project_type not null default 'Otro',
   area_m2     numeric(12,2),
 
-  -- Texto libre a propósito: el dato real contiene valores como "20 días",
-  -- no solo fechas. Convertirlo a `date` perdería información.
+  -- Texto libre: el dato real incluye valores como "20 días".
   required_date text,
 
-  -- Superficie y ambiente principales del proyecto. El detalle por zonas
-  -- vive en project_surfaces (MÓDULO 10).
+  -- Superficie principal; el detalle por zonas vive en project_surfaces.
   surface     text,
   environment public.environment_type,
   current_color text,
-  -- Color elegido {name, code, hex, family}. Se guarda como jsonb porque el
-  -- dato incluye la familia tal como se mostró, y el catálogo de color puede
-  -- cambiar sin que deba cambiar lo que el cliente eligió en su momento.
+  -- Snapshot jsonb: lo elegido no debe cambiar si cambia el catálogo de color.
   selected_color jsonb,
 
   custom_condition text,
@@ -44,7 +36,6 @@ create table public.projects (
   constraint projects_area_positiva check (area_m2 is null or area_m2 > 0),
   constraint projects_paso_valido
     check (current_step_progress is null or current_step_progress between 1 and 8),
-  -- Coherencia de estado: un proyecto completado debe tener fecha de cierre.
   constraint projects_completado_con_fecha
     check (status <> 'COMPLETADO' or completed_at is not null)
 );
@@ -59,14 +50,8 @@ create trigger projects_set_updated_at
   before update on public.projects
   for each row execute function public.set_updated_at();
 
--- ------------------------------------------------------------
--- Código de proyecto generado en el SERVIDOR.
---
--- Antes se calculaba en el navegador como `projects.length + 1`, lo que
--- produce códigos duplicados en cuanto dos usuarios crean un proyecto a la
--- vez, y además hacía visible a un usuario cuántos proyectos existen.
--- Una secuencia de base de datos es atómica y no depende del cliente.
--- ------------------------------------------------------------
+-- Código generado con secuencia en el servidor: contar en el cliente duplicaba códigos
+-- con altas concurrentes y revelaba el total de proyectos.
 create sequence public.project_code_seq;
 
 create or replace function public.assign_project_code()
@@ -88,11 +73,7 @@ create trigger projects_assign_code
   before insert on public.projects
   for each row execute function public.assign_project_code();
 
--- ------------------------------------------------------------
--- Asignación de personal a proyectos.
--- Es lo que permite que un TECNICO vea únicamente los proyectos que le
--- corresponden, tal como se definió en la FASE 2.
--- ------------------------------------------------------------
+-- Asignaciones: limitan a cada técnico a sus proyectos.
 create table public.project_assignments (
   project_id      uuid not null references public.projects (id) on delete cascade,
   user_id         uuid not null references auth.users (id)      on delete cascade,
@@ -104,9 +85,6 @@ create table public.project_assignments (
 
 create index project_assignments_user_id_idx on public.project_assignments (user_id);
 
--- ------------------------------------------------------------
--- Funciones de acceso a proyecto. Completan las de la FASE 2.
--- ------------------------------------------------------------
 create or replace function public.is_assigned_to_project(_project_id uuid)
 returns boolean
 language sql
@@ -121,10 +99,7 @@ as $$
   );
 $$;
 
-/**
- * Regla ÚNICA de visibilidad de un proyecto. La usan las políticas de
- * projects y las de todas sus tablas hijas, para que no puedan divergir.
- */
+-- Regla única de visibilidad de proyecto; la comparten projects y sus tablas hijas.
 create or replace function public.can_access_project(_project_id uuid)
 returns boolean
 language sql

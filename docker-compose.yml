@@ -7,23 +7,19 @@ services:
       context: .
       dockerfile: docker/Dockerfile
       args:
-        # Se leen de 'electica Vl/.env' (cargado automáticamente por Compose).
+        # Compose las toma del .env junto a este archivo.
         VITE_SUPABASE_URL: ${VITE_SUPABASE_URL:?falta VITE_SUPABASE_URL en .env}
         VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY:?falta VITE_SUPABASE_ANON_KEY en .env}
     image: electica-vl/colorlink:latest
     container_name: electicavl_colorlink
     restart: unless-stopped
     ports:
-      # Solo localhost. 8090 verificado libre (odoo usa 8069/8070, ancla 3000/5555).
+      # Solo localhost; 8090 no choca con odoo (8069/8070) ni ancla (3000/5555).
       - "127.0.0.1:8090:80"
     networks:
       - electicavl_net
 
-  # ------------------------------------------------------------
-  # Portal INTERNO. Imagen, bundle y puerto separados del portal
-  # del cliente: son dos aplicaciones distintas que solo comparten
-  # la base de datos.
-  # ------------------------------------------------------------
+  # Portal interno: imagen, bundle y puerto propios; solo comparte la base con la tienda.
   admin:
     build:
       context: .
@@ -35,7 +31,6 @@ services:
     container_name: electicavl_admin
     restart: unless-stopped
     ports:
-      # 8091 verificado libre.
       - "127.0.0.1:8091:80"
     networks:
       - electicavl_net

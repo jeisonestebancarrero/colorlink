@@ -1,18 +1,5 @@
--- ============================================================
--- Cerrar el pago sin pagar devuelve el pedido al carrito
--- ============================================================
--- `create_order_from_cart` desactiva el carrito al crear el pedido. Si el
--- cliente cerraba la ventana de pago, se quedaba sin carrito Y con un pedido
--- que no iba a ninguna parte: los productos simplemente desaparecían de la
--- pantalla.
---
--- Lo que espera cualquiera es volver a tener su carrito como estaba. Y el
--- pedido sin pagar no puede quedarse ahí acumulándose: consume numeración y
--- ensucia la bandeja del punto de venta con pedidos que nadie hizo.
---
--- Así que abandonar el pago hace las dos cosas: cancela el pedido y reconstruye
--- el carrito con lo mismo que tenía. Solo funciona sobre un pedido propio,
--- PENDIENTE y sin cobro: uno ya pagado no se deshace desde la tienda.
+-- Abandonar el pago cancela el pedido y reconstruye el carrito. Solo sobre un
+-- pedido propio, PENDIENTE y sin cobro.
 create or replace function public.devolver_pedido_al_carrito(_order_id uuid)
 returns jsonb
 language plpgsql
@@ -38,8 +25,7 @@ begin
       using errcode = '22023';
   end if;
 
-  -- El carrito activo del cliente, o uno nuevo. Puede haber alcanzado a
-  -- agregar algo más mientras tanto, así que se suma en vez de reemplazar.
+    -- Se suma al carrito activo por si el cliente agregó algo mientras tanto.
   select id into v_cart
     from public.carts
    where user_id = v_pedido.user_id and is_active

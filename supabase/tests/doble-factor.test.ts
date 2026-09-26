@@ -4,15 +4,8 @@ import { readFileSync, existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 /**
- * El segundo factor lo impone el SERVIDOR.
- *
- * Esta es la prueba que decide si el doble factor es real o decorativo. Si
- * solo lo comprobara la pantalla de administración, bastaría con llamar a la
- * API con el token de sesión —que el navegador guarda en texto plano— para
- * saltárselo entero. Aquí se ataca exactamente así: con el token de una
- * sesión que NO superó el factor.
- *
- * Al terminar se retira el factor para dejar la cuenta como estaba.
+ * El segundo factor lo impone el servidor: se ataca con el token de una sesión que
+ * no superó el factor. Al terminar se retira el factor.
  */
 
 function leerEnvLocal(): Record<string, string> {
@@ -32,16 +25,7 @@ const ANON = env.VITE_SUPABASE_ANON_KEY ?? '';
 
 const SERVICE = env.SUPABASE_SERVICE_ROLE_KEY ?? '';
 
-/**
- * Cuenta propia y desechable.
- *
- * Antes esta suite registraba un segundo factor sobre `admin@pintuco.demo`,
- * la cuenta que usan las demás pruebas. Mientras ese factor existía, las
- * sesiones de los otros archivos —que no lo habían superado— perdían la
- * condición de administrador y fallaban por permisos, sin ninguna relación
- * aparente con el doble factor. Es exactamente el mismo desconcierto que
- * produce en producción activar 2FA sobre una cuenta compartida.
- */
+/** Cuenta desechable: un factor sobre la cuenta admin compartida rompería a las demás suites por permisos. */
 const ADMIN = { email: `mfa.prueba.${Date.now()}@colorlink.test`, password: 'pintuco2025*' };
 
 /** Código TOTP de 6 dígitos (RFC 6238), para actuar como la app del teléfono. */
@@ -94,8 +78,7 @@ describe.skipIf(!disponible)('Doble factor · lo exige el servidor', () => {
   let idPropio = '';
 
   beforeAll(async () => {
-    // Se crea la cuenta y se le da rol de administrador con la clave de
-    // servicio, que solo existe en .env.local y nunca en el bundle.
+    // Se crea con la llave de servicio (solo en .env.local, nunca en el bundle).
     const creada = await fetch(`${API}/auth/v1/admin/users`, {
       method: 'POST',
       headers: { apikey: SERVICE, Authorization: `Bearer ${SERVICE}`, 'Content-Type': 'application/json' },
@@ -156,8 +139,7 @@ describe.skipIf(!disponible)('Doble factor · lo exige el servidor', () => {
         headers: cab(sesionConFactor),
       });
     }
-    // La cuenta desechable se borra: dejarla viva la convertiría en un
-    // administrador de más con una contraseña conocida.
+    // Se borra: sería un administrador extra con contraseña conocida.
     if (idPropio && SERVICE) {
       await fetch(`${API}/auth/v1/admin/users/${idPropio}`, {
         method: 'DELETE',
@@ -181,9 +163,7 @@ describe.skipIf(!disponible)('Doble factor · lo exige el servidor', () => {
   });
 
   it('la sesión que NO superó el factor solo se ve a sí misma', async () => {
-    // Se usa `profiles` y no `orders` porque la semilla no trae pedidos: una
-    // lista vacía habría dado por buena la prueba aunque el doble factor no
-    // hiciera nada. Aquí sí hay filas, así que la diferencia es medible.
+    // Se usa `profiles` porque tiene filas: sobre una lista vacía la prueba pasaría aunque el factor no actuara.
     const perfiles = await fetch(`${API}/rest/v1/profiles?select=id`, {
       headers: cab(sesionPassword),
     }).then((r) => r.json());
@@ -196,8 +176,7 @@ describe.skipIf(!disponible)('Doble factor · lo exige el servidor', () => {
       headers: cab(sesionPassword),
       body: JSON.stringify({ _order_id: '00000000-0000-0000-0000-000000000000' }),
     });
-    // Se corta por permisos, no por "pedido no encontrado": ni siquiera llega
-    // a mirar el pedido.
+    // Se corta por permisos antes de buscar el pedido.
     const cuerpo = await r.json();
     expect(r.ok).toBe(false);
     expect(JSON.stringify(cuerpo)).toMatch(/FORBIDDEN|permiso/i);
@@ -214,9 +193,7 @@ describe.skipIf(!disponible)('Doble factor · lo exige el servidor', () => {
   });
 
   it('no se exime a una cuenta que ya tiene el factor activo, ni siquiera la propia', async () => {
-    // Es el candado que de verdad importa: eximir no desactiva el factor, así
-    // que permitirlo dejaría la exigencia en «no» mientras la persona sigue
-    // teniendo que usar la app. El camino correcto es reiniciar primero.
+    // Eximir no desactiva el factor: primero hay que reiniciarlo.
     const r = await fetch(`${API}/rest/v1/rpc/set_mfa_requerido`, {
       method: 'POST',
       headers: cab(sesionConFactor),
@@ -239,7 +216,7 @@ describe.skipIf(!disponible)('Doble factor · lo exige el servidor', () => {
         body: JSON.stringify({ _user_id: tecnico.id }),
       }).then((r) => r.json());
 
-    // Por defecto el personal interno lo necesita.
+    // Por defecto el personal interno lo requiere.
     expect(await estado()).toMatchObject({ requerido: true, es_interno: true });
 
     const eximir = await fetch(`${API}/rest/v1/rpc/set_mfa_requerido`, {
@@ -250,7 +227,7 @@ describe.skipIf(!disponible)('Doble factor · lo exige el servidor', () => {
     expect(eximir.ok).toBe(true);
     expect(await estado()).toMatchObject({ requerido: false });
 
-    // Se deja como estaba para no alterar la semilla.
+    // Restaura el valor de la semilla.
     await fetch(`${API}/rest/v1/rpc/set_mfa_requerido`, {
       method: 'POST',
       headers: cab(sesionConFactor),
@@ -260,10 +237,8 @@ describe.skipIf(!disponible)('Doble factor · lo exige el servidor', () => {
   });
 
   it('un administrador SIN factor sí puede quitarse la exigencia', async () => {
-    // Antes esto estaba prohibido y dejaba al administrador del sistema sin
-    // forma de desactivarse la exigencia salvo pidiéndoselo a otro. El
-    // candado no protegía nada: quien no tiene factor no está protegido por
-    // él, y quien lo tiene queda bloqueado por la otra regla.
+    // Permitido a propósito: quien no tiene factor no gana protección, y quien lo tiene
+    // queda cubierto por la regla de reinicio.
     const [tecnico] = await fetch(
       `${API}/rest/v1/profiles?select=id&email=eq.tecnico@pintuco.demo`,
       { headers: cab(sesionConFactor) },
@@ -276,7 +251,7 @@ describe.skipIf(!disponible)('Doble factor · lo exige el servidor', () => {
     });
     expect(quitar.ok).toBe(true);
 
-    // Se deja como estaba.
+    // Restaura el valor original.
     await fetch(`${API}/rest/v1/rpc/set_mfa_requerido`, {
       method: 'POST',
       headers: cab(sesionConFactor),

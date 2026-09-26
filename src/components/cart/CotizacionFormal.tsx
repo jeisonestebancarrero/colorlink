@@ -9,17 +9,8 @@ import type { CartItem } from '../../types';
 import logoPintuco from '../../assets/pintuco-logo.jpeg';
 
 /**
- * Cotización formal.
- *
- * Antes el botón llamaba a `window.print()` sobre la tienda entera: salía la
- * barra de navegación, el catálogo y el carrito flotando, y nada de lo que una
- * cotización necesita. Un comprador de obra la usa para pedir aprobación
- * interna, así que tiene que traer emisor con NIT, destinatario, número,
- * fecha, vigencia, detalle con IVA discriminado y condiciones.
- *
- * No crea un pedido ni reserva inventario: es un documento de oferta. Por eso
- * lleva la vigencia impresa —los precios de la pintura se mueven— y dice
- * explícitamente que no es una factura, para que nadie la contabilice.
+ * Cotización formal para aprobación interna del comprador. No crea pedido ni reserva
+ * inventario; lleva vigencia y aclara que no es factura.
  */
 interface Emisor {
   nombre: string;
@@ -46,16 +37,8 @@ export const CotizacionFormal: React.FC<{
   const documento = useRef<HTMLDivElement>(null);
 
   /**
-   * Imprime la cotización dentro de un iframe aislado.
-   *
-   * Llamar a `window.print()` sobre la página no funciona: la cotización vive
-   * dentro de la aplicación, entre contenedores con `position: fixed`,
-   * `overflow` y utilidades de Tailwind, y el navegador terminaba sacando una
-   * hoja en blanco. Ocultar el resto con CSS tampoco alcanzó por lo mismo.
-   *
-   * Copiando el nodo a un documento vacío no queda nada del diseño de la
-   * tienda que pueda interferir, y lo que se ve en pantalla es exactamente lo
-   * que sale impreso.
+   * Imprime en un iframe aislado: `window.print()` sobre la app sacaba hoja en blanco
+   * por los contenedores fixed/overflow.
    */
   const imprimir = () => {
     const nodo = documento.current;
@@ -72,9 +55,7 @@ export const CotizacionFormal: React.FC<{
       return;
     }
 
-    // Se llevan las hojas de estilo de la aplicación para conservar la
-    // tipografía y los colores; el HTML clonado ya no tiene los contenedores
-    // que rompían la impresión.
+    // Se copian las hojas de estilo de la app para conservar tipografía y colores.
     const estilos = [...window.document.querySelectorAll('link[rel="stylesheet"], style')]
       .map((n) => n.outerHTML)
       .join('');
@@ -82,12 +63,8 @@ export const CotizacionFormal: React.FC<{
     doc.open();
     doc.write(
       '<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">' +
-        // El <base> es imprescindible y su ausencia solo se nota en producción.
-        // El sitio compilado enlaza el CSS como `/assets/index-xxx.css`, una
-        // ruta relativa; este iframe vive en `about:blank`, que no tiene
-        // dominio contra el cual resolverla, así que la hoja no cargaba y la
-        // cotización salía sin un solo estilo. En desarrollo no se veía porque
-        // Vite incrusta los estilos en la página en vez de enlazarlos.
+        // <base> imprescindible: el CSS compilado usa rutas relativas y `about:blank`
+        // no puede resolverlas. En desarrollo no se nota porque Vite incrusta estilos.
         `<base href="${window.location.origin}/">` +
         `<title>Cotización</title>${estilos}` +
         '<style>@page{margin:14mm}body{margin:0;background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}</style>' +
@@ -95,13 +72,11 @@ export const CotizacionFormal: React.FC<{
     );
     doc.close();
 
-    // Se espera a que carguen tipografías e imágenes: imprimir antes deja el
-    // logotipo en blanco.
+    // Esperar tipografías e imágenes; imprimir antes deja el logotipo en blanco.
     const lanzar = () => {
       marco.contentWindow?.focus();
       marco.contentWindow?.print();
-      // Se retira después, no en el acto: quitarlo de inmediato cancela el
-      // diálogo de impresión en algunos navegadores.
+      // Retirarlo de inmediato cancela el diálogo de impresión en algunos navegadores.
       window.setTimeout(() => marco.remove(), 60000);
     };
 
@@ -145,9 +120,8 @@ export const CotizacionFormal: React.FC<{
     hoy.getDate(),
   ).padStart(2, '0')}-${String(Math.floor(hoy.getTime() / 1000) % 10000).padStart(4, '0')}`;
 
-  // Los precios de góndola ya incluyen IVA: la base se despeja hacia atrás.
-  // El cálculo vive en services/impuestos para que el carrito y este documento
-  // no puedan discrepar: antes estaba escrito solo aquí.
+  // Los precios ya incluyen IVA: la base se despeja con services/impuestos, el mismo
+  // cálculo del carrito.
   const { base: baseTotal, iva: ivaTotal, tarifa } = desglosarIvaIncluido(
     total,
     emisor?.iva ?? TARIFA_IVA_POR_DEFECTO
@@ -191,9 +165,7 @@ export const CotizacionFormal: React.FC<{
                   <p className="text-lg font-extrabold text-[#004F9F] leading-tight">
                     {emisor?.nombre ?? 'Pintuco'}
                   </p>
-                  {/* Cada dato se imprime solo si existe: una cotización con
-                      "NIT" seguido de nada, o un punto suelto entre teléfono y
-                      correo, se lee como un documento a medio hacer. */}
+                  {/* Cada dato solo si existe, para no imprimir campos vacíos. */}
                   <p className="text-[11px] text-slate-600 leading-relaxed mt-1">
                     {emisor?.nit && <>NIT {emisor.nit}<br /></>}
                     {emisor?.direccion && (

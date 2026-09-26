@@ -1,39 +1,13 @@
--- ============================================================
--- De dónde sale el costo: la recepción de mercancía
--- ============================================================
--- Hasta ahora el sistema no sabía cuánto costaba nada. Recibir mercancía era
--- registrar un movimiento de ENTRADA con una cantidad y nada más: sin
--- proveedor, sin factura, sin costo. Y `order_items` guardaba el precio de
--- venta pero no el costo, así que el margen era incalculable.
---
--- La tentación fácil era poner un costo en el catálogo, junto al precio.
--- Es incorrecto por tres razones:
---   1. Una referencia no tiene UN costo: cambia en cada compra.
---   2. El margen debe salir del costo de las unidades efectivamente
---      vendidas, no de un número escrito una sola vez.
---   3. Si el costo vive en el catálogo, corregirlo hoy reescribe en silencio
---      la rentabilidad de todo el histórico.
---
--- El costo se conoce con certeza en un solo momento: cuando llega la
--- mercancía con la factura del proveedor. De ahí sale todo lo demás.
--- ============================================================
+-- Proveedores, recepciones de mercancía y costo promedio por bodega. El costo se
+-- conoce al recibir con la factura del proveedor, no en el catálogo.
 
--- ------------------------------------------------------------
--- 0. El costo deja de ser público
--- ------------------------------------------------------------
--- `product_variants.cost_cop` era legible por `anon`. Hoy está vacío, así
--- que no se ha filtrado nada; el día que se carguen costos reales, cualquier
--- visitante de la tienda podría leer el margen de Pintuco con una sola
--- petición. RLS filtra FILAS, no columnas: esto solo se cierra revocando el
--- permiso sobre la columna, igual que ya se hizo con la clave del correo.
+-- cost_cop deja de ser legible por el cliente: RLS no filtra columnas, así que se
+-- revoca el permiso de columna.
 revoke select (cost_cop) on public.product_variants from anon, authenticated;
 
 comment on column public.product_variants.cost_cop is
   'Costo estándar de referencia, solo para lo que nunca se ha comprado. El costo real sale de las recepciones (inventory.avg_cost_cop). Columna confidencial: no legible por el cliente.';
 
--- ------------------------------------------------------------
--- 1. Proveedores
--- ------------------------------------------------------------
 create table public.suppliers (
   id          uuid primary key default gen_random_uuid(),
   nit         text unique,
@@ -52,8 +26,7 @@ create index suppliers_nombre_idx on public.suppliers (lower(name));
 
 alter table public.suppliers enable row level security;
 
--- A quién le compra Pintuco y en qué condiciones es información comercial:
--- la ve el personal interno, nunca el cliente.
+-- Información comercial: solo la ve el personal.
 create policy suppliers_lectura_staff on public.suppliers
   for select to authenticated using ( (select public.is_staff()) );
 create policy suppliers_escritura on public.suppliers
@@ -63,9 +36,6 @@ create policy suppliers_escritura on public.suppliers
 
 grant select, insert, update on public.suppliers to authenticated;
 
--- ------------------------------------------------------------
--- 2. Recepción de mercancía
--- ------------------------------------------------------------
 create type public.receipt_status as enum ('BORRADOR', 'CONFIRMADA', 'ANULADA');
 
 create sequence public.receipt_number_seq start 1;
@@ -75,8 +45,7 @@ create table public.purchase_receipts (
   receipt_number text not null unique,
   supplier_id    uuid references public.suppliers (id) on delete restrict,
   location_id    uuid not null references public.pickup_locations (id) on delete restrict,
-  -- Número de la remisión o factura del proveedor. Es lo que permite
-  -- reconciliar con el papel cuando algo no cuadra.
+  -- Remisión o factura del proveedor, para conciliar con el papel.
   document_ref   text,
   received_on    date not null default current_date,
   status         public.receipt_status not null default 'BORRADOR',
@@ -124,12 +93,7 @@ create policy receipt_items_escritura on public.purchase_receipt_items
 grant select, insert, update, delete on public.purchase_receipts to authenticated;
 grant select, insert, update, delete on public.purchase_receipt_items to authenticated;
 
--- ------------------------------------------------------------
--- 3. Costo promedio ponderado por referencia y bodega
--- ------------------------------------------------------------
--- Se guarda por BODEGA, no por referencia global: la misma pintura puede
--- haber llegado a Medellín a un precio y a Barranquilla a otro, y el margen
--- de cada tienda tiene que reflejar lo que ESA tienda pagó.
+-- Costo promedio por bodega: cada tienda pudo comprar a precio distinto.
 alter table public.inventory
   add column avg_cost_cop numeric(14,2) not null default 0
   constraint inventory_avg_cost_no_negativo check (avg_cost_cop >= 0);
@@ -139,12 +103,7 @@ comment on column public.inventory.avg_cost_cop is
 
 revoke select (avg_cost_cop) on public.inventory from anon;
 
--- ------------------------------------------------------------
--- 4. El costo se CONGELA en la venta
--- ------------------------------------------------------------
--- Sin esto, cambiar el costo de una referencia movería el margen de todos
--- los pedidos ya vendidos. La utilidad de un pedido de marzo no puede
--- depender de lo que pagamos en septiembre.
+-- Costo congelado en la venta: el margen histórico no cambia con costos nuevos.
 alter table public.order_items
   add column unit_cost_cop numeric(14,2);
 

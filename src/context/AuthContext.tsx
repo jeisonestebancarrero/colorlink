@@ -4,12 +4,7 @@ import { authService, type AccessInfo } from '../services/api';
 import type { RegistroInput } from '../schemas/auth';
 import { EMPTY_ACCESS } from '../services/auth';
 
-/**
- * Credenciales de la cuenta de demostración que siembra el seed
- * (supabase/seed.sql). No son un secreto: LoginPage.tsx ya las muestra
- * prellenadas en el formulario. En un despliegue real el seed demo no se
- * ejecuta y este botón simplemente falla con un mensaje claro.
- */
+/** Cuenta demo del seed; no es secreta (LoginPage la muestra) y sin seed el acceso falla con aviso. */
 
 export interface RegisterData {
   firstName: string;
@@ -19,11 +14,7 @@ export interface RegisterData {
   email: string;
   phone: string;
   city: string;
-  /**
-   * FASE 2: antes se recogía en RegisterPage y se descartaba silenciosamente
-   * (riesgo R2 de la auditoría). Ahora viaja hasta Supabase Auth, que es
-   * quien gestiona el hash y el almacenamiento de la credencial.
-   */
+  /** Se entrega a Supabase Auth, que gestiona el hash. */
   password: string;
 }
 
@@ -31,9 +22,9 @@ interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  /** Hay una acción de formulario (entrar, registrarse, salir) en curso. */
+  /** Acción de formulario en curso (entrar, registrarse, salir). */
   isSubmitting: boolean;
-  /** Roles y empresas resueltos por el servidor. Solo para decidir qué se MUESTRA. */
+  /** Roles y empresas del servidor; solo deciden qué se muestra, no autorizan. */
   access: AccessInfo;
   hasRole: (role: string) => boolean;
   login: (email: string, password?: string) => Promise<void>;
@@ -64,23 +55,13 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
-  /**
-   * FASE 2 — riesgo R1 resuelto.
-   * Antes arrancaba en `true`, de modo que cualquier visitante entraba
-   * directamente al panel como el usuario de demostración. Con autenticación
-   * real el valor inicial debe ser `false`: la sesión solo se considera
-   * válida cuando Supabase confirma que existe.
-   */
+  /** Arranca en false: la sesión solo es válida cuando Supabase la confirma. */
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
-  // `isLoading` es SOLO el arranque: mientras se recupera la sesión guardada,
-  // la aplicación entera muestra la pantalla de carga.
+  // Solo el arranque: mientras se recupera la sesión se muestra la pantalla de carga.
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
-  // `isSubmitting` es una acción de formulario en curso. Va aparte a
-  // propósito: cuando compartían la misma bandera, enviar el formulario de
-  // registro reemplazaba toda la aplicación por la pantalla de carga, y al
-  // fallar el formulario volvía a montarse vacío —sin lo que la persona había
-  // escrito y, peor, sin el mensaje que explicaba el error.
+  // Separado de isLoading a propósito: compartir bandera desmontaba el formulario
+  // al enviarlo y se perdían los datos y el mensaje de error.
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [access, setAccess] = useState<AccessInfo>(EMPTY_ACCESS);
 
@@ -113,8 +94,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
     init();
 
-    // Mantiene el contexto sincronizado ante logout en otra pestaña,
-    // expiración del token o llegada desde un enlace de recuperación.
+    // Sincroniza logout en otra pestaña, expiración del token y enlaces de recuperación.
     const unsubscribe = authService.onAuthStateChange((userId) => {
       if (!activo) return;
       if (!userId) {
@@ -156,7 +136,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  /** Registro bifurcado (persona o empresa). */
   const registrar = async (data: RegistroInput): Promise<boolean> => {
     setIsSubmitting(true);
     try {
@@ -192,11 +171,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     await authService.requestPasswordReset(email);
   };
 
-  /**
-   * Acceso con Google. Provoca una redirección del navegador, así que no
-   * actualiza el estado aquí: al volver, el efecto de arranque y
-   * onAuthStateChange recogen la sesión ya creada.
-   */
+  /** Redirige el navegador; la sesión la recogen el arranque y onAuthStateChange al volver. */
   const loginWithGoogle = async () => {
     await authService.signInWithGoogle();
   };
@@ -218,7 +193,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setAccess(await authService.getAccess());
   };
 
-  // Se recalcula con el usuario: en cuanto complete sus datos, desaparece.
   const necesitaCompletarPerfil = isAuthenticated && authService.perfilIncompleto(user);
 
   const hasRole = useCallback(

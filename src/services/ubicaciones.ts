@@ -2,20 +2,9 @@ import { supabase } from '../lib/supabase';
 import { fechaLocal } from '../utils/fechaLocal';
 
 /**
- * Ubicaciones: país, departamento, municipio y barrio.
- *
- * Antes la ciudad era texto libre y la base ya tenía la consecuencia: perfiles
- * en 'Bogotá' y puntos de venta en 'Bogotá D.C.', que para cualquier consulta
- * son dos ciudades distintas. Ahora el cliente ELIGE y no escribe.
- *
- * Cobertura: los 33 departamentos y los 1.122 municipios del DANE, todo el
- * país, porque el despacho es nacional. Para el nivel de abajo hay 7.057
- * centros poblados oficiales del DANE más los barrios que publica cada
- * alcaldía; donde no hay lista, el barrio lo aporta el primer cliente y queda
- * disponible para los siguientes (ver `registrarBarrio`).
- *
- * Todo se lee sin sesión: el visitante tiene que poder elegir su ciudad para
- * cotizar antes de tener cuenta.
+ * Ubicaciones del diccionario (DANE y alcaldías) en lugar de texto libre, para no
+ * duplicar ciudades. Si no hay barrios, los aporta el cliente (`registrarBarrio`).
+ * Todo se lee sin sesión para poder cotizar antes de tener cuenta.
  */
 
 export interface Pais {
@@ -39,9 +28,9 @@ export interface Municipio {
 export interface Barrio {
   id: string;
   name: string;
-  /** BARRIO o CENTRO_POBLADO: se muestra distinto, un caserío no es un barrio. */
+  /** Se muestra distinto: un centro poblado no es un barrio. */
   kind: 'BARRIO' | 'CENTRO_POBLADO';
-  /** DANE, ALCALDIA o CLIENTE. Sirve para saber qué revisar en el portal. */
+  /** Origen del dato, para saber qué revisar en el portal. */
   source: 'DANE' | 'ALCALDIA' | 'CLIENTE';
 }
 
@@ -71,12 +60,7 @@ export const ubicacionService = {
     return (data ?? []) as Departamento[];
   },
 
-  /**
-   * Municipios de un departamento.
-   *
-   * Se pide por departamento y no de golpe: son 1.122 en total, y un
-   * desplegable con 1.122 opciones no se puede usar. Antioquia sola tiene 125.
-   */
+  /** Por departamento: un desplegable con los 1.122 municipios no se puede usar. */
   async getMunicipios(departmentCode: string): Promise<Municipio[]> {
     if (!departmentCode) return [];
     const { data, error } = await supabase
@@ -96,7 +80,7 @@ export const ubicacionService = {
     }));
   },
 
-  /** Un municipio por su código, con su departamento. Para mostrar lo guardado. */
+  /** Municipio por código, con su departamento. */
   async getMunicipio(code: string): Promise<Municipio | null> {
     if (!code) return null;
     const { data, error } = await supabase
@@ -117,13 +101,7 @@ export const ubicacionService = {
     };
   },
 
-  /**
-   * Barrios y centros poblados de un municipio.
-   *
-   * Puede venir vacío, y eso es normal: no existe listado oficial de barrios
-   * para todo Colombia. En ese caso el formulario deja escribirlo y
-   * `registrarBarrio` lo incorpora.
-   */
+  /** Puede venir vacío (no hay listado nacional de barrios); el formulario deja escribirlo. */
   async getBarrios(municipalityCode: string): Promise<Barrio[]> {
     if (!municipalityCode) return [];
     const { data, error } = await supabase
@@ -135,15 +113,7 @@ export const ubicacionService = {
     return (data ?? []) as Barrio[];
   },
 
-  /**
-   * Fecha estimada de entrega a un municipio.
-   *
-   * La calcula el servidor con las mismas funciones que usa el pedido al
-   * guardarse (`dias_de_entrega` + `sumar_dias_habiles`), así que lo que ve el
-   * cliente antes de comprar es exactamente lo que va a quedar registrado.
-   * Antes la tienda mostraba "24-48 horas" escrito a mano, igual para
-   * Medellín que para Mitú.
-   */
+  /** Misma lógica que el pedido (`dias_de_entrega` + `sumar_dias_habiles`), así la estimación coincide con lo registrado. */
   async estimarEntrega(
     municipalityCode: string
   ): Promise<{ dias: number; fecha: string } | null> {
@@ -168,13 +138,7 @@ export const ubicacionService = {
     return { dias: dias as number, fecha: fecha as string };
   },
 
-  /**
-   * Incorpora un barrio que no está en la lista y devuelve su id.
-   *
-   * No es un INSERT: la función del servidor normaliza el nombre y, si ya
-   * existe, devuelve el que hay. Así "El Poblado", "el poblado" y " EL
-   * POBLADO " no se convierten en tres barrios distintos.
-   */
+  /** La función normaliza el nombre y devuelve el existente si ya está, para no duplicar barrios. */
   async registrarBarrio(municipalityCode: string, nombre: string): Promise<string> {
     const { data, error } = await supabase.rpc('registrar_barrio', {
       _municipality_code: municipalityCode,

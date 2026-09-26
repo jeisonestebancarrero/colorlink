@@ -10,12 +10,8 @@ import { IconoModulo } from '../IconosDeModulo';
 import { useAdminAuth } from '../AdminAuthContext';
 
 /**
- * Configuración de la empresa, del correo saliente y de la pasarela de pagos.
- *
- * Los datos de empresa son los que se imprimen en la factura POS.
- * La contraseña SMTP nunca se lee de vuelta: la base revoca el SELECT sobre
- * esa columna, así que el campo llega siempre vacío y dejarlo así conserva
- * la que ya estuviera guardada.
+ * Empresa, correo, pasarela y asistente. La contraseña SMTP no es legible (SELECT revocado):
+ * el campo llega vacío y dejarlo así conserva la guardada.
  */
 export const ConfiguracionPage: React.FC = () => {
   const { acceso } = useAdminAuth();
@@ -23,11 +19,7 @@ export const ConfiguracionPage: React.FC = () => {
   return <Configuracion />;
 };
 
-/**
- * Todo lo que se guarda aquí —datos fiscales, correo, pasarela de pagos, llave
- * del asistente— lo exige `is_admin` en la base. Quien tenga la vista por una
- * excepción ve este aviso en lugar de formularios que fallan al guardar.
- */
+/** Guardar exige `is_admin`; quien ve el módulo por excepción recibe este aviso en vez de formularios. */
 const SoloAdministrador: React.FC = () => (
   <div className="bg-white rounded-xl border border-slate-200 shadow-2xs p-8 text-center max-w-lg mx-auto">
     <p className="text-sm font-bold text-slate-800">Solo el administrador cambia la configuración</p>
@@ -158,7 +150,7 @@ const Configuracion: React.FC = () => {
         </div>
       )}
 
-      {/* ---- Empresa ---- */}
+      {/* Empresa */}
       <form onSubmit={guardarEmpresa} className="bg-white rounded-xl border border-slate-200 shadow-2xs p-6 space-y-5">
         <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
           <Building2 className="w-4 h-4 text-[#004F9F]" />
@@ -185,10 +177,7 @@ const Configuracion: React.FC = () => {
           {campo('invoice_footer', 'Pie de la factura')}
         </div>
 
-        {/* El logotipo se sale de la retícula: necesita ver lo que hay puesto.
-            Un campo de texto con una URL no dice si la imagen carga, y este
-            logotipo sale en las facturas y en los correos —los sitios donde
-            un cuadro roto se nota más y se corrige más tarde—. */}
+        {/* Vista previa del logotipo, que sale en facturas y correos. */}
         <div className="pt-2 border-t border-slate-100">
           <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wide mb-2">
             Logotipo — sale en la factura, los correos y la tienda
@@ -222,8 +211,7 @@ const Configuracion: React.FC = () => {
                     className="hidden"
                     onChange={async (ev) => {
                       const archivo = ev.target.files?.[0];
-                      // Se limpia el input para que elegir el MISMO archivo
-                      // otra vez vuelva a disparar el cambio.
+                      // Permite volver a elegir el mismo archivo.
                       ev.target.value = '';
                       if (!archivo) return;
                       setAviso(null);
@@ -255,8 +243,7 @@ const Configuracion: React.FC = () => {
                 )}
               </div>
 
-              {/* La URL sigue estando: a veces el logotipo ya vive en un
-                  servidor de la empresa y no hay por qué duplicarlo. */}
+              {/* También admite una URL externa. */}
               {campo('logo_url', 'O pega la dirección de una imagen')}
               <p className="text-[11px] text-slate-500">
                 PNG, JPG o SVG, hasta 2 MB. Al subir queda puesto aquí, pero el
@@ -271,7 +258,7 @@ const Configuracion: React.FC = () => {
         </div>
       </form>
 
-      {/* ---- Correo ---- */}
+      {/* Correo */}
       <form onSubmit={guardarSmtp} className="bg-white rounded-xl border border-slate-200 shadow-2xs p-6 space-y-5">
         <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
           <Mail className="w-4 h-4 text-[#004F9F]" />
@@ -331,16 +318,13 @@ const Configuracion: React.FC = () => {
         </div>
       </form>
 
-      {/* El cableado va DESPUÉS del buzón, que es el orden en que se entiende:
-          primero por dónde sale el correo, después qué hace que la base llegue
-          hasta ahí. Sin esto último no sale ni uno, por bien configurado que
-          esté el SMTP. */}
+      {/* Tras el SMTP, la conexión de la base al envío: sin ella no sale ningún correo. */}
       <EntornoCorreoPanel />
 
-      {/* ---- Pasarela de pagos ---- */}
+      {/* Pasarela de pagos */}
       <PasarelaPanel />
 
-      {/* ---- Asistente de la tienda ---- */}
+      {/* Asistente de la tienda */}
       <AsistentePanel />
     </div>
   );

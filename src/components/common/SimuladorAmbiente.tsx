@@ -5,25 +5,10 @@ import fotoHabitacion from '../../assets/ambientes/habitacion.jpg';
 import fotoOficina from '../../assets/ambientes/oficina.jpg';
 
 /**
- * Simulador de ambientes.
- *
- * POR QUÉ NO ES UNA FOTO TEÑIDA:
- * La versión anterior ponía una foto de archivo y le aplicaba el color encima
- * con `mix-blend-multiply` sobre TODO el elemento. El resultado no era una
- * pared pintada sino la fotografía entera virada a ese tono: los muebles, el
- * piso y hasta el cielo cambiaban de color. Para teñir solo el muro haría
- * falta una máscara de esa foto en concreto, y para una foto cualquiera eso
- * exige segmentación con un modelo de visión: varios megabytes de descarga y
- * un resultado que falla con frecuencia.
- *
- * Aquí las escenas se dibujan en SVG, así que la pared es una figura con
- * identidad propia: recibe el color y nada más lo recibe. La luz y las
- * sombras se conservan porque van en capas aparte, con degradados que
- * multiplican sobre el color elegido. Es exacto, pesa unos pocos kilobytes y
- * funciona sin conexión.
+ * Simulador de ambientes. Las escenas SVG tienen la pared como figura propia, así
+ * que solo ella recibe el color; teñir una foto entera con multiply vira todo.
  */
 
-// ── Utilidades de color ──────────────────────────────────────────────────
 function aRgb(hex: string): [number, number, number] {
   const h = hex.replace('#', '');
   const completo = h.length === 3 ? h.split('').map((c) => c + c).join('') : h;
@@ -34,7 +19,7 @@ function aRgb(hex: string): [number, number, number] {
   ];
 }
 
-/** Aclara (f > 0) u oscurece (f < 0) un color. Para las caras en sombra. */
+/** Aclara (f > 0) u oscurece (f < 0) un color. */
 function tono(hex: string, f: number): string {
   const [r, g, b] = aRgb(hex);
   const m = (v: number) =>
@@ -42,11 +27,7 @@ function tono(hex: string, f: number): string {
   return `rgb(${m(r)}, ${m(g)}, ${m(b)})`;
 }
 
-/**
- * Luminancia percibida. Sirve para decidir si el texto y los detalles sobre la
- * pared deben ir claros u oscuros: un gris medio y un amarillo pálido tienen
- * un brillo muy distinto aunque en la carta se vean parecidos.
- */
+/** Luminancia percibida, para elegir detalles claros u oscuros sobre la pared. */
 export function esClaro(hex: string): boolean {
   const [r, g, b] = aRgb(hex);
   return (0.299 * r + 0.587 * g + 0.114 * b) / 255 > 0.62;
@@ -56,7 +37,6 @@ interface EscenaProps {
   color: string;
 }
 
-// ── Fachada exterior ─────────────────────────────────────────────────────
 const Fachada: React.FC<EscenaProps> = ({ color }) => (
   <svg viewBox="0 0 800 500" className="w-full h-full" role="img" aria-label="Fachada exterior">
     <defs>
@@ -78,10 +58,10 @@ const Fachada: React.FC<EscenaProps> = ({ color }) => (
     <polygon points="120,150 560,150 560,430 120,430" fill={color} />
     <polygon points="120,150 560,150 560,430 120,430" fill="url(#luzFachada)" />
 
-    {/* Muro lateral en sombra: la misma pintura da distinto según la luz */}
+    {/* Muro lateral en sombra */}
     <polygon points="560,150 680,190 680,430 560,430" fill={tono(color, -0.22)} />
 
-    {/* Zócalo, que en Colombia casi siempre va en otro material */}
+    {/* Zócalo */}
     <rect x="120" y="404" width="440" height="26" fill="#8D8478" />
     <polygon points="560,404 680,404 680,430 560,430" fill="#756D63" />
 
@@ -118,7 +98,6 @@ const Fachada: React.FC<EscenaProps> = ({ color }) => (
   </svg>
 );
 
-// ── Sala y muro focal ────────────────────────────────────────────────────
 const Sala: React.FC<EscenaProps> = ({ color }) => (
   <svg viewBox="0 0 800 500" className="w-full h-full" role="img" aria-label="Sala con muro focal">
     <defs>
@@ -133,14 +112,14 @@ const Sala: React.FC<EscenaProps> = ({ color }) => (
       </linearGradient>
     </defs>
 
-    {/* Muro del fondo — el que se pinta */}
+    {/* Muro del fondo — recibe el color */}
     <rect width="800" height="400" fill={color} />
     <rect width="800" height="400" fill="url(#luzSala)" />
 
-    {/* Muro lateral: la misma pintura, menos luz */}
+    {/* Muro lateral en sombra */}
     <polygon points="0,0 110,52 110,372 0,400" fill={tono(color, -0.18)} />
 
-    {/* Cornisa y guardaescoba, en blanco como se usa */}
+    {/* Cornisa y guardaescoba */}
     <rect y="0" width="800" height="16" fill="#F5F3EF" />
     <rect y="384" width="800" height="16" fill="#F5F3EF" />
 
@@ -149,7 +128,7 @@ const Sala: React.FC<EscenaProps> = ({ color }) => (
     <rect x="572" y="82" width="156" height="156" fill="#CBE3F2" />
     <line x1="650" y1="82" x2="650" y2="238" stroke="#F5F3EF" strokeWidth="8" />
     <line x1="572" y1="160" x2="728" y2="160" stroke="#F5F3EF" strokeWidth="8" />
-    {/* El haz de luz que entra: aclara la pared cerca de la ventana */}
+    {/* Haz de luz de la ventana */}
     <polygon points="560,250 740,250 800,400 470,400" fill="#fff" opacity="0.12" />
 
     {/* Cuadro */}
@@ -180,7 +159,6 @@ const Sala: React.FC<EscenaProps> = ({ color }) => (
   </svg>
 );
 
-// ── Habitación principal ─────────────────────────────────────────────────
 const Habitacion: React.FC<EscenaProps> = ({ color }) => (
   <svg viewBox="0 0 800 500" className="w-full h-full" role="img" aria-label="Habitación principal">
     <defs>
@@ -229,7 +207,6 @@ const Habitacion: React.FC<EscenaProps> = ({ color }) => (
   </svg>
 );
 
-// ── Oficina / comercial ──────────────────────────────────────────────────
 const Oficina: React.FC<EscenaProps> = ({ color }) => (
   <svg viewBox="0 0 800 500" className="w-full h-full" role="img" aria-label="Oficina o local comercial">
     <defs>
@@ -283,25 +260,10 @@ const Oficina: React.FC<EscenaProps> = ({ color }) => (
   </svg>
 );
 
-// ── Fotografía real con máscara de muro ─────────────────────────────────
-
 /**
- * Cuando hay foto para el ambiente se usa la foto, no el dibujo.
- *
- * Pintar de verdad un muro fotografiado son dos pasos, no uno:
- *
- *  1. BORRAR EL COLOR QUE TENÍA. Se dibuja una segunda copia de la foto,
- *     recortada al muro, pasada a gris y comprimida a un rango claro. Sin
- *     este paso, pintar de blanco el muro azul oscuro de la oficina daría un
- *     azul un poco menos oscuro: multiplicar nunca aclara.
- *  2. APLICAR EL COLOR con `multiply` sobre ese gris. Como el gris conserva
- *     las variaciones de luz de la foto —la sombra del sofá, el degradado de
- *     la ventana, la textura del revoque—, el color entra con ellas y parece
- *     pintura y no un parche plano.
- *
- * La máscara se traza una vez por foto, en las coordenadas propias de la
- * imagen. Recorta lo que está por delante del muro (una puerta, una ventana,
- * un mueble): son las zonas donde no hay pared que pintar.
+ * Foto real con máscara de muro. Primero se pasa el muro a gris claro (multiply
+ * nunca aclara) y luego se multiplica el color, conservando luces y texturas.
+ * Los recortes excluyen lo que está delante del muro.
  */
 interface Foto {
   src: string;
@@ -332,8 +294,7 @@ const FOTOS: Record<string, Foto> = {
     ancho: 1400,
     alto: 738,
     muros: [
-      // Baja hasta el borde superior del sofá: cortar más arriba dejaba una
-      // franja del color viejo asomando por encima del espaldar.
+      // Baja hasta el espaldar del sofá para no dejar asomar el color original.
       '22,0 1150,0 1150,406 22,406',
       '22,406 86,406 86,558 22,558',      // franja a la izquierda de la puerta
     ],
@@ -347,10 +308,7 @@ const FOTOS: Record<string, Foto> = {
     src: fotoHabitacion,
     ancho: 1400,
     alto: 933,
-    // El muro se traza siguiendo la línea del techo, que aquí baja en
-    // diagonal de izquierda a derecha hasta el rincón y vuelve a subir. Con un
-    // rectángulo, como estaba antes, quedaban franjas rectas atravesando la
-    // pared: se veían parches y no pintura.
+    // El muro sigue la línea diagonal del techo; un rectángulo dejaba franjas visibles.
     muros: [
       '105,95 660,262 660,455 265,452 265,630 105,660',   // muro del cabecero
       '660,262 1400,145 1400,700 660,700', // muro de la ventana
@@ -358,8 +316,7 @@ const FOTOS: Record<string, Foto> = {
     recortes: [
       '338,276 532,276 532,440 338,440',   // cuadro
       '768,244 1110,244 1110,572 768,572', // ventana
-      // Los muebles se recortan en lugar de cortar el muro en horizontal: una
-      // línea recta a media pared se lee como un friso que no existe.
+      // Se recortan los muebles en vez de cortar el muro en horizontal (parecería un friso).
       '655,452 1016,452 1016,840 655,840', // cama
       '1016,545 1348,545 1348,795 1016,795', // banca y mesa auxiliar
     ],
@@ -384,8 +341,7 @@ const FotoConMuro: React.FC<{ foto: Foto; color: string; id: string }> = ({ foto
     aria-label="Ambiente con el color aplicado en el muro"
   >
     <defs>
-      {/* Gris comprimido al tramo claro: es lo que borra el color original
-          sin borrar la luz. */}
+      {/* Gris comprimido al tramo claro: borra el color original sin borrar la luz. */}
       <filter id={`base-${id}`} colorInterpolationFilters="sRGB">
         <feColorMatrix type="saturate" values="0" />
         <feComponentTransfer>
@@ -395,8 +351,7 @@ const FotoConMuro: React.FC<{ foto: Foto; color: string; id: string }> = ({ foto
         </feComponentTransfer>
       </filter>
 
-      {/* El borde de la máscara se difumina un poco: un canto perfecto delata
-          el recorte y se ve pegado. */}
+      {/* Borde difuminado para que el recorte no se note. */}
       <filter id={`borde-${id}`}>
         <feGaussianBlur stdDeviation="2" />
       </filter>

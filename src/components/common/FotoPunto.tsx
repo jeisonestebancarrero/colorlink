@@ -3,14 +3,8 @@ import { Store } from 'lucide-react';
 import { FONDO_MARCA, imagenPunto } from '../../assets/puntosVenta';
 
 /**
- * Imagen de un punto de venta.
- *
- * La imagen es de la CIUDAD o del sector, no del local: sirve para ubicar de
- * un vistazo, no para reconocer la fachada. Por eso lleva el nombre de la
- * ciudad encima y nunca se presenta como «así se ve la tienda».
- *
- * Si el archivo falla al cargar, cae al fondo de marca en lugar de dejar el
- * hueco roto del navegador, que es lo peor que puede pasarle a una tarjeta.
+ * Imagen de la ciudad del punto de venta (no de la fachada), con su nombre encima.
+ * Si falla la carga, cae al fondo de marca.
  */
 export const FotoPunto: React.FC<{
   referencia?: string | null;
@@ -39,8 +33,7 @@ export const FotoPunto: React.FC<{
 
       {!usaFondo && (
         <>
-          {/* El degradado no es decoración: sin él la etiqueta blanca se
-              pierde sobre las zonas claras de la foto. */}
+          {/* Degradado necesario para que la etiqueta blanca se lea sobre fotos claras. */}
           <div
             aria-hidden
             className="absolute inset-0 bg-linear-to-t from-slate-900/75 via-slate-900/10 to-transparent"

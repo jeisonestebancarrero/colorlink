@@ -1,15 +1,5 @@
--- ============================================================
--- Corrección: post_message no podía insertar ningún mensaje
--- ============================================================
--- El CASE que decide entre 'MENSAJE' y 'NOTA_INTERNA' devuelve `text`, y la
--- columna es del tipo enum `message_kind`. PostgreSQL no hace esa conversión
--- de forma implícita, así que TODA llamada fallaba con:
---   column "kind" is of type public.message_kind but expression is of type text
---
--- El resultado era que la trazabilidad automática (que inserta directo en la
--- tabla) sí funcionaba, pero nadie podía escribir un mensaje: el chatter
--- parecía funcionar y estaba roto.
--- ============================================================
+-- post_message fallaba siempre: el CASE devuelve text y kind es un enum sin
+-- conversión implícita. Se castea explícitamente.
 
 create or replace function public.post_message(
   _order_id uuid, _project_id uuid, _body text, _internal boolean default false
@@ -46,14 +36,11 @@ begin
     raise exception 'FORBIDDEN: no tienes acceso a esta conversación' using errcode = '42501';
   end if;
 
-  -- Una nota interna solo puede escribirla el personal: si un cliente lo
-  -- intenta, se degrada a mensaje normal en lugar de rechazarse, para no
-  -- perder lo que escribió.
+  -- Nota interna de un cliente se degrada a mensaje para no perder lo escrito.
   if _internal and not public.is_staff() then
     _internal := false;
   end if;
 
-  -- El cast explícito es lo que faltaba.
   v_kind := (case when _internal then 'NOTA_INTERNA' else 'MENSAJE' end)::public.message_kind;
 
   insert into public.conversation_messages (order_id, project_id, author_id, kind, body)

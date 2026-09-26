@@ -21,15 +21,8 @@ import { ExportarBoton } from '../ExportarBoton';
 import { IconoModulo } from '../IconosDeModulo';
 
 /**
- * Recepción de mercancía.
- *
- * Es el único punto por donde el costo entra al sistema. Por eso la pantalla
- * insiste en el documento del proveedor: dentro de seis meses, cuando alguien
- * pregunte por qué un cuñete costó lo que costó, la respuesta tiene que estar
- * aquí y no en la memoria de quien lo recibió.
- *
- * El borrador no toca el inventario. Se confirma una sola vez, y entonces
- * entran las unidades y se recalcula el costo promedio de la bodega.
+ * Recepciones: único punto de entrada del costo, por eso exige documento del proveedor.
+ * El borrador no mueve inventario; al confirmar entran unidades y se recalcula el costo promedio.
  */
 export const RecepcionesPage: React.FC = () => {
   const { filtroSedes } = useSedes();
@@ -78,7 +71,7 @@ export const RecepcionesPage: React.FC = () => {
 
   useEffect(() => { void cargar(); }, []);
 
-  /** Todas las presentaciones publicables, para elegir qué llegó. */
+  /** Presentaciones publicables. */
   const presentaciones = useMemo(
     () =>
       productos.flatMap((p) =>
@@ -92,8 +85,7 @@ export const RecepcionesPage: React.FC = () => {
 
   const filtradas = useMemo(() => {
     const q = busqueda.trim().toLowerCase();
-    // La sede activa se aplica ANTES del texto: es un dominio, no una
-    // búsqueda, y tiene que valer aunque el buscador esté vacío.
+    // La sede es un dominio: aplica aunque el buscador esté vacío.
     const deSede = recepciones.filter((r) => sedeVisible(r.puntoId, filtroEfectivo));
     if (!q) return deSede;
     return deSede.filter(
@@ -198,7 +190,7 @@ export const RecepcionesPage: React.FC = () => {
     }
   };
 
-  // ── Detalle de una recepción ──────────────────────────────────────────────
+  // Detalle de una recepción
   if (abierta) {
     const enBorrador = abierta.estado === 'BORRADOR';
     const total = abierta.lineas.reduce((a, l) => a + l.subtotal, 0);
@@ -400,9 +392,8 @@ export const RecepcionesPage: React.FC = () => {
     );
   }
 
-  // ── Listado ───────────────────────────────────────────────────────────────
-  // Los contadores se calculan sobre la selección GLOBAL, no sobre lo ya
-  // aislado: si no, al entrar a una sede las demás mostrarían 0.
+  // Listado
+  // Contadores sobre la selección global, no sobre la sede aislada.
   const porSede = recepciones.filter((x) => sedeVisible(x.puntoId, filtroSedes));
   return (
     <div className="space-y-5">
@@ -416,8 +407,7 @@ export const RecepcionesPage: React.FC = () => {
           </p>
         </div>
 
-      {/* Exporta EXACTAMENTE lo que se ve: los filtros y la sede activa ya
-          están aplicados en la lista. */}
+      {/* Exporta lo visible, con filtros y sede ya aplicados. */}
       <div className="flex justify-end">
         <ExportarBoton<Recepcion>
           filas={filtradas}
@@ -436,8 +426,7 @@ export const RecepcionesPage: React.FC = () => {
         />
       </div>
 
-      {/* Con varias sedes activas, un total no dice cómo se reparte: la
-          comparación entre sedes es lo que se busca al activar varias. */}
+      {/* Con varias sedes activas, desglose por sede. */}
       <ContadorPorSede
         sedeAislada={sedeAislada}
         onAislar={aislar}

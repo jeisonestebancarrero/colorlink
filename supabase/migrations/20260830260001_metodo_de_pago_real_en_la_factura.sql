@@ -1,19 +1,5 @@
--- ============================================================
--- La factura debe registrar cómo se pagó, no cómo se entrega
--- ============================================================
--- `issue_pos_invoice` deducía el medio de pago de `delivery_method`: si el
--- pedido era RETIRO_TIENDA, escribía "Pago en tienda". Pero retirar en tienda
--- es cómo el cliente recibe el producto, no cómo pagó. Un pedido pagado por
--- PSE en la web y retirado en el punto quedaba facturado como pago en efectivo.
---
--- La consecuencia no era cosmética: `asentar_factura` elige la cuenta del PUC
--- con ese texto, así que la venta entraba a 1105 CAJA. La contabilidad
--- afirmaba que había plata en la caja del punto que nadie había recibido, la
--- cartera del cliente nunca se creaba y la conciliación bancaria no podía
--- cuadrar jamás.
---
--- El dato correcto ya existe: el checkout crea una fila en `payments` con el
--- medio que el cliente eligió. De ahí se toma.
+-- La factura toma el medio de pago de payments, no de delivery_method: retirar en
+-- tienda no implica pago en efectivo y asentaba la venta en 1105 Caja.
 create or replace function public.issue_pos_invoice(_order_id uuid)
 returns uuid
 language plpgsql
@@ -57,9 +43,7 @@ begin
     left join public.companies c on c.id = p.company_id
    where p.id = v_pedido.user_id;
 
-  -- El medio de pago real: el que el cliente eligió al pagar. Solo cuando no
-  -- hay registro de pago (venta de mostrador digitada por el vendedor) se cae
-  -- al texto genérico.
+    -- Medio elegido al pagar; sin registro de pago (mostrador) cae al genérico.
   select case pa.method
            when 'EFECTIVO'            then 'Efectivo'
            when 'PSE'                 then 'PSE'
@@ -114,8 +98,7 @@ begin
      where oi.order_id = _order_id
   loop
     v_tarifa := coalesce(r.tax_rate, 19);
-    -- En Colombia el precio de góndola ya incluye IVA: la base se despeja
-    -- hacia atrás, no se suma por encima.
+      -- El precio incluye IVA: la base se despeja hacia atrás.
     v_linea_base := round(r.subtotal_cop / (1 + v_tarifa / 100.0), 2);
     v_linea_iva  := r.subtotal_cop - v_linea_base;
 
@@ -148,20 +131,12 @@ $$;
 revoke all on function public.issue_pos_invoice(uuid) from public;
 grant execute on function public.issue_pos_invoice(uuid) to authenticated;
 
--- `subtotal_cop` guarda el total CON IVA de las líneas, no la base. La base
--- está en `taxable_base_cop`, que es la que usan la pantalla y el asiento.
--- Se documenta porque el nombre invita a lo contrario y quien exporte a la
--- DIAN se equivocaría de columna.
+-- subtotal_cop es el total con IVA; la base está en taxable_base_cop.
 comment on column public.invoices.subtotal_cop is
   'Suma de las líneas CON IVA incluido (los precios de góndola ya lo incluyen). La base gravable está en taxable_base_cop.';
 
--- ------------------------------------------------------------
--- El asiento elige la cuenta por el medio de pago real
--- ------------------------------------------------------------
--- Solo el efectivo en mostrador entra a Caja. PSE, tarjeta y transferencia se
--- quedan en 1305 CLIENTES hasta que Tesorería registre el recaudo y mueva la
--- plata a Bancos: hasta que el dinero no esté confirmado en la cuenta, decir
--- que ya está sería adelantarse a un hecho que todavía no ocurrió.
+-- Solo el efectivo en mostrador entra a Caja; los demás medios quedan en 1305
+-- Clientes hasta que Tesorería registre el recaudo.
 create or replace function public.asentar_factura()
 returns trigger
 language plpgsql
@@ -173,9 +148,7 @@ declare
   v_costo numeric(16,2);
   v_lineas jsonb;
 begin
-  -- Segunda barrera contra el doble asiento: si por cualquier camino futuro
-  -- esta función se llamara dos veces para la misma factura, la contabilidad
-  -- quedaría inflada al doble y nadie lo notaría hasta el cierre.
+    -- Segunda barrera contra el doble asiento.
   if exists (
     select 1 from public.journal_entries
      where invoice_id = new.id and status = 'REGISTRADO'
@@ -183,10 +156,6 @@ begin
     return new;
   end if;
 
-  -- Solo el efectivo en mostrador entra a Caja. PSE, tarjeta y transferencia
-  -- se quedan en 1305 CLIENTES hasta que Tesorería confirme el recaudo y lo
-  -- lleve a Bancos: mientras el dinero no esté en la cuenta, decir que ya está
-  -- es adelantar un hecho que no ha ocurrido.
   v_cuenta_cobro := case
     when new.payment_method in ('Efectivo', 'Pago en tienda') then '1105'
     else '1305'
@@ -204,8 +173,7 @@ begin
                        'debito', 0, 'credito', new.taxable_base_cop)
   );
 
-  -- El IVA solo se acredita si lo hubo. Una línea en cero no pasa la
-  -- restricción de débito-o-crédito, y con razón: no es un movimiento.
+    -- Sin IVA no hay línea: un cero no pasa la restricción débito-o-crédito.
   if new.tax_cop > 0 then
     v_lineas := v_lineas || jsonb_build_array(
       jsonb_build_object('cuenta', '2408', 'detalle', 'IVA generado',
@@ -224,8 +192,7 @@ begin
                          'debito', 0, 'credito', new.shipping_cop));
   end if;
 
-  -- El costo solo se asienta si se conoce. Meter un cero fingiría un margen
-  -- del 100 % en los libros, que es peor que no registrarlo.
+    -- Sin costo conocido no se asienta: un cero fingiría margen del 100 %.
   if v_costo > 0 then
     v_lineas := v_lineas || jsonb_build_array(
       jsonb_build_object('cuenta', '6135', 'detalle', 'Costo de ' || new.invoice_number,

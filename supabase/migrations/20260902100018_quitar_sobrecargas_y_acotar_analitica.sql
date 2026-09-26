@@ -1,18 +1,5 @@
--- ============================================================
--- Fuera las sobrecargas antiguas y analítica acotada
--- ============================================================
--- 20260902100017 agregó `_sedes` a `resumen_panel` y `resumen_ventas`. Como el
--- parámetro es nuevo, PostgreSQL creó una SOBRECARGA en lugar de reemplazar:
--- quedaron `resumen_panel()` y `resumen_panel(uuid[])` a la vez.
---
--- Eso no es cosmético. PostgREST resuelve la llamada por los parámetros que
--- recibe, así que una petición sin `_sedes` seguiría cayendo en la versión
--- VIEJA —la que no acota por sede— y el hueco quedaría abierto justo por el
--- camino que usan las pantallas hoy. Se dejan solo las versiones con `_sedes`,
--- cuyo parámetro tiene valor por defecto.
---
--- Y `analitica_ventas` pasa a cruzar el punto pedido con lo permitido: también
--- es SECURITY DEFINER, así que RLS no la protegía.
+-- Elimina las sobrecargas sin _sedes que dejó 20260902100017: PostgREST las
+-- elegía en llamadas sin el parámetro y saltaban el filtro de sede.
 
 drop function if exists public.resumen_panel();
 drop function if exists public.resumen_ventas(date, date);
@@ -26,17 +13,14 @@ AS $function$
 declare
   v_resultado jsonb;
   v_ver_costos boolean;
-  -- El punto que pide la pantalla, CRUZADO con las sedes permitidas. Esta
-  -- función es SECURITY DEFINER, así que RLS no aplica dentro: sin este cruce,
-  -- mandar el id de una sede ajena devolvía sus ventas.
+    -- SECURITY DEFINER: sin este cruce, una sede ajena devolvía sus ventas.
   v_sedes uuid[] := public.sedes_efectivas(_puntos);
 begin
   if not (public.is_admin() or public.has_permission('analytics.read')) then
     raise exception 'FORBIDDEN: no tienes permiso para ver la analítica' using errcode = '42501';
   end if;
 
-  -- El margen es información de costos. Quien no tenga ese permiso ve las
-  -- ventas completas pero no la rentabilidad.
+    -- Sin permiso de costos se ven las ventas pero no el margen.
   v_ver_costos := public.is_admin() or public.has_permission('costs.read');
 
   with rango as (
@@ -74,8 +58,7 @@ begin
       and (_categorias is null or p.category_id = any(_categorias))
       and (_productos  is null or p.id = any(_productos))
   ),
-  -- Un pedido puede tener líneas de varios productos; al filtrar por producto
-  -- solo cuentan las líneas que pasaron el filtro, pero el pedido es uno.
+    -- Al filtrar por producto el pedido cuenta una sola vez.
   pedidos as (select distinct order_id from base),
   meses as (
     select to_char(mes, 'YYYY-MM') as mes,
@@ -118,7 +101,7 @@ begin
                         then sum(ingreso) - coalesce(sum(costo), 0) end as margen
               from base group by anio) x), '[]'::jsonb),
 
-    -- El mes que más dejó. Si no hay costos visibles, el de más ingresos.
+      -- Mes de mayor margen; sin costos visibles, el de más ingresos.
     'mejor_mes', (
       select jsonb_build_object('mes', m.mes, 'ingresos', m.ingresos,
                                 'margen', case when v_ver_costos then m.margen end)

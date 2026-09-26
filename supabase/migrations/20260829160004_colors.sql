@@ -1,12 +1,5 @@
--- ============================================================
--- FASE 3 · 04 — Colores y su relación con productos
--- ============================================================
--- MÓDULO 5. Resuelve además el riesgo R7 de la auditoría: hoy
--- `PINTUCO_COLOR_PALETTES` se exporta desde DOS archivos con formas
--- distintas. Esta tabla pasa a ser la única fuente; la capa de servicio
--- proyectará las dos formas que consumen las páginas, de modo que ninguna
--- se rompa.
--- ============================================================
+-- Colores: fuente única de las dos paletas que hoy exporta el frontend; el servicio
+-- proyecta ambas formas.
 
 create table public.colors (
   id                  uuid primary key default gen_random_uuid(),
@@ -15,9 +8,7 @@ create table public.colors (
   hex                 text not null,
   rgb                 text,
   family              public.color_family not null,
-  -- Producto sugerido, tal como aparece hoy en el dato mock (texto libre).
-  -- Se conserva como texto porque no siempre corresponde a un producto del
-  -- catálogo; se normalizará si el negocio lo requiere.
+  -- Texto libre: no siempre corresponde a un producto del catálogo.
   recommended_product text,
   description         text,
   status              public.catalog_status not null default 'ACTIVO',
@@ -31,7 +22,6 @@ create index colors_family_idx     on public.colors (family);
 create index colors_status_idx     on public.colors (status);
 create index colors_name_lower_idx on public.colors (lower(name));
 
--- Colores disponibles para cada producto (MÓDULO 3 / MÓDULO 5).
 create table public.product_colors (
   product_id uuid not null references public.products (id) on delete cascade,
   color_id   uuid not null references public.colors (id)   on delete cascade,

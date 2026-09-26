@@ -4,21 +4,9 @@ import { resolve } from 'node:path';
 import { clienteDeServicio, crearPedidoDePrueba, borrarPedidoDePrueba } from './limpieza';
 
 /**
- * Asesor asignado por pedido.
- *
- * Lo que se vigila, en orden de gravedad:
- *
- *   1. Que un ASESOR NO VEA los pedidos de otro asesor. Es un cambio de RLS
- *      sobre la tabla más consultada del sistema; si se afloja, todo el
- *      personal vuelve a ver todo sin que nadie lo note.
- *   2. Que quien es asesor Y ADEMÁS otra cosa siga viéndolo todo. Taparle los
- *      pedidos a quien despacha o factura rompería la operación, y el fallo
- *      aparecería lejos de este cambio.
- *   3. Que el cliente siga viendo sus pedidos igual que antes.
- *   4. Que la asignación respete la sede: asignar a alguien un pedido que su
- *      propia RLS le va a ocultar es peor que no asignarlo.
- *   5. Que sin asesor disponible se le AVISE al cliente, y que al entrar uno
- *      se cumpla la promesa y se reparta.
+ * Asesor por pedido: un asesor no ve pedidos de otro, quien además tiene otro rol
+ * ve todo, el cliente ve los suyos, la asignación respeta la sede, y sin asesor se
+ * avisa al cliente y se reparte cuando entre uno.
  */
 
 function leerEnvLocal(): Record<string, string> {
@@ -100,14 +88,12 @@ describe.skipIf(!disponible)('Asesor por pedido · asignación y aislamiento', (
     cliente = (perfil as { id: string }).id;
   });
 
-  /** Sedes que la prueba le impuso a asesores de la semilla, para devolverlas. */
+  /** Sedes impuestas a asesores de la semilla, para restaurarlas. */
   const sedesImpuestas: Array<{ user_id: string; location_id: string }> = [];
 
   afterAll(async () => {
     for (const id of creados) await borrarPedidoDePrueba(admin, id);
-    // Sin esto, los asesores de la semilla quedarían restringidos a una sede
-    // para siempre y la siguiente corrida fallaría por un motivo que nada
-    // tiene que ver con lo que comprueba.
+    // Sin esto los asesores de la semilla quedarían restringidos y la siguiente corrida fallaría.
     for (const s of sedesImpuestas) {
       await admin.from('user_pickup_locations').delete()
         .eq('user_id', s.user_id).eq('location_id', s.location_id);
@@ -126,17 +112,14 @@ describe.skipIf(!disponible)('Asesor por pedido · asignación y aislamiento', (
   it('el pedido nace con asesor, y de la sede correcta', async () => {
     const p = await crearPedidoDePrueba(admin, cliente, { sello });
     creados.push(p.id);
-    // `crearPedidoDePrueba` no pone sede, y un pedido sin sede lo cubre
-    // cualquier asesor. El flujo real (`create_order_from_cart`) SÍ la pone en
-    // el mismo insert, así que se reproduce eso: al cambiarla, el disparador
-    // de sede revisa si el asesor actual sigue sirviendo.
+    // `crearPedidoDePrueba` no pone sede; se asigna como hace `create_order_from_cart`
+    // para que el disparador revalide al asesor.
     await admin.from('orders').update({ pickup_location_id: sedeA }).eq('id', p.id);
 
     const { data } = await admin.from('orders').select('advisor_id').eq('id', p.id).single();
     const asignado = (data as { advisor_id: string | null }).advisor_id;
     expect(asignado, 'el pedido quedó sin asesor').not.toBeNull();
-    // Solo el asesor A cubre la sede A... salvo que existan asesores sin sedes
-    // restringidas, que cubren todas.
+    // Solo el asesor A cubre la sede A, salvo asesores sin sedes restringidas, que cubren todas.
     const { data: libres } = await admin.rpc('asesores_para_sede', { _location_id: sedeA });
     expect((libres as string[]) ?? []).toContain(asignado);
   });
@@ -169,7 +152,7 @@ describe.skipIf(!disponible)('Asesor por pedido · asignación y aislamiento', (
   });
 
   it('quien es asesor Y ADEMÁS otra cosa lo sigue viendo todo', async () => {
-    // Este es el que evita romper el despacho y la facturación sin enterarse.
+    // Taparle pedidos a quien despacha o factura rompería la operación.
     const mixto = await crearInterno(`asesor.mixto.${sello}@correo.test`, 'ASESOR', null);
     await admin.from('user_roles').insert({ user_id: mixto, role: 'DESPACHO' });
 
@@ -188,8 +171,7 @@ describe.skipIf(!disponible)('Asesor por pedido · asignación y aislamiento', (
     const sedeC = ((sedes ?? []) as Array<{ id: string }>)[2]?.id;
     if (!sedeC) return;
 
-    // Los asesores sin restricción cubren todas las sedes, así que para que
-    // este caso exista de verdad hay que restringirlos a todos.
+    // Los asesores sin restricción cubren todas las sedes: hay que restringirlos a todos.
     const { data: todos } = await admin.rpc('asesores_para_sede', { _location_id: sedeC });
     const sinRestringir = ((todos as string[]) ?? []).filter((a) => a !== asesorA && a !== asesorB);
     for (const a of sinRestringir) {
@@ -199,9 +181,7 @@ describe.skipIf(!disponible)('Asesor por pedido · asignación y aislamiento', (
 
     const p = await crearPedidoDePrueba(admin, cliente, { sello });
     creados.push(p.id);
-    // El pedido nace SIN sede, y un pedido sin sede lo cubre cualquier asesor:
-    // el disparador ya le puso uno. Para probar el caso «nadie cubre esta
-    // sede» hay que ponerle la sede y volver a dejarlo huérfano.
+    // Al nacer sin sede el disparador ya le asignó asesor; se le pone la sede y se deja huérfano.
     await admin.from('orders')
       .update({ pickup_location_id: sedeC, advisor_id: null, advisor_assigned_at: null })
       .eq('id', p.id);
@@ -217,7 +197,7 @@ describe.skipIf(!disponible)('Asesor por pedido · asignación y aislamiento', (
     expect(((avisos ?? []) as Array<{ title: string }>).map((a) => a.title).join(' '))
       .toMatch(/cola de asignación/i);
 
-    // Entra un asesor que sí cubre esa sede: se cumple la promesa.
+    // Entra un asesor que cubre la sede: se reparte el pedido.
     await crearInterno(`asesor.tarde.${sello}@correo.test`, 'ASESOR', sedeC);
 
     const { data: ya } = await admin.from('orders').select('advisor_id').eq('id', p.id).single();

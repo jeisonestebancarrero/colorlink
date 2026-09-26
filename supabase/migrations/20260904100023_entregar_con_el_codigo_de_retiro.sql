@@ -1,26 +1,6 @@
--- Entregar un pedido verificando el código de retiro.
---
--- El código existía desde el principio: se le muestra al cliente, viaja en el
--- correo y se imprime en la ficha del pedido. Pero NO SE COMPROBABA EN NINGÚN
--- SITIO. El pedido se daba por entregado pulsando un botón, así que el código
--- era decorativo: cualquiera podía llevarse la mercancía diciendo un número de
--- pedido, y quien atendía no tenía forma de confirmar que la persona frente al
--- mostrador fuera la que compró.
---
--- Aquí se invierte: se escribe el código que trae el cliente y el sistema
--- decide. Si coincide, el pedido pasa a ENTREGADO solo. Si no, no pasa nada.
---
--- Tres cosas que no se hacen a propósito:
---
---   1. NO se dice si el código existe pero es de otra sede. Un mensaje que
---      distinga «no existe» de «es de otro lado» convierte esto en un oráculo
---      para adivinar códigos ajenos. Se responde lo mismo en los dos casos.
---   2. NO exige ser administrador. Quien entrega mercancía es el del mostrador,
---      y obligar a un administrador para cada retiro es lo que hace que se
---      terminen compartiendo contraseñas.
---   3. NO acepta un pedido que no esté LISTO_PARA_RETIRO. Entregar algo que
---      todavía se está alistando es exactamente el error que este código
---      previene.
+-- Entrega verificando el código de retiro, antes solo decorativo. Mismo mensaje si el
+-- código no existe o es de otra sede (evita adivinar códigos), no exige admin y solo
+-- acepta pedidos LISTO_PARA_RETIRO.
 create or replace function public.entregar_por_codigo(_codigo text)
 returns jsonb
 language plpgsql
@@ -47,8 +27,7 @@ begin
     from public.orders o
    where upper(regexp_replace(coalesce(o.pickup_code, ''), '[^A-Za-z0-9]', '', 'g')) = v_codigo
      and o.delivery_method = 'RETIRO_TIENDA'
-     -- La sede acota igual que en el resto del portal: quien atiende en
-     -- Barranquilla no entrega un pedido de Medellín.
+     -- Acotado a las sedes visibles, como el resto del portal.
      and public.puede_ver_sede(o.pickup_location_id)
    limit 1;
 
@@ -71,9 +50,7 @@ begin
      set status = 'ENTREGADO', updated_at = now()
    where id = v_pedido.id;
 
-  -- Queda en la conversación del pedido, que es donde el cliente y el equipo
-  -- miran la historia. El disparador de trazabilidad anota el cambio de
-  -- estado; esto añade CÓMO se entregó.
+  -- El disparador ya registra el cambio de estado; esto deja cómo se entregó.
   insert into public.conversation_messages (order_id, author_id, kind, body)
   values (v_pedido.id, (select auth.uid()), 'EVENTO',
           'Pedido entregado en tienda, verificado con el código de retiro.');

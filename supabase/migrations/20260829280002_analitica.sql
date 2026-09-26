@@ -1,12 +1,5 @@
--- ============================================================
--- Analítica de ventas (MÓDULO 45/58)
--- ============================================================
--- SOBRE EL MARGEN: hasta ahora el catálogo solo guarda el PRECIO DE VENTA.
--- Sin costo no hay margen, y calcularlo con un porcentaje inventado daría
--- una cifra que parece un dato y no lo es. Se añade `cost_cop` como columna
--- anulable: donde Pintuco cargue el costo, la analítica muestra margen real;
--- donde no, muestra ingresos y dice explícitamente que falta el costo.
--- ============================================================
+-- Analítica de ventas. cost_cop es anulable: sin costo no se estima margen, se
+-- informa que falta.
 
 alter table public.product_variants add column cost_cop numeric(14,2);
 alter table public.product_variants
@@ -16,7 +9,7 @@ alter table public.product_variants
 comment on column public.product_variants.cost_cop is
   'Costo unitario. Sin este dato no se puede calcular margen; la analítica lo informa en vez de estimarlo.';
 
--- Los pedidos cancelados no son ventas: quedan fuera de toda cifra.
+-- Los pedidos cancelados no son ventas.
 create or replace view public.v_ventas as
   select
     o.id            as order_id,
@@ -47,10 +40,7 @@ create or replace view public.v_ventas as
 comment on view public.v_ventas is
   'Base de la analítica. Excluye pedidos cancelados: no son ventas.';
 
-/**
- * Resumen de ventas del periodo. Devuelve un único objeto para que el
- * tablero no tenga que hacer seis consultas.
- */
+-- Resumen del periodo en un solo objeto para el tablero.
 create or replace function public.resumen_ventas(_desde date default null, _hasta date default null)
 returns jsonb
 language sql
@@ -95,13 +85,8 @@ as $$
   );
 $$;
 
-/**
- * Ranking comercial.
- *
- * Un pedido se atribuye al ASESOR ASIGNADO al proyecto que lo originó. Los
- * pedidos sin proyecto no tienen asesor y se reportan aparte en vez de
- * repartirse: inventar una atribución falsearía el ranking y las comisiones.
- */
+-- Atribuye cada pedido al asesor asignado a su proyecto; los pedidos sin proyecto
+-- se reportan aparte en vez de repartirse.
 create or replace function public.ranking_comercial(_desde date default null, _hasta date default null)
 returns jsonb
 language sql

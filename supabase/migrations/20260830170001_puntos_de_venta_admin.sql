@@ -1,21 +1,7 @@
--- ============================================================
--- Administrar los puntos de venta
--- ============================================================
--- Hasta ahora las tiendas solo se podían crear o corregir con SQL: no había
--- pantalla. La tabla `pickup_locations` ya permitía escritura al
--- administrador, pero nadie podía ejercerla desde la aplicación.
---
--- Lo importante es que no hay nada que "sincronizar": la tienda del cliente y
--- el portal interno leen LA MISMA tabla. Lo que se guarde aquí es lo que el
--- cliente ve en Puntos de Retiro; el único retraso es el cache de catálogo
--- del navegador, que dura cinco minutos.
+-- Administración de puntos de venta. La tienda y el portal leen la misma tabla:
+-- no hay nada que sincronizar.
 
--- ------------------------------------------------------------
--- 1. Bucket público para las fotos de las tiendas
--- ------------------------------------------------------------
--- Público a propósito: la foto de una tienda es contenido de la vitrina, la
--- ve cualquiera que entre a buscar dónde retirar. Distinto de
--- `project-files`, que es privado porque guarda fotos de obras de clientes.
+-- Bucket público: las fotos de tiendas son vitrina (project-files, en cambio, es privado).
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values (
   'tiendas', 'tiendas', true, 5242880,
@@ -26,7 +12,6 @@ on conflict (id) do update
       file_size_limit = excluded.file_size_limit,
       allowed_mime_types = excluded.allowed_mime_types;
 
--- Cualquiera lee: es la foto que se muestra en la tienda pública.
 create policy "tiendas_lectura_publica" on storage.objects
   for select to public
   using (bucket_id = 'tiendas');
@@ -45,24 +30,12 @@ create policy "tiendas_borrado_admin" on storage.objects
   for delete to authenticated
   using (bucket_id = 'tiendas' and (select public.is_admin()));
 
--- ------------------------------------------------------------
--- 2. El personal necesita ver también las tiendas inactivas
--- ------------------------------------------------------------
--- La política pública solo muestra las ACTIVO, y con razón: una tienda
--- cerrada no debe ofrecerse para retiro. Pero entonces, al desactivar una
--- desde el portal interno, desaparecía de la propia pantalla que acababa de
--- desactivarla y ya no había forma de volver a activarla.
+-- El personal ve también las inactivas; si no, al desactivar una ya no podría reactivarla.
 create policy "pickup_locations_lectura_staff" on public.pickup_locations
   for select to authenticated
   using ( (select public.is_staff()) );
 
--- ------------------------------------------------------------
--- 3. Crear y editar una tienda
--- ------------------------------------------------------------
--- Pasa por función y no por UPDATE directo para validar en un solo sitio lo
--- que no puede quedar al criterio de la pantalla: que el identificador sea
--- único, que las coordenadas caigan dentro de Colombia y que quede auditoría
--- de quién tocó qué. Una tienda mal ubicada manda a un cliente a otra ciudad.
+-- Vía función para validar ref única y coordenadas en Colombia, y auditar.
 create or replace function public.upsert_pickup_location(_datos jsonb)
 returns uuid
 language plpgsql
@@ -88,9 +61,7 @@ begin
       using errcode = '22023';
   end if;
 
-  -- Colombia va de ~-4.2 a ~13.4 de latitud y de ~-79 a ~-66.8 de longitud.
-  -- Un punto fuera de ese rango es casi siempre latitud y longitud
-  -- invertidas, y el mapa del cliente lo dibujaría en medio del océano.
+  -- Fuera del rango de Colombia suele ser latitud y longitud invertidas.
   if v_lat is not null and (v_lat < -4.5 or v_lat > 13.5) then
     raise exception 'COORDENADA_FUERA_DE_RANGO: la latitud no corresponde a Colombia'
       using errcode = '22023';
@@ -101,12 +72,9 @@ begin
   end if;
 
   if v_id is null then
-    -- `external_ref` es la llave estable con la que la aplicación reconoce la
-    -- tienda. Si no la escriben, se deriva del nombre.
+    -- external_ref es la llave estable de la tienda; si falta, se deriva del nombre.
     if v_ref is null then
-      -- Se quitan las tildes a mano en vez de instalar la extensión
-      -- `unaccent`: es una sola línea y evita añadir una dependencia al
-      -- despliegue por un identificador que además se puede escribir a mano.
+      -- translate en vez de la extensión unaccent para no añadir una dependencia.
       v_ref := translate(lower(v_nombre), 'áéíóúüñÁÉÍÓÚÜÑ', 'aeiouunAEIOUUN');
       v_ref := 'store-' || regexp_replace(v_ref, '[^a-z0-9]+', '-', 'g');
       v_ref := left(trim(both '-' from v_ref), 60);

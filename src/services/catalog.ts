@@ -19,37 +19,15 @@ import {
   type SolutionRow,
 } from './catalogMappers';
 
-/**
- * Servicios de catálogo (MÓDULO 35).
- *
- * Sustituyen a los arrays de src/data/*.ts. Devuelven los mismos tipos, de
- * modo que las páginas solo cambian DE DÓNDE vienen los datos, nunca cómo
- * se pintan.
- *
- * Todas las consultas piden columnas explícitas (nunca `select *`) y aplican
- * filtros y paginación en el servidor, no en el navegador (MÓDULO 45/46).
- */
+/** Servicios de catálogo: columnas explícitas y filtros/paginación en el servidor. */
 
 function errorLegible(contexto: string, error: { message: string }): Error {
   console.error(`[catalog] ${contexto}:`, error.message);
   return new Error('No fue posible cargar la información del catálogo. Inténtalo nuevamente.');
 }
 
-// ============================================================
-// CACHÉ EN MEMORIA CON DEDUPLICACIÓN
-// ============================================================
-// MÓDULO 45: "no hacer consultas innecesarias".
-//
-// Varios componentes piden el mismo catálogo a la vez (StorePage, el
-// buscador del Navbar y el Dashboard piden todos los productos). Sin
-// deduplicación eso serían tres peticiones idénticas simultáneas, porque el
-// proyecto no usa React Query ni ninguna caché de estado servidor.
-//
-// Se cachea la PROMESA, no el resultado: si tres componentes montan en el
-// mismo tick, los tres comparten una única petición en vuelo. El catálogo
-// cambia con muy poca frecuencia, de ahí los 5 minutos de vigencia.
-// Un error nunca se cachea: se descarta para que el botón "Reintentar"
-// vuelva a consultar de verdad.
+// Caché en memoria de la promesa (no del resultado) para deduplicar peticiones
+// simultáneas; vigencia de 5 min y los errores no se cachean para permitir reintentar.
 const TTL_CATALOGO_MS = 5 * 60 * 1000;
 const cacheCatalogo = new Map<string, { expiraEn: number; promesa: Promise<unknown> }>();
 
@@ -66,22 +44,14 @@ function memo<T>(clave: string, cargar: () => Promise<T>): Promise<T> {
   return promesa;
 }
 
-/**
- * Vacía la caché del catálogo. Se usará cuando un administrador edite el
- * catálogo (fase de back-office) y desde las pruebas.
- */
+/** Vacía la caché del catálogo (edición desde back-office y pruebas). */
 export function invalidarCacheCatalogo(): void {
   cacheCatalogo.clear();
 }
 
-// ============================================================
-// DISPONIBILIDAD
-// ============================================================
-/**
- * Estado de existencias por variante, derivado del inventario real.
- * Se consulta la vista pública, que expone el estado pero nunca las
- * cantidades exactas.
- */
+// Disponibilidad
+
+/** Estado de existencias por variante desde la vista pública, que no expone cantidades. */
 async function cargarDisponibilidad(): Promise<
   Map<string, StoreProductPresentation['stockStatus']>
 > {
@@ -91,8 +61,7 @@ async function cargarDisponibilidad(): Promise<
 
   const mapa = new Map<string, StoreProductPresentation['stockStatus']>();
   if (error || !data) {
-    // La disponibilidad es un adorno: si falla, el catálogo debe seguir
-    // mostrándose. Cada presentación caerá a 'PreOrder'.
+    // No bloquea el catálogo: si falla, cada presentación cae a 'PreOrder'.
     if (error) console.warn('[catalog] disponibilidad no disponible:', error.message);
     return mapa;
   }
@@ -102,9 +71,7 @@ async function cargarDisponibilidad(): Promise<
   return mapa;
 }
 
-// ============================================================
-// PRODUCTOS
-// ============================================================
+// Productos
 const PRODUCT_SELECT = `
   id, external_ref, code, name, tagline, description, environment, finish,
   coverage, spread_rate_m2_per_gal, drying_time, features, image_url,
@@ -118,7 +85,7 @@ const PRODUCT_SELECT = `
 export interface ProductFilters {
   category?: string;
   search?: string;
-  /** Paginación (MÓDULO 46). Por defecto trae el catálogo completo, que hoy son 11 filas. */
+  /** Por defecto trae el catálogo completo. */
   page?: number;
   limit?: number;
 }
@@ -137,7 +104,7 @@ export const productService = {
       consulta = consulta.eq('categories.name', filtros.category);
     }
     if (filtros.search?.trim()) {
-      // Búsqueda en servidor sobre nombre, código y descripción (MÓDULO 47).
+      // Búsqueda en servidor por nombre, código y descripción; se limpian caracteres del filtro de PostgREST.
       const q = filtros.search.trim().replace(/[%,()]/g, '');
       consulta = consulta.or(`name.ilike.%${q}%,code.ilike.%${q}%,description.ilike.%${q}%`);
     }
@@ -171,7 +138,7 @@ export const productService = {
     return data ? aStoreProduct(data as unknown as ProductRow, disponibilidad) : null;
   },
 
-  /** Categorías de producto, para los filtros de StorePage. */
+  /** Categorías para los filtros de la tienda. */
   async getCategories(): Promise<string[]> {
     const { data, error } = await supabase
       .from('categories')
@@ -185,17 +152,11 @@ export const productService = {
   },
 };
 
-// ============================================================
-// COLORES
-// ============================================================
+// Colores
 const COLOR_SELECT = 'code, name, hex, rgb, family, recommended_product, description';
 
 export const colorService = {
-  /**
-   * Carta de color publicada. Solo `is_palette = true`: los colores que
-   * existen únicamente como opción de un producto no forman parte de la
-   * carta y no deben aparecer en el visualizador.
-   */
+  /** Solo `is_palette = true`: los colores que solo existen como opción de producto no son carta. */
   async getPalette(): Promise<ColorSwatch[]> {
     return memo('colors:palette', async () => {
     const { data, error } = await supabase
@@ -230,9 +191,7 @@ export const colorService = {
   },
 };
 
-// ============================================================
-// SOLUCIONES Y KITS
-// ============================================================
+// Soluciones y kits
 const SOLUTION_BASE = `
   id, external_ref, name, description, image_url, badge, application,
   surface_summary, features, system_summary, durability_estimate,
@@ -252,7 +211,7 @@ const KIT_SELECT = `
 `;
 
 export const solutionService = {
-  /** Sistemas técnicos del catálogo (is_kit = false). */
+  /** Sistemas técnicos (is_kit = false). */
   async getCatalog(categoria?: string, busqueda?: string): Promise<SolutionCatalogItem[]> {
     return memo(`solutions:catalog:${categoria ?? ''}:${busqueda ?? ''}`, async () => {
     let consulta = supabase
@@ -292,9 +251,7 @@ export const solutionService = {
   },
 };
 
-// ============================================================
-// PUNTOS DE RETIRO
-// ============================================================
+// Puntos de retiro
 export const storeService = {
   async getStores(ciudad?: string): Promise<PintucoStore[]> {
     return memo(`stores:${ciudad ?? 'todas'}`, async () => {

@@ -1,30 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 
 /**
- * La ruta del portal vive en la URL, no en un `useState`.
- *
- * Antes la navegación era estado local: la barra de direcciones se quedaba en
- * `/` y al recargar la persona volvía al tablero de aplicaciones, perdiendo lo
- * que estaba mirando. Tampoco se podía compartir un enlace a un pedido ni usar
- * el botón «atrás» del navegador, que es lo primero que intenta cualquiera.
- *
- * Se hace con la History API y no con una librería de rutas porque la
- * aplicación ya tiene su propio `switch` de pantallas: lo único que faltaba
- * era mantener la URL sincronizada. Añadir un enrutador implicaría reescribir
- * las diecisiete pantallas para nada.
- *
- * `nginx-admin.conf` ya sirve `admin.html` para cualquier ruta
- * (`try_files $uri $uri/ /admin.html`), así que recargar en
- * `/pedidos/ORD-PNT-000045` funciona: no hace falta tocar el servidor.
+ * Ruta del portal sincronizada con la URL mediante la History API, sin librería de rutas.
+ * Depende de que `nginx-admin.conf` sirva `admin.html` para cualquier ruta.
  */
 
-/**
- * El tablero de aplicaciones tiene su propia ruta.
- *
- * Antes vivía en `/`, que no dice nada: al recargar no se distinguía "estoy en
- * el tablero" de "no sé dónde estoy". Con `/apps` el tablero es una pantalla
- * más, se puede enlazar y se ve en la barra de direcciones como cualquier otra.
- */
+/** Ruta propia del tablero, distinta de la raíz. */
 export const RUTA_TABLERO = '/apps';
 
 /** Ruta actual normalizada: siempre empieza por `/` y nunca termina en `/`. */
@@ -38,12 +19,9 @@ function rutaDeLaUrl(): string {
 export interface Ruta {
   /** Ruta completa, p. ej. `/pedidos/ORD-PNT-000045`. */
   completa: string;
-  /** Módulo, p. ej. `/pedidos`. Es lo que consume el `switch` de pantallas. */
+  /** Módulo, p. ej. `/pedidos`; lo consume el `switch` de pantallas. */
   modulo: string;
-  /**
-   * Identificador del registro abierto, si la ruta lo trae.
-   * `/facturacion/POS-000004` → `'POS-000004'`.
-   */
+  /** Id del registro abierto: `/facturacion/POS-000004` → `'POS-000004'`. */
   id: string | null;
 }
 
@@ -61,16 +39,9 @@ function partir(completa: string): Ruta {
 
 export interface NavegacionUrl {
   ruta: Ruta;
-  /**
-   * Navega y deja rastro en el historial: el botón «atrás» vuelve a la
-   * pantalla anterior, que es lo que espera cualquiera.
-   */
+  /** Navega con `pushState`. */
   ir: (destino: string) => void;
-  /**
-   * Cambia la URL SIN dejar rastro. Para abrir el detalle de un registro
-   * dentro de la misma pantalla: si cada apertura empujara al historial,
-   * «atrás» obligaría a recorrer uno por uno todos los que se abrieron.
-   */
+  /** Cambia la URL con `replaceState`, para abrir detalles sin llenar el historial. */
   reemplazar: (destino: string) => void;
   /** Abre un registro dentro del módulo actual: `/pedidos` + id. */
   abrir: (modulo: string, id: string) => void;
@@ -81,8 +52,7 @@ export interface NavegacionUrl {
 export function useRutaUrl(): NavegacionUrl {
   const [completa, setCompleta] = useState<string>(() => rutaDeLaUrl());
 
-  // Quien entra a `/` acaba en `/apps` sin dejar rastro en el historial: con
-  // `pushState`, «atrás» devolvería a `/` y volvería a redirigir en bucle.
+  // `/` → `/apps` con replace: con push, «atrás» redirigiría en bucle.
   useEffect(() => {
     if (window.location.pathname === '/' || window.location.pathname === '') {
       try {
@@ -103,7 +73,7 @@ export function useRutaUrl(): NavegacionUrl {
   const escribir = useCallback((destino: string, reemplazando: boolean) => {
     const limpio = destino.startsWith('/') ? destino.replace(/\/+$/, '') || '/' : `/${destino}`;
     if (limpio === rutaDeLaUrl()) {
-      // Ya estamos ahí: no se ensucia el historial con una entrada repetida.
+      // Evita entradas repetidas en el historial.
       setCompleta(limpio);
       return;
     }
@@ -111,8 +81,7 @@ export function useRutaUrl(): NavegacionUrl {
       if (reemplazando) window.history.replaceState(null, '', limpio);
       else window.history.pushState(null, '', limpio);
     } catch (e) {
-      // Un navegador que niegue la History API no debe dejar la aplicación
-      // sin navegar: se pierde la URL, no la pantalla.
+      // Si la History API falla, se pierde la URL pero no la navegación.
       console.warn('[ruta] no se pudo actualizar la URL', e);
     }
     setCompleta(limpio);

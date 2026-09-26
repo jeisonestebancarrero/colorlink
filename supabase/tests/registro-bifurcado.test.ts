@@ -2,12 +2,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { readFileSync, existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { limpiarCuentasDePrueba, clienteDeServicio } from './limpieza';
-/**
- * Los nombres se guardan en MAYÚSCULAS y los documentos sin puntos
- * (20260902100006): la comparación se hace contra el dato NORMALIZADO, no
- * contra la caja con la que se escribió. Comparar contra el literal original
- * estaría comprobando cómo lo escribió la prueba, no qué guardó la base.
- */
+/** La base guarda nombres en mayúsculas y documentos sin puntos: se compara contra el valor normalizado. */
 const NORM = (t: string) => t.trim().replace(/\s+/g, ' ').toUpperCase();
 /** Documento sin separadores, conservando el guion del dígito de verificación. */
 const NORM_DOC = (t: string) =>
@@ -15,20 +10,9 @@ const NORM_DOC = (t: string) =>
 
 
 /**
- * El registro tiene dos caminos y cada uno debe producir exactamente lo suyo.
- *
- * Lo que se vigila aquí, en orden de gravedad:
- *   1. Que una persona natural NO quede con empresa creada. El formulario
- *      viejo exigía razón social a todo el mundo y llenaba la tabla
- *      `companies` de empresas inventadas por particulares.
- *   2. Que registrarse escribiendo el nombre de una empresa YA EXISTENTE no
- *      dé acceso a esa empresa. Sería la fuga de inquilinos más barata del
- *      sistema: basta con saber cómo se llama la constructora.
- *   3. Que el documento quede guardado, porque la factura POS lo necesita
- *      para identificar al comprador que no tiene NIT.
- *
- * Las cuentas creadas se limpian al final con la service_role key, que se lee
- * de .env.local (fuera de control de versiones) y nunca del bundle.
+ * Registro bifurcado: una persona natural no crea empresa, usar el nombre de una empresa
+ * existente no da acceso a ella y el documento queda guardado (lo exige la factura POS).
+ * La limpieza usa la service_role key de .env.local, nunca del bundle.
  */
 
 function leerEnvLocal(): Record<string, string> {
@@ -66,7 +50,7 @@ async function hayInstancia(): Promise<boolean> {
   }
 }
 
-/** Devuelve el cuerpo crudo del signup, para poder mirar el error. */
+/** Devuelve el cuerpo crudo del signup para inspeccionar el error. */
 async function registrarCrudo(
   cred: { email: string; password: string },
   metadata: Record<string, string>,
@@ -132,8 +116,7 @@ describe.skipIf(!disponible)('Registro bifurcado · persona natural y empresa', 
       city: 'Bogotá',
     });
 
-    // Se registra escribiendo el nombre de una empresa que YA existe en la
-    // semilla, a ver si el sistema se la entrega.
+    // Se registra con el nombre de una empresa de la semilla para intentar colarse en ella.
     tImpostor = await registrar(IMPOSTOR, {
       first_name: 'Ivan',
       last_name: 'Suplantador',
@@ -144,7 +127,7 @@ describe.skipIf(!disponible)('Registro bifurcado · persona natural y empresa', 
       city: 'Cali',
     });
 
-    // Un segundo empleado de la MISMA empresa: mismo NIT, otra persona.
+    // Un segundo empleado de la misma empresa: mismo NIT, otra persona.
     tColega = await registrar(COLEGA, {
       first_name: 'Marcela',
       last_name: 'Peña',
@@ -165,19 +148,14 @@ describe.skipIf(!disponible)('Registro bifurcado · persona natural y empresa', 
   });
 
   afterAll(async () => {
-    // Sin la service_role key no se puede limpiar; se avisa en lugar de
-    // fallar, para no romper la suite de quien no la tenga configurada.
+    // Sin service_role no se puede limpiar: se avisa en vez de fallar.
     if (!SERVICE) {
       console.warn('[registro-bifurcado] sin SUPABASE_SERVICE_ROLE_KEY: cuentas de prueba no eliminadas');
       return;
     }
 
-    // Se borra por PATRÓN de correo, no por la lista `creados`. Esa lista se
-    // llena al FINAL del `beforeAll`: si una de las cuatro altas fallaba,
-    // las anteriores ya existían pero nunca llegaban a la lista y se
-    // quedaban en la base. Así se acumularon 62 usuarios y 71 empresas de
-    // prueba, hasta enterrar a los clientes reales en la pantalla de
-    // Clientes. El patrón las atrapa todas, se rompa donde se rompa.
+    // Se borra por patrón de correo, no por lista: si un alta falla a medias, la lista
+    // queda incompleta y las cuentas se quedarían en la base.
     await limpiarCuentasDePrueba(clienteDeServicio(API, SERVICE), sello);
   });
 
@@ -235,11 +213,11 @@ describe.skipIf(!disponible)('Registro bifurcado · persona natural y empresa', 
       headers: auth(tImpostor),
     }).then((r) => r.json());
 
-    // Ve una empresa homónima, pero es SUYA y recién creada, no la original.
+    // Ve una empresa homónima, pero es suya y recién creada.
     expect(empresas).toHaveLength(1);
     expect(empresas[0].nit).toBe(NORM_DOC(NIT_IMPOSTOR));
 
-    // La prueba de fuego: no puede ver los proyectos de la empresa original.
+    // No puede ver los proyectos de la empresa original.
     const proyectos = await fetch(`${API}/rest/v1/projects?select=id`, {
       headers: auth(tImpostor),
     }).then((r) => r.json());
@@ -247,8 +225,7 @@ describe.skipIf(!disponible)('Registro bifurcado · persona natural y empresa', 
   });
 
   it('registrar una empresa con un NIT ya existente NO revienta la cuenta', async () => {
-    // Antes esto rompía el trigger de alta con un 500 opaco y el usuario
-    // perdía el registro entero.
+    // Un NIT repetido no debe tumbar el disparador de alta.
     expect(tColega).not.toBe('');
     const [p] = await fetch(`${API}/rest/v1/profiles?select=company_id,email`, {
       headers: auth(tColega),
@@ -313,16 +290,14 @@ describe.skipIf(!disponible)('Registro bifurcado · persona natural y empresa', 
       { first_name: 'Otra', client_type: 'Particular' },
     );
     expect(r.ok).toBe(false);
-    // El mensaje es el que el servicio traduce a "Ya existe una cuenta con
-    // este correo electrónico"; si GoTrue lo cambia, el usuario dejaría de
-    // ver una explicación y esta prueba lo avisa.
+    // El servicio traduce este mensaje de GoTrue; si cambia, el usuario dejaría de ver la explicación.
     expect(`${r.codigo} ${r.mensaje}`.toLowerCase()).toMatch(/already/);
   });
 
   it('el mismo DOCUMENTO no puede registrarse con otro correo', async () => {
     const doc = `43${sello}`.slice(0, 10);
 
-    // Así lo comprueba el formulario antes de crear nada.
+    // Es la comprobación que hace el formulario antes de crear nada.
     const consulta = await fetch(`${API}/rest/v1/rpc/documento_ya_registrado`, {
       method: 'POST',
       headers: { apikey: ANON, 'Content-Type': 'application/json' },
@@ -330,7 +305,7 @@ describe.skipIf(!disponible)('Registro bifurcado · persona natural y empresa', 
     });
     expect(await consulta.json()).toBe(true);
 
-    // Y aunque alguien se salte el formulario, el alta lo rechaza.
+    // Aunque se salte el formulario, el alta lo rechaza.
     const r = await registrarCrudo(
       { email: `impostor.doc.${sello}@correo.test`, password: 'pintuco2025*' },
       { first_name: 'Impostor', client_type: 'Particular', document_type: 'CC', document_number: doc },
@@ -348,8 +323,7 @@ describe.skipIf(!disponible)('Registro bifurcado · persona natural y empresa', 
   });
 
   it('la consulta de documento no revela a quién pertenece', async () => {
-    // Responde sí/no y nada más: acertar una cédula no puede devolver el
-    // nombre, el correo ni el teléfono de esa persona.
+    // Solo sí/no: acertar una cédula no puede revelar datos de esa persona.
     const r = await fetch(`${API}/rest/v1/rpc/documento_ya_registrado`, {
       method: 'POST',
       headers: { apikey: ANON, 'Content-Type': 'application/json' },

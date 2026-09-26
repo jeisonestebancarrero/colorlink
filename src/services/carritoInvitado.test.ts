@@ -2,24 +2,11 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import type { StoreProduct } from '../types';
 
 /**
- * Carrito del visitante SIN sesión.
- *
- * Lo que se vigila:
- *   1. Que un visitante pueda armar su carrito sin cuenta. Antes no podía:
- *      "Agregar al Carrito" lanzaba un error que moría en la consola y el
- *      visitante se iba sin comprar y sin ver un solo mensaje.
- *   2. Que aquí NO se guarde ni un precio. Si el precio viajara en el
- *      navegador, cualquiera lo editaría desde la consola. Es el mismo
- *      principio del carrito del servidor.
- *   3. Que las cantidades se sumen y no se pasen del tope de la base
- *      (cart_items_cantidad_positiva, <= 999): pasarse haría fallar el
- *      volcado y el visitante perdería su carrito justo al iniciar sesión.
- *   4. Que un localStorage que lanza no tumbe la tienda (modo privado, cuota
- *      llena, cookies bloqueadas).
+ * Carrito sin sesión: se puede armar sin cuenta, nunca guarda precios, respeta el
+ * tope de cantidad de la base (999) y tolera un localStorage que lanza.
  */
 
-// El entorno de pruebas es node: no hay window. Se monta el mínimo que usa el
-// módulo, para poder probar la lógica sin arrastrar un DOM completo.
+// El entorno es node: se simula solo el `window` que usa el módulo.
 class AlmacenFalso {
   private datos = new Map<string, string>();
   getItem(k: string): string | null { return this.datos.get(k) ?? null; }
@@ -32,7 +19,7 @@ function montarAlmacen(instancia: unknown): void {
   (globalThis as { window?: unknown }).window = { localStorage: instancia };
 }
 
-// Se monta ANTES del import: el módulo se carga con `window` ya en su sitio.
+// Se monta antes del import para que el módulo cargue con `window` disponible.
 let almacen = new AlmacenFalso();
 montarAlmacen(almacen);
 
@@ -41,7 +28,7 @@ const {
   fijarCantidad, quitar, guardarIntencion, leerIntencion, CANTIDAD_MAXIMA,
 } = await import('./carritoInvitado');
 
-/** Producto mínimo con dos presentaciones cuyos ids son variantes reales. */
+/** Producto mínimo con dos presentaciones de variantes reales. */
 const producto = (): StoreProduct => ({
   id: 'PNT-INT-002',
   code: 'PNT-INT-002',
@@ -87,7 +74,7 @@ describe('Carrito del visitante sin sesión', () => {
     await agregarProducto(producto(), '1 Galón (3.785 L)');
 
     const crudo = JSON.stringify(leerLineas());
-    // 118900 es el precio de la presentación. No puede aparecer por ningún lado.
+    // Precio de la presentación: no debe guardarse.
     expect(crudo).not.toContain('118900');
     expect(Object.keys(leerLineas()[0]).sort()).toEqual(
       ['colorId', 'kitSolutionId', 'quantity', 'variantId']
@@ -209,8 +196,7 @@ describe('Carrito del visitante sin sesión', () => {
       removeItem: () => { throw new Error('cuota llena'); },
     });
 
-    // Ni una ni otra deben propagar: el visitante navega con carrito vacío en
-    // lugar de ver la tienda caerse.
+    // Ninguno debe propagarse: se navega con el carrito vacío.
     expect(leerLineas()).toEqual([]);
     expect(() => vaciar()).not.toThrow();
     expect(() => guardarIntencion('pedido')).not.toThrow();

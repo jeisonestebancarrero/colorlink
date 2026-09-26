@@ -6,20 +6,8 @@ import { SelectorUbicacion } from '../common/SelectorUbicacion';
 import { ubicacionService } from '../../services/ubicaciones';
 
 /**
- * A dónde va el pedido y quién lo recibe.
- *
- * Antes esto era un solo campo de texto precargado con una dirección de
- * demostración escrita en el código, y la ciudad no se podía cambiar. Ahora:
- *
- *   * La dirección arranca EN BLANCO y es obligatoria para confirmar. Ninguna
- *     dirección inventada puede colarse en un pedido real por no haberla
- *     tocado.
- *   * El cliente con dirección guardada la ve propuesta y puede cambiarla.
- *   * La empresa con más de una sede elige a cuál va, y ve la sede completa:
- *     dirección, barrio, ciudad, departamento y contacto.
- *   * Siempre queda la opción de escribir una dirección nueva, porque una obra
- *     no es una sede registrada.
- *   * La ciudad sale del diccionario DIVIPOLA: los 1.122 municipios del país.
+ * Destino y receptor del pedido. La dirección arranca vacía y es obligatoria para que
+ * ningún dato de ejemplo llegue a un pedido real; la ciudad sale de DIVIPOLA.
  */
 
 const claseInput =
@@ -30,9 +18,8 @@ const claseInputError = 'border-rose-400 bg-rose-50/40';
 /** '2026-09-04' → 'viernes 4 de septiembre'. */
 function formatearFecha(iso: string): string {
   const [a, m, d] = iso.split('-').map(Number);
-  // Se construye en hora local a mediodía: con `new Date(iso)` la fecha se
-  // interpreta en UTC y en Colombia (-5) se muestra el día anterior. Ya pasó
-  // antes en este proyecto con las fechas corridas un día.
+  // Mediodía en hora local: `new Date(iso)` se interpreta en UTC y en Colombia
+  // (-5) mostraría el día anterior.
   const f = new Date(a, m - 1, d, 12, 0, 0);
   return f.toLocaleDateString('es-CO', {
     weekday: 'long', day: 'numeric', month: 'long',
@@ -55,11 +42,7 @@ export const DestinoEnvioSelector: React.FC = () => {
   const sedeElegida = sedesEmpresa.find((x) => x.id === destino.companyBranchId);
   const dirElegida = direccionesGuardadas.find((x) => x.id === destino.customerAddressId);
 
-  /**
-   * Municipio al que realmente va el pedido, según el modo elegido. Es lo que
-   * decide la fecha de entrega, así que no puede leerse solo del formulario de
-   * dirección nueva.
-   */
+  /** Municipio real de destino según el modo elegido; decide la fecha de entrega. */
   const municipioDestino =
     destino.modo === 'sede' ? sedeElegida?.municipalityCode
     : destino.modo === 'guardada' ? dirElegida?.municipalityCode
@@ -94,7 +77,7 @@ export const DestinoEnvioSelector: React.FC = () => {
 
   return (
     <div className="mt-3 p-3 bg-white rounded-lg border border-blue-100 space-y-3">
-      {/* Elegir de dónde sale la dirección */}
+      {/* Origen de la dirección */}
       {opciones.length > 1 && (
         <div className="flex flex-wrap gap-1.5">
           {opciones.map((o) => (
@@ -119,7 +102,7 @@ export const DestinoEnvioSelector: React.FC = () => {
         <p className="text-[11px] font-semibold text-rose-600">{erroresEntrega.destino}</p>
       )}
 
-      {/* ---- Direcciones guardadas ---- */}
+      {/* Direcciones guardadas */}
       {destino.modo === 'guardada' && (
         <div className="space-y-1.5">
           {direccionesGuardadas.map((d) => (
@@ -163,7 +146,7 @@ export const DestinoEnvioSelector: React.FC = () => {
         </div>
       )}
 
-      {/* ---- Sedes de la empresa ---- */}
+      {/* Sedes de la empresa */}
       {destino.modo === 'sede' && (
         <div className="space-y-1.5">
           {hayVariasSedes && (
@@ -231,7 +214,7 @@ export const DestinoEnvioSelector: React.FC = () => {
         </div>
       )}
 
-      {/* ---- Dirección nueva ---- */}
+      {/* Dirección nueva */}
       {destino.modo === 'nueva' && (
         <div className="space-y-2.5">
           <div className="space-y-1">
@@ -250,8 +233,7 @@ export const DestinoEnvioSelector: React.FC = () => {
             )}
           </div>
 
-          {/* La ciudad SÍ se puede cambiar: sale del diccionario DIVIPOLA, con
-              los 33 departamentos y los 1.122 municipios del país. */}
+          {/* Ciudad editable desde DIVIPOLA. */}
           <SelectorUbicacion
             valor={destino.ubicacion}
             onChange={(u) => setDestino({ ...destino, ubicacion: u })}
@@ -266,9 +248,7 @@ export const DestinoEnvioSelector: React.FC = () => {
         </div>
       )}
 
-      {/* Antes decía "24-48 horas" escrito a mano, lo mismo para Medellín que
-          para Mitú. Ahora es la fecha que calcula el servidor y que queda
-          guardada en el pedido. */}
+      {/* Fecha calculada por el servidor y guardada en el pedido. */}
       <p className="text-[11px] font-semibold text-right">
         {entrega ? (
           <span className="text-blue-700">
@@ -290,11 +270,8 @@ export const DestinoEnvioSelector: React.FC = () => {
 };
 
 /**
- * Quién recibe el pedido.
- *
- * Obligatorio también cuando se retira en tienda: el punto de venta tiene que
- * saber a quién le entrega la mercancía y con qué documento verificarlo. El
- * servidor lo exige igual, así que esto solo adelanta el aviso.
+ * Receptor del pedido; obligatorio también al retirar en tienda para verificar su
+ * documento. El servidor lo exige igual: esto solo adelanta el aviso.
  */
 export const QuienRecibeFormulario: React.FC = () => {
   const { quienRecibe, setQuienRecibe, erroresEntrega } = useCart();
@@ -303,30 +280,19 @@ export const QuienRecibeFormulario: React.FC = () => {
   const campo = (k: keyof typeof quienRecibe, v: string) =>
     setQuienRecibe({ ...quienRecibe, [k]: v });
 
-  /**
-   * «Yo recibo».
-   *
-   * Antes había que escribir el nombre, el documento y el teléfono en CADA
-   * pedido, aunque quien compra sea quien recoge —que es el caso normal—. Tres
-   * campos repetidos en cada compra es de las cosas que hacen abandonar un
-   * carrito, y encima invitan a escribir cualquier cosa para pasar de pantalla:
-   * justo lo contrario de lo que el dato busca.
-   *
-   * Lo que el perfil no tenga se deja en blanco y se escribe una sola vez.
-   */
+  /** «Yo recibo»: precarga los datos del perfil; lo que falte se escribe una vez. */
   const yoRecibo = () =>
     setQuienRecibe({
       ...quienRecibe,
       nombre: `${user?.firstName ?? ''} ${user?.lastName ?? ''}`.trim(),
       tipoDocumento: user?.documentType || quienRecibe.tipoDocumento,
-      // Si el perfil no lo tiene, se deja lo que ya estuviera escrito en vez de
-      // borrarlo: pulsar «yo recibo» no puede hacerte perder lo que ya pusiste.
+      // Sin dato en el perfil se conserva lo ya escrito en vez de borrarlo.
       numeroDocumento: user?.documentNumber || quienRecibe.numeroDocumento,
       telefono: user?.phone || quienRecibe.telefono,
     });
 
-  // Quien entra con Google no trae documento, y el registro por correo tampoco
-  // lo guardaba siempre. Sin decirlo, «yo recibo» parece que falla.
+  // Google (y algunos registros por correo) no traen documento; sin este aviso
+  // «yo recibo» parece fallar.
   const faltaDocumentoEnPerfil = !!user && !user.documentNumber;
 
   const esMiNombre =

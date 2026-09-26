@@ -5,14 +5,8 @@ import { IconoModulo } from '../IconosDeModulo';
 import { RolesPanel } from '../RolesPanel';
 
 /**
- * Matriz de permisos editable.
- *
- * Es la pantalla que sustituye a "desplegar código para cambiar un acceso".
- * Cada casilla escribe en `role_permissions` mediante una función que
- * verifica administrador en el servidor.
- *
- * Importante: esto decide qué se OFRECE. Las políticas RLS siguen siendo la
- * última línea de defensa; un permiso mal configurado no expone filas ajenas.
+ * Matriz de `role_permissions`; cada casilla pasa por una función que exige admin.
+ * Decide qué ofrece la interfaz: RLS sigue protegiendo las filas.
  */
 export const PermisosPage: React.FC = () => {
   const [permisos, setPermisos] = useState<Permiso[]>([]);
@@ -96,8 +90,7 @@ export const PermisosPage: React.FC = () => {
         </p>
       </div>
 
-      {/* Qué VE cada rol. Va primero porque es la pregunta que se hace uno al
-          crear un cargo nuevo; los permisos afinan lo que puede hacer dentro. */}
+      {/* Visibilidad de módulos primero; los permisos afinan lo que cada rol hace dentro. */}
       <RolesPanel />
 
       <div className="pt-2 border-t border-slate-200">

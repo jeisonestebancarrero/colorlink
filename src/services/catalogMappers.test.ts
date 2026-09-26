@@ -13,13 +13,7 @@ import {
 import { formatearFecha, signoMovimiento } from './backoffice';
 import { FONDO_MARCA, imagenPunto, tieneFoto } from '../assets/puntosVenta';
 
-/**
- * Pruebas unitarias de los traductores de datos — FASE 4.
- *
- * No tocan la red: comprueban que una fila de Postgres se convierte en un
- * objeto con la forma EXACTA que el JSX existente espera. Es la garantía de
- * que cambiar el origen de datos no rompe ninguna página.
- */
+/** Sin red: verifican que cada fila de Postgres produzca la forma exacta que espera el JSX. */
 
 const disponibilidad = new Map<string, 'InStock' | 'LowStock' | 'PreOrder'>([
   ['var-1', 'InStock'],
@@ -100,8 +94,7 @@ describe('aStoreProduct', () => {
   };
 
   it('usa external_ref como id para no romper referencias existentes', () => {
-    // PaintCalculatorPage arranca con 'prod-koraza-5' escrito a mano y los
-    // pasos de los kits apuntan a estos mismos identificadores.
+    // Hay referencias literales a este id (calculadora y pasos de kits).
     expect(aStoreProduct(fila, disponibilidad).id).toBe('prod-koraza-5');
   });
 
@@ -204,9 +197,7 @@ describe('aSolutionKit', () => {
   });
 
   it('usa el precio publicado del kit cuando el paso no resuelve variante', () => {
-    // 6 de los 11 pasos reales citan etiquetas que no existen como variante
-    // ("Pack Completo Obra", "2 Cuñetes de 5 Galones"...). En ese caso el
-    // precio NO puede quedar en 0.
+    // Varios pasos citan etiquetas sin variante real; aun así el precio no puede quedar en 0.
     const pasos = fila.solution_products as SolutionProductRow[];
     const sinVariante: SolutionRow = {
       ...fila,
@@ -241,15 +232,10 @@ describe('aPintucoStore', () => {
   });
 });
 
-// ============================================================
 // Fechas sin hora
-// ============================================================
 describe('formatearFecha', () => {
   it('no adelanta ni retrasa un día una fecha sin hora', () => {
-    // Una columna `date` llega como 'YYYY-MM-DD'. Interpretada como
-    // medianoche UTC y pintada en horario de Colombia (UTC-5), retrocedía un
-    // día: la visita del 15 se anunciaba para el 14, y a esa obra el técnico
-    // llega el día equivocado.
+    // Una columna `date` interpretada como medianoche UTC retrocede un día en UTC-5.
     expect(formatearFecha('2026-09-15', { day: 'numeric', month: 'numeric', year: 'numeric' }))
       .toBe('15/9/2026');
     expect(formatearFecha('2026-01-01', { day: 'numeric', month: 'numeric', year: 'numeric' }))
@@ -270,14 +256,10 @@ describe('formatearFecha', () => {
   });
 });
 
-// ============================================================
 // Dirección de un movimiento de inventario
-// ============================================================
 describe('signoMovimiento', () => {
   it('las salidas restan aunque la cantidad se guarde en positivo', () => {
-    // `quantity` guarda siempre una magnitud positiva y la dirección vive en
-    // el tipo. Leer el signo del número mostraba «+5» para una salida de
-    // traslado: en un libro de inventario eso es leer al revés lo ocurrido.
+    // `quantity` siempre es positiva; la dirección la da el tipo.
     expect(signoMovimiento('SALIDA')).toBe(-1);
     expect(signoMovimiento('TRASLADO_SALIDA')).toBe(-1);
     expect(signoMovimiento('RESERVA')).toBe(-1);
@@ -294,9 +276,7 @@ describe('signoMovimiento', () => {
   });
 });
 
-// ============================================================
 // Imágenes de los puntos de venta
-// ============================================================
 describe('imagenPunto', () => {
   it('usa la foto que Pintuco haya cargado, por encima de todo', () => {
     const r = imagenPunto('store-med-poblado', 'https://cdn.pintuco.co/tienda.jpg');
@@ -311,8 +291,7 @@ describe('imagenPunto', () => {
   });
 
   it('una tienda sin imagen propia usa el fondo de marca, no un hueco', () => {
-    // Devolver cadena vacía dejaría en la tarjeta el icono de imagen rota del
-    // navegador, que es lo peor que puede pasarle a una vitrina.
+    // Cadena vacía mostraría el icono de imagen rota.
     const r = imagenPunto('store-inexistente-todavia', null);
     expect(r.src).toBe(FONDO_MARCA);
     expect(r.esFoto).toBe(false);
@@ -341,16 +320,9 @@ describe('imagenPunto', () => {
   });
 });
 
-// ============================================================
 // Campos numéricos en un formulario
-// ============================================================
 describe('conversión de coordenadas escritas a mano', () => {
-  /**
-   * Reproduce lo que hacía el formulario de puntos de venta cuando convertía
-   * a número en cada pulsación. Se deja como prueba porque es un error fácil
-   * de reintroducir y sus síntomas —una latitud de 46626, una longitud
-   * «NaN»— no parecen un problema de tipos sino de la base de datos.
-   */
+  /** Reproduce la conversión a número en cada pulsación, un error fácil de reintroducir. */
   const comoAntes = (texto: string): string => {
     const n = texto === '' ? null : Number(texto);
     return n === null ? '' : String(n);

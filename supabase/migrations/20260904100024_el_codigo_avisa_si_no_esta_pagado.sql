@@ -1,13 +1,5 @@
--- Al validar el código se dice si el pedido NO ESTÁ PAGADO.
---
--- La versión anterior solo respondía «todavía no está listo para retiro», que
--- es verdad pero no dice lo que importa. Quien está en el mostrador con el
--- cliente enfrente necesita leer el motivo real: si le dicen «no está listo»,
--- lo normal es pensar que falta alistarlo y entregarlo igual «porque ya está
--- ahí». Y la mercancía sale sin cobrar.
---
--- El pedido no se toca: se avisa y ya. Cuando el pago entre, se vuelve a pasar
--- el mismo código y ahí sí cambia de estado.
+-- Al validar el código se avisa explícitamente si el pedido no está pagado, para que
+-- en el mostrador no se entregue sin cobrar. El pedido no cambia.
 create or replace function public.entregar_por_codigo(_codigo text)
 returns jsonb
 language plpgsql
@@ -51,9 +43,7 @@ begin
       using errcode = '22023';
   end if;
 
-  -- El cobro se comprueba ANTES que el estado y con mensaje propio. Es el
-  -- motivo por el que un pedido sin pagar nunca llegó a LISTO_PARA_RETIRO, y
-  -- decir solo «no está listo» hace que en el mostrador se entregue igual.
+  -- El cobro se revisa antes que el estado y con mensaje propio.
   if not public.pedido_cobrado(v_pedido.id) then
     raise exception
       'SIN_PAGO: el pedido % NO está pagado. No entregues la mercancía. Cuando entre el pago, vuelve a pasar el mismo código.',

@@ -3,13 +3,8 @@ import { readFileSync, existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 /**
- * Seguridad del catálogo — FASE 3.
- *
- * Comprueba las dos mitades de la decisión de diseño:
- *  1. El catálogo comercial ES público (la landing debe poder mostrarlo sin
- *     sesión) pero solo en su parte ACTIVA.
- *  2. Escribir en el catálogo está reservado a ADMINISTRADOR, y las
- *     existencias reales de inventario solo las ve el personal interno.
+ * Seguridad del catálogo: la parte activa es pública sin sesión; escribir es solo
+ * de ADMINISTRADOR y las existencias reales solo las ve el personal.
  */
 
 function leerEnvLocal(): Record<string, string> {
@@ -133,15 +128,8 @@ describe.skipIf(!disponible)('RLS · catálogo', () => {
       body: JSON.stringify({ price_cop: 1 }),
     });
 
-    // OJO CON EL CÓDIGO DE ESTADO: aquí conviven dos defensas y ninguna es
-    // un 403 limpio.
-    //   · RLS filtra las filas ANTES del UPDATE, así que la sentencia afecta
-    //     a cero filas y PostgREST responde 204 (sin contenido).
-    //   · Desde que el costo dejó de ser una columna pública, el cliente ya
-    //     no tiene SELECT sobre la tabla entera, y `return=representation`
-    //     —que necesita leer lo modificado— se corta antes con un 42501.
-    // Lo que garantiza la protección no es el código sino que el precio no
-    // cambie, y eso es lo que se comprueba abajo.
+    // El código de estado varía: RLS deja el UPDATE en 0 filas (204) o `return=representation`
+    // corta antes con 42501. Lo que garantiza la protección es que el precio no cambie.
     expect([204, 403].includes(r.status) || r.status === 401).toBe(true);
 
     const [variante] = await fetch(
@@ -177,9 +165,7 @@ describe.skipIf(!disponible)('RLS · catálogo', () => {
   });
 
   it('un ADMINISTRADOR sí puede mantener el catálogo', async () => {
-    // Sobre un color propio, no sobre uno de la carta oficial: restaurar el
-    // valor al terminar no basta cuando otro archivo de prueba lee la carta
-    // en paralelo y cae dentro de la ventana en que está modificada.
+    // Sobre un color propio: modificar uno de la carta oficial rompería otras suites en paralelo.
     const codigo = `TEST-ADM-${Date.now()}`;
 
     const creado = await fetch(`${API}/rest/v1/colors`, {
@@ -212,13 +198,8 @@ describe.skipIf(!disponible)('RLS · catálogo', () => {
   });
 
   it('el catálogo inactivo no se filtra al público', async () => {
-    // Se usa un color PROPIO y desechable, no uno de la carta oficial.
-    //
-    // Antes esta prueba desactivaba PNT-100 y lo restauraba al terminar. Como
-    // los archivos de prueba corren en paralelo, la comprobación de fidelidad
-    // del catálogo caía justo en esa ventana y contaba 19 colores de 20: un
-    // fallo intermitente que no tenía nada que ver con lo que esa otra prueba
-    // estaba verificando.
+    // Color propio y desechable: tocar uno de la carta oficial interfiere con la
+    // prueba de fidelidad que corre en paralelo.
     const codigo = `TEST-${Date.now()}`;
 
     const creado = await fetch(`${API}/rest/v1/colors`, {
@@ -241,8 +222,7 @@ describe.skipIf(!disponible)('RLS · catálogo', () => {
     });
     expect(await oculto.json()).toEqual([]);
 
-    // Activo: sí lo ve. Sin esta mitad, la prueba pasaría igual aunque la
-    // política escondiera el catálogo entero.
+    // Activo: sí lo ve. Sin esta mitad la prueba pasaría aunque la política ocultara todo.
     await fetch(`${API}/rest/v1/colors?code=eq.${codigo}`, {
       method: 'PATCH',
       headers: auth(tAdmin),

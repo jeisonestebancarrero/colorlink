@@ -1,25 +1,5 @@
--- ============================================================
--- El chat con el equipo, en vivo y con final
--- ============================================================
--- Faltaban dos cosas para que la conversación fuera una conversación:
---
---   1. Cuando el asistente pasaba la charla a una persona, la respuesta del
---      equipo llegaba SOLO al detalle del pedido. El cliente se quedaba en la
---      burbuja esperando, sin saber que ya le habían contestado en otra
---      pantalla. Ahora es el MISMO hilo visto desde dos sitios: lo que escribe
---      cualquiera de los dos aparece en los dos.
---
---   2. No había forma de dar por terminada la conversación. Un hilo que nunca
---      cierra hace que el equipo no sepa qué está pendiente, y que el cliente
---      no sepa si le van a responder o ya se acabó.
---
--- CERRAR NO BORRA NADA. El historial queda; lo que se cierra es la posibilidad
--- de escribir. Y lo puede cerrar cualquiera de los dos lados, porque los dos
--- pueden considerar resuelto el asunto.
---
--- REABRIR ES EXPLÍCITO. Si el cliente vuelve a pedir una persona, se abre otra
--- vez. Así «terminar» significa de verdad terminar, y no un botón que el
--- siguiente mensaje deshace sin que nadie se entere.
+-- Chat en vivo con cierre: la burbuja y el detalle del pedido comparten hilo.
+-- Cerrar no borra el historial y reabrir es explícito, para que «terminar» signifique algo.
 
 alter table public.orders
   add column if not exists chat_cerrado_en timestamptz,
@@ -29,9 +9,6 @@ comment on column public.orders.chat_cerrado_en is
   'Cuándo se dio por terminada la conversación del pedido. Null = abierta. '
   'Cerrarla no borra los mensajes: solo impide escribir nuevos.';
 
--- ------------------------------------------------------------
--- Terminar la conversación
--- ------------------------------------------------------------
 create or replace function public.cerrar_conversacion(_order_id uuid)
 returns jsonb
 language plpgsql
@@ -49,8 +26,7 @@ begin
     raise exception 'FORBIDDEN: no tienes acceso a esta conversación' using errcode = '42501';
   end if;
 
-  -- Cerrar dos veces no es un error: el otro lado pudo cerrarla mientras esta
-  -- pantalla tenía el botón todavía a la vista. Se devuelve el estado y ya.
+  -- Cerrar dos veces no es error: el otro lado pudo cerrarla antes.
   if exists (select 1 from public.orders o
              where o.id = _order_id and o.chat_cerrado_en is not null) then
     return jsonb_build_object('cerrada', true, 'ya_estaba', true);
@@ -65,8 +41,7 @@ begin
     and not public.es_del_lado_del_cliente(_order_id, (select auth.uid()));
   v_quien := coalesce(public.nombre_de_quien_edita(), 'alguien');
 
-  -- Queda un EVENTO en el hilo, no un mensaje: es trazabilidad, no algo que
-  -- espere respuesta, y por eso tampoco enciende la campana de nadie.
+  -- EVENTO y no mensaje: es trazabilidad y no enciende la campana.
   insert into public.conversation_messages (order_id, author_id, kind, body)
   values (_order_id, null, 'EVENTO',
           'Conversación terminada por ' ||
@@ -76,12 +51,7 @@ begin
 end;
 $$;
 
--- ------------------------------------------------------------
--- Volver a abrirla
--- ------------------------------------------------------------
--- La usa el asistente cuando el cliente pide otra vez una persona, y el
--- personal cuando hay que retomar. Es explícita a propósito: si un mensaje
--- cualquiera reabriera el hilo, «terminar» no significaría nada.
+-- Explícita: si cualquier mensaje reabriera el hilo, cerrarlo no significaría nada.
 create or replace function public.reabrir_conversacion(_order_id uuid)
 returns jsonb
 language plpgsql
@@ -112,12 +82,7 @@ begin
 end;
 $$;
 
--- ------------------------------------------------------------
--- No se escribe en una conversación terminada
--- ------------------------------------------------------------
--- Se comprueba DENTRO de `post_message` y no en la pantalla: si viviera en el
--- navegador, bastaría con tener la pestaña vieja abierta para seguir
--- escribiendo en un hilo que el equipo ya dio por cerrado.
+-- El bloqueo va en post_message, no en la pantalla: una pestaña vieja podría seguir escribiendo.
 create or replace function public.post_message(
   _order_id uuid,
   _project_id uuid,
@@ -150,7 +115,6 @@ begin
       into v_puede
     from public.orders o where o.id = _order_id;
 
-    -- La conversación terminada no admite mensajes nuevos, de ningún lado.
     if exists (select 1 from public.orders o
                where o.id = _order_id and o.chat_cerrado_en is not null) then
       raise exception 'CHAT_CERRADO: esta conversación está terminada'
@@ -162,9 +126,7 @@ begin
     raise exception 'FORBIDDEN: no tienes acceso a esta conversación' using errcode = '42501';
   end if;
 
-  -- Una nota interna solo puede escribirla el personal: si un cliente lo
-  -- intenta, se degrada a mensaje normal en lugar de rechazarse, para no
-  -- perder lo que escribió.
+  -- Una nota interna de un cliente se degrada a mensaje para no perder el texto.
   if _internal and not public.is_staff() then
     _internal := false;
   end if;
@@ -179,11 +141,7 @@ begin
 end;
 $$;
 
--- ------------------------------------------------------------
--- Escalar: reabre si hacía falta y escribe, en una sola operación
--- ------------------------------------------------------------
--- Si fueran dos llamadas desde el navegador, un fallo entre medias dejaría la
--- conversación reabierta sin el mensaje que explica por qué.
+-- Una sola operación: dos llamadas podrían dejar el hilo reabierto sin el mensaje.
 create or replace function public.escalar_conversacion(_order_id uuid, _texto text)
 returns uuid
 language plpgsql
@@ -196,9 +154,6 @@ begin
 end;
 $$;
 
--- ------------------------------------------------------------
--- El estado, para pintar el botón correcto
--- ------------------------------------------------------------
 create or replace function public.estado_conversacion(_order_id uuid)
 returns jsonb
 language sql

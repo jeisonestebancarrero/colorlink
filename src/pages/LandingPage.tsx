@@ -36,10 +36,7 @@ interface LandingPageProps {
 }
 
 export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
-  // FASE 4 — catálogo desde Supabase.
-  // Sin guarda de carga: la landing es una página de marketing con secciones
-  // propias; mientras llegan los datos las rejillas se pintan vacías y se
-  // rellenan solas. Bloquear la página entera sería un cambio de experiencia.
+  // Sin guarda de carga a propósito: la landing se pinta y las rejillas se llenan al llegar los datos.
   const { data: PINTUCO_PRODUCTS } = useProducts();
   const { data: PINTUCO_SOLUTION_KITS } = useSolutionKits();
   const { data: PINTUCO_COLOR_PALETTES } = useColorPalette();
@@ -138,10 +135,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
       {/* 2. MAIN HEADER */}
       <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
-          {/* El logotipo estaba copiado a mano aquí, con su propio marcado.
-              Por eso los arreglos hechos en el componente —entre ellos que se
-              encoja en un teléfono— no llegaban a esta pantalla, que es
-              justamente la primera que ve alguien que no ha entrado. */}
+          {/* Componente compartido para que los ajustes responsivos del logo lleguen aquí. */}
           <BrandLogo onClick={() => onNavigate('landing')} />
 
           {/* Center Navigation Links */}
@@ -179,10 +173,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
           </nav>
 
           {/* Right CTAs */}
-          {/* En un teléfono las dos llamadas pedían 248 px de los 354 de la
-              barra y echaban la página entera hacia un lado. Se acortan en vez
-              de esconderse: entrar y comprar son las dos cosas a las que viene
-              quien abre esta página, y ninguna puede desaparecer. */}
+          {/* En móvil se acortan en vez de ocultarse: entrar y comprar no pueden faltar. */}
           <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
             <Button
               variant="ghost"

@@ -1,14 +1,5 @@
--- ============================================================
--- MÓDULO 20 — Movimientos de inventario
--- ============================================================
--- La tabla `inventory` guarda el SALDO actual, pero un saldo sin historia no
--- se puede auditar: nadie puede responder "¿por qué hay 3 cuñetes menos que
--- ayer?". Estos movimientos son el libro de esa cuenta.
---
--- REGLA: el saldo NUNCA se edita a mano. Se registra un movimiento y el
--- saldo se recalcula dentro de la misma transacción. Así el saldo y su
--- historia no pueden divergir.
--- ============================================================
+-- Libro de movimientos de inventario. El saldo nunca se edita a mano: cada
+-- movimiento lo recalcula en la misma transacción.
 
 create type public.movement_kind as enum (
   'ENTRADA',        -- compra o devolución a bodega
@@ -25,10 +16,9 @@ create table public.inventory_movements (
   variant_id  uuid not null references public.product_variants (id) on delete restrict,
   location_id uuid not null references public.pickup_locations (id) on delete restrict,
   kind        public.movement_kind not null,
-  -- Positiva siempre: el signo lo determina el tipo de movimiento.
+  -- Siempre positiva; el signo lo da el tipo.
   quantity    int not null,
-  -- Saldo resultante, congelado. Permite auditar sin recalcular toda la
-  -- historia y detectar si alguien tocó la tabla por fuera.
+  -- Saldo resultante congelado: audita sin recalcular la historia.
   balance_after int not null,
   reference   text,
   notes       text,
@@ -46,9 +36,6 @@ create index inventory_movements_location_idx on public.inventory_movements (loc
 comment on table public.inventory_movements is
   'Libro de movimientos. El saldo de `inventory` se deriva de aquí; nunca se edita directamente.';
 
--- ============================================================
--- Registrar un movimiento y actualizar el saldo, en una transacción
--- ============================================================
 create or replace function public.register_inventory_movement(
   _variant_id uuid,
   _location_id uuid,
@@ -79,8 +66,7 @@ begin
 
   v_kind := _kind::public.movement_kind;
 
-  -- Se bloquea la fila: dos movimientos simultáneos sobre la misma variante
-  -- y bodega no pueden leer el mismo saldo y pisarse.
+  -- Bloqueo de fila: movimientos concurrentes no pueden pisar el mismo saldo.
   select qty_available, qty_reserved into v_actual, v_reservado
   from public.inventory
   where variant_id = _variant_id and location_id = _location_id
@@ -139,9 +125,6 @@ begin
 end;
 $$;
 
--- ============================================================
--- RLS
--- ============================================================
 alter table public.inventory_movements enable row level security;
 revoke all on public.inventory_movements from anon, authenticated;
 grant select on public.inventory_movements to authenticated;

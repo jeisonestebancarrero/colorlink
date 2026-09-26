@@ -47,13 +47,11 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
     city: user?.city || '',
   });
 
-  // `authService` no expone un booleano de "es empresa": la señal fiable es
-  // pertenecer a una empresa, que es lo que resuelve el servidor en `access`.
+  // No hay flag de "es empresa": la señal fiable es pertenecer a una (lo resuelve `access`).
   const esCuentaDeEmpresa = access.companyIds.length > 0;
   const [logoEmpresa, setLogoEmpresa] = useState<string | null>(null);
 
-  // El logo guardado se trae al abrir: sin esto la empresa que ya tenía uno
-  // veía el marcador vacío y creía que se había perdido.
+  // Carga el logo guardado; si no, la empresa ve el marcador vacío.
   useEffect(() => {
     const companyId = access.companyIds[0];
     if (!companyId) return;
@@ -143,18 +141,13 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
         </div>
       )}
 
-      {/* Quién pidió entrar a la cuenta empresarial.
-          Va ARRIBA del perfil a propósito: es lo único de esta pantalla que
-          otra persona está esperando. El bloque se dibuja solo si hay algo que
-          resolver, así que a un cliente particular no le aparece nunca. */}
+      {/* Arriba a propósito: es lo único que otra persona está esperando. */}
       <SolicitudesDeVinculacion contexto="cliente" />
 
       {/* Main Profile Info Card */}
       <div className="bg-white rounded-2xl border border-slate-200 p-6 sm:p-8 shadow-xs">
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 pb-6 border-b border-slate-100">
-          {/* La foto sustituye a las iniciales fijas. `avatar_url` existía y
-              solo la llenaba Google: quien se registró con correo no tenía
-              forma de poner una. */}
+          {/* `avatar_url` antes solo lo llenaba Google; aquí cualquiera puede subirla. */}
           <CambiarFoto
             tipo="perfil"
             urlActual={user?.avatar}
@@ -196,9 +189,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
                 onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
                 required
               />
-              {/* Solo si la cuenta es de una empresa. A una persona natural se le
-                  estaba mostrando —y exigiendo— una razón social que no tiene:
-                  o inventaba un dato o no podía guardar su perfil. */}
+              {/* Solo para cuentas de empresa: una persona natural no tiene razón social. */}
               {esCuentaDeEmpresa && (
                 <Input
                   label="Empresa / Razón Social"
@@ -229,12 +220,8 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
                 required
               />
 
-              {/* El documento se muestra pero NO se edita aquí.
-                  No es un dato de contacto: identifica a la persona en la
-                  factura, y por él responde la empresa ante la DIAN. Lo corrige
-                  quien administra clientes, que deja rastro de quién lo cambió
-                  y avisa al cliente. El servidor lo impide igual —hay un
-                  disparador—, así que esto solo lo explica. */}
+              {/* Solo lectura: identifica a la persona en la factura (DIAN). Lo cambia
+                  administración con trazabilidad; un trigger lo bloquea igual en el servidor. */}
               <div className="sm:col-span-2">
                 <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wide mb-1.5">
                   Documento
@@ -348,15 +335,10 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
         </div>
       )}
 
-      {/* Direcciones del cliente y sedes de su empresa.
-          Antes la única dirección que existía era la del registro y no se
-          podía cambiar; y sin poder registrar una segunda sede, la pregunta
-          del carrito "¿a cuál sede va?" nunca aparecía. */}
+      {/* Direcciones del cliente y sedes de la empresa (el carrito pregunta la sede). */}
       <MisDireccionesYSedes />
 
-      {/* Sin esto, quien entra con Google no tiene forma de crearse una
-          contraseña, y el portal interno —que solo acepta correo y clave— le
-          queda cerrado aunque tenga rol. */}
+      {/* Quien entra con Google necesita crear clave: el portal interno solo acepta correo y clave. */}
       <ContrasenaDeLaCuenta />
 
       {/* Account Security Info */}

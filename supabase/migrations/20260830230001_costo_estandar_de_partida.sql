@@ -1,30 +1,14 @@
--- ============================================================
--- Costo estándar de partida para todas las presentaciones
--- ============================================================
--- Analítica calcula el margen con `coalesce(order_items.unit_cost_cop,
--- product_variants.cost_cop)`. Sin ninguno de los dos, cada línea salía con
--- margen nulo y la pantalla no se podía ni mirar.
---
--- Estos son costos ESTIMADOS, no los reales de Pintuco: se derivan del precio
--- de venta aplicando el margen bruto típico de cada categoría en el mercado
--- colombiano. Sirven para operar y para probar, y quedan reemplazados en
--- cuanto entre la primera recepción de mercancía, que es donde se conoce el
--- costo de verdad (`confirm_purchase_receipt` recalcula el promedio ponderado).
---
--- Solo se tocan las presentaciones que todavía no tienen costo: si alguien ya
--- cargó uno, mandarlo a un porcentaje inventado sería destruir un dato bueno.
+-- Costo estándar estimado a partir del precio y el margen típico por categoría,
+-- solo donde no hay costo. Se reemplaza con la primera recepción real.
 update public.product_variants pv
    set cost_cop = round(
          pv.price_cop * case cat.name
-           -- Pintura de fachada y vinilos: rotación alta, margen medio.
            when 'Fachadas & Exteriores'       then 0.62
            when 'Vinilos & Interiores'        then 0.60
-           -- Impermeabilizantes y epóxicos: producto técnico, margen mayor.
            when 'Impermeabilizantes'          then 0.58
            when 'Industriales & Epóxicos'     then 0.55
            when 'Esmaltes & Metales'          then 0.61
            when 'Maderas & Barnices'          then 0.59
-           -- Complementos: el margen más alto del punto de venta.
            when 'Herramientas & Complementos' then 0.48
            else 0.60
          end,

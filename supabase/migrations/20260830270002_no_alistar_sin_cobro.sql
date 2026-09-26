@@ -1,12 +1,4 @@
--- ============================================================
--- Un pedido no se alista si no está pagado ni salió a crédito
--- ============================================================
--- Es la contraparte operativa de la pasarela: de nada sirve cobrar antes si el
--- portal interno igual puede mover el pedido a PREPARANDO. Quien alista saca
--- mercancía de la bodega; hacerlo sin cobro es regalar producto.
---
--- Se deja pasar la CANCELACIÓN siempre: un pedido sin pagar es justamente el
--- que hay que poder cancelar.
+-- Impide pasar a PREPARANDO un pedido sin pago ni crédito; la cancelación siempre se permite.
 create or replace function public.exigir_cobro_para_alistar()
 returns trigger
 language plpgsql

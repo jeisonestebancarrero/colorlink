@@ -1,39 +1,8 @@
--- ============================================================
--- El catálogo TAL COMO ESTÁ HOY, para cargarlo en Supabase Cloud
--- ============================================================
--- POR QUÉ EXISTE, y por qué NO sirve `seed_catalog.sql` para la nube:
---
---   1. `supabase db push` NO ejecuta los seeds. Sube el esquema —tablas,
---      funciones, políticas— y nada más. Una nube recién creada queda con la
---      estructura completa y el catálogo VACÍO: la tienda abre sin un solo
---      producto.
---   2. `seed_catalog.sql` es la siembra ORIGINAL y trae los kits ROTOS: el
---      «Pack Completo Obra» a $64.700 y el «Kit Acondicionamiento Metal» a
---      $29.900 no existen como producto, y el sellador aparecía a $54.900
---      cuando vale $89.900. Sembrar con ese archivo deshace el arreglo del
---      4 de septiembre de 2026.
---
--- Este volcado sale de la base viva, así que trae los kits apuntando a
--- presentaciones reales y los precios del catálogo.
---
--- QUÉ NO TRAE, a propósito:
---   · `app_settings`, porque guarda la llave de OpenAI, los secretos de Wompi
---     y las credenciales de SMTP. Eso se configura en el portal de la nube,
---     no viaja en un archivo del repositorio.
---   · Usuarios, pedidos, facturas y contabilidad: son datos de operación, no
---     catálogo.
---
--- CÓMO SE USA (después de `supabase db push`):
---   psql "<cadena-de-conexion-de-la-nube>" -f supabase/seed_catalogo_actual.sql
---
--- Es idempotente en la práctica porque las tablas están vacías al crearse. Si
--- se corre dos veces, fallará por claves duplicadas: eso es deseable, avisa
--- de que la base ya tenía datos.
--- ============================================================
+-- Catálogo vigente para la nube, que `db push` no siembra; seed_catalog.sql trae kits y precios desactualizados.
+-- Excluye app_settings (secretos) y datos de operación. Uso tras db push: psql "<conexión>" -f este archivo.
+-- Falla por claves duplicadas si la base ya tiene datos, a propósito.
 
---
--- PostgreSQL database dump
---
+-- Volcado de pg_dump.
 
 
 -- Dumped from database version 17.6
@@ -51,16 +20,12 @@ SET xmloption = content;
 SET client_min_messages = warning;
 SET row_security = off;
 
---
--- Data for Name: brands; Type: TABLE DATA; Schema: public; Owner: -
---
+-- brands
 
 INSERT INTO public.brands (id, name, slug, logo_url, status, created_at, updated_at) VALUES ('bf170ba1-12ce-4f6f-a595-5fbda693c4d2', 'Pintuco', 'pintuco', NULL, 'ACTIVO', '2026-08-30 06:43:45.990247+00', '2026-08-30 06:43:45.990247+00');
 
 
---
--- Data for Name: categories; Type: TABLE DATA; Schema: public; Owner: -
---
+-- categories
 
 INSERT INTO public.categories (id, kind, parent_id, name, slug, description, sort_order, status, created_at, updated_at) VALUES ('2a25dfbd-9c90-4c10-8cf8-9136c0086739', 'PRODUCT', NULL, 'Catálogo Pintuco', 'catalogo-pintuco', NULL, 0, 'ACTIVO', '2026-08-30 06:43:45.990247+00', '2026-08-30 06:43:45.990247+00');
 INSERT INTO public.categories (id, kind, parent_id, name, slug, description, sort_order, status, created_at, updated_at) VALUES ('2671da5e-49a6-4ad9-97c6-89f3a51ea711', 'SOLUTION', NULL, 'Sistemas Pintuco', 'sistemas-pintuco', NULL, 0, 'ACTIVO', '2026-08-30 06:43:45.990247+00', '2026-08-30 06:43:45.990247+00');
@@ -84,9 +49,7 @@ INSERT INTO public.categories (id, kind, parent_id, name, slug, description, sor
 INSERT INTO public.categories (id, kind, parent_id, name, slug, description, sort_order, status, created_at, updated_at) VALUES ('66010161-dde7-443e-a498-b24cf8cfcdf7', 'SOLUTION', '2671da5e-49a6-4ad9-97c6-89f3a51ea711', 'Esmaltes & Metales', 'esmaltes-metales', NULL, 11, 'ACTIVO', '2026-08-30 06:43:45.990247+00', '2026-08-30 06:43:45.990247+00');
 
 
---
--- Data for Name: colors; Type: TABLE DATA; Schema: public; Owner: -
---
+-- colors
 
 INSERT INTO public.colors (id, code, name, hex, rgb, family, recommended_product, description, status, created_at, updated_at, is_palette) VALUES ('396cb695-0688-46b0-b8bd-780d72507a9d', 'PNT-1001', 'Blanco Lino', '#F7F4EE', '247, 244, 238', 'Blancos & Neutros', NULL, NULL, 'ACTIVO', '2026-08-30 06:43:45.808744+00', '2026-08-30 06:43:45.808744+00', true);
 INSERT INTO public.colors (id, code, name, hex, rgb, family, recommended_product, description, status, created_at, updated_at, is_palette) VALUES ('fde460e6-666d-4247-ad22-a97aa9c36258', 'PNT-1002', 'Blanco Perla', '#F2EFE9', '242, 239, 233', 'Blancos & Neutros', NULL, NULL, 'ACTIVO', '2026-08-30 06:43:45.808744+00', '2026-08-30 06:43:45.808744+00', true);
@@ -210,9 +173,7 @@ INSERT INTO public.colors (id, code, name, hex, rgb, family, recommended_product
 INSERT INTO public.colors (id, code, name, hex, rgb, family, recommended_product, description, status, created_at, updated_at, is_palette) VALUES ('62106925-12c2-4025-adf7-906b16fd3a61', 'PNT-915', 'Verde Bosque', '#15803D', NULL, 'Verdes & Naturales', NULL, NULL, 'ACTIVO', '2026-08-30 06:43:45.990247+00', '2026-08-30 06:43:45.990247+00', false);
 
 
---
--- Data for Name: pathologies; Type: TABLE DATA; Schema: public; Owner: -
---
+-- pathologies
 
 INSERT INTO public.pathologies (id, name, slug, description, severity, recommendations, is_frontend_type, sort_order, status, created_at, updated_at) VALUES ('386641a5-638a-4a04-a923-06ca964f620d', 'Buen estado', 'buen-estado', NULL, 'MEDIA', '{}', true, 0, 'ACTIVO', '2026-08-30 06:43:45.990247+00', '2026-08-30 06:43:45.990247+00');
 INSERT INTO public.pathologies (id, name, slug, description, severity, recommendations, is_frontend_type, sort_order, status, created_at, updated_at) VALUES ('89ba8cd2-335a-4dac-95d7-25966ca01a0b', 'Humedad', 'humedad', NULL, 'MEDIA', '{}', true, 1, 'ACTIVO', '2026-08-30 06:43:45.990247+00', '2026-08-30 06:43:45.990247+00');
@@ -227,9 +188,7 @@ INSERT INTO public.pathologies (id, name, slug, description, severity, recommend
 INSERT INTO public.pathologies (id, name, slug, description, severity, recommendations, is_frontend_type, sort_order, status, created_at, updated_at) VALUES ('d2750b2b-9206-4065-ba8e-a246a869fc11', 'Otro', 'otro', NULL, 'MEDIA', '{}', true, 10, 'ACTIVO', '2026-08-30 06:43:45.990247+00', '2026-08-30 06:43:45.990247+00');
 
 
---
--- Data for Name: pickup_locations; Type: TABLE DATA; Schema: public; Owner: -
---
+-- pickup_locations
 
 INSERT INTO public.pickup_locations (id, external_ref, name, city, address, phone, hours, has_color_studio, has_tech_advisor, has_express_pickup, stock_readiness_hours, latitude, longitude, status, created_at, updated_at, image_url, municipality_code) VALUES ('6afd2de9-7090-4d9d-9480-55306deea388', 'store-bucaramanga-cabecera', 'Pintuco Store - Bucaramanga Cabecera', 'Bucaramanga', 'Cra 33 # 48 - 60', '+57 (607) 643-9000', 'Lun - Sáb: 8:00 AM - 6:00 PM', true, true, true, 2, NULL, NULL, 'ACTIVO', '2026-08-30 06:43:45.990247+00', '2026-09-02 17:10:22.17398+00', NULL, '68001');
 INSERT INTO public.pickup_locations (id, external_ref, name, city, address, phone, hours, has_color_studio, has_tech_advisor, has_express_pickup, stock_readiness_hours, latitude, longitude, status, created_at, updated_at, image_url, municipality_code) VALUES ('8ae7d56a-7967-422a-94ee-9c830a169f06', 'store-med-poblado', 'Centro de Pinturas Pintuco - El Poblado', 'Medellín', 'Cra 43A # 18 Sur - 135 (Av. El Poblado)', '+57 (604) 444-2424', 'Lun - Vie: 7:30 AM - 6:00 PM | Sáb: 8:00 AM - 4:00 PM', true, true, true, 2, NULL, NULL, 'ACTIVO', '2026-08-30 06:43:45.990247+00', '2026-09-02 17:10:22.170488+00', NULL, '05001');
@@ -240,9 +199,7 @@ INSERT INTO public.pickup_locations (id, external_ref, name, city, address, phon
 INSERT INTO public.pickup_locations (id, external_ref, name, city, address, phone, hours, has_color_studio, has_tech_advisor, has_express_pickup, stock_readiness_hours, latitude, longitude, status, created_at, updated_at, image_url, municipality_code) VALUES ('41c49539-e77f-4347-a501-6e3f912b9506', 'store-barranquilla-prado', 'Centro de Pinturas Pintuco - Barranquilla El Prado', 'Barranquilla', 'Cra 54 # 68 - 110', '+57 (605) 368-7000', 'Lun - Vie: 7:30 AM - 6:00 PM | Sáb: 8:00 AM - 2:00 PM', true, true, true, 2, NULL, NULL, 'ACTIVO', '2026-08-30 06:43:45.990247+00', '2026-09-02 17:10:22.173579+00', NULL, '08001');
 
 
---
--- Data for Name: products; Type: TABLE DATA; Schema: public; Owner: -
---
+-- products
 
 INSERT INTO public.products (id, external_ref, code, name, tagline, description, brand_id, category_id, environment, finish, coverage, spread_rate_m2_per_gal, drying_time, features, image_url, tech_sheet_url, rating, reviews_count, is_popular, badge, status, created_at, updated_at, tax_rate) VALUES ('933ecc0c-8b65-43d8-87d6-3fe031e3b0c7', 'prod-koraza-5', 'PNT-EXT-001', 'Koraza 5 Años Protección Total', 'Pintura elastomérica exterior antihongos con máxima resistencia a la intemperie y rayos UV', 'Pintura para exteriores 100% acrílica, base agua, diluible con agua. Máxima durabilidad con tecnología biosida activa contra hongos y algas. Puentea microfisuras de hasta 0.5 mm y repele agua de lluvia mientras permite transpirar al muro.', 'bf170ba1-12ce-4f6f-a595-5fbda693c4d2', 'c44fd060-0bd0-4360-8800-66aa19430028', 'Exterior', 'Mate', '20 a 25 m²/galón a 2 manos sobre superficie sellada', 22.00, 'Al tacto: 1 hora | Entre manos: 2 a 3 horas', '{"Garantía de durabilidad de 5 años certificada","Puenteo elástico de microfisuras hasta 0.5 mm","Alta resistencia a la radiación UV y decoloración","Excelente lavabilidad y bajo ensuciamiento","Bajo olor y cero solventes agresivos (Bajo VOC)"}', 'https://images.unsplash.com/photo-1589939705384-5185137a7f0f?auto=format&fit=crop&q=80&w=600', 'https://pintuco.com.co/fichas-tecnicas/koraza-5-anos.pdf', 4.9, 142, true, 'Más Vendido en Fachadas', 'ACTIVO', '2026-08-30 06:43:45.990247+00', '2026-08-30 06:43:45.990247+00', 19.00);
 INSERT INTO public.products (id, external_ref, code, name, tagline, description, brand_id, category_id, environment, finish, coverage, spread_rate_m2_per_gal, drying_time, features, image_url, tech_sheet_url, rating, reviews_count, is_popular, badge, status, created_at, updated_at, tax_rate) VALUES ('8d4f1c0e-e4b4-4292-99b2-b3be5eda0cc4', 'prod-viniltex-avanzada', 'PNT-INT-002', 'Viniltex Avanzada Máxima Lavabilidad', 'Pintura Tipo 1 superlavable con agentes antibacteriales y cero salpicadura', 'Vinilo Tipo 1 premium para interiores de altísimo desempeño. Fórmula con resina 100% acrílica modificada que permite remover manchas difíciles con facilidad. Con tecnología antimicrobiana que inhibe hasta el 99.9% de bacterias.', 'bf170ba1-12ce-4f6f-a595-5fbda693c4d2', 'c7e7b182-b5ba-46c5-82db-e0721dd29666', 'Interior', 'Mate', '40 a 50 m²/galón a 2 manos sobre superficie estucada', 45.00, 'Al tacto: 30 min | Segunda mano: 2 horas', '{"Máxima lavabilidad (> 800 ciclos de lavado según NTC 1335)","Protección antibacterial y antihongos activa","Ultra cubrimiento desde la primera mano","Mínimo salpicado durante la aplicación con rodillo","Acabado uniforme sedoso y elegante"}', 'https://images.unsplash.com/photo-1562259949-e8e7689d7828?auto=format&fit=crop&q=80&w=600', 'https://pintuco.com.co/fichas-tecnicas/viniltex-avanzada.pdf', 4.8, 310, true, 'Nº 1 en Interiores', 'ACTIVO', '2026-08-30 06:43:45.990247+00', '2026-08-30 06:43:45.990247+00', 19.00);
@@ -257,9 +214,7 @@ INSERT INTO public.products (id, external_ref, code, name, tagline, description,
 INSERT INTO public.products (id, external_ref, code, name, tagline, description, brand_id, category_id, environment, finish, coverage, spread_rate_m2_per_gal, drying_time, features, image_url, tech_sheet_url, rating, reviews_count, is_popular, badge, status, created_at, updated_at, tax_rate) VALUES ('fad94307-bc67-4fab-a7f0-84b2aee5c59b', 'prod-brocha-master', 'PNT-HER-010', 'Brocha Master Cerdas Mixtas Pintuco 3"', 'Brocha angular para recortes limpios en esquinas, marcos y detalles de fachada', 'Brocha con cerdas naturales y sintéticas de corte recto para un control milimétrico del trazo en remates y zócalos. Mango de madera balanceado y virola de acero inoxidable.', 'bf170ba1-12ce-4f6f-a595-5fbda693c4d2', 'c086030a-dc64-489d-860c-84d450c93089', 'Ambos', 'N/A', 'N/A', NULL, 'N/A', '{"Cerdas químicamente afiladas para un recorte perfecto","Excelente carga y descarga progresiva de pintura","No pierde cerdas durante la aplicación"}', 'https://cdn-pintuco-col.plm.com.co/wp-content/uploads/2023/01/brocha-estandar-cerda-blanca-3-pulg-pintuco-jpg.webp', NULL, 4.8, 112, false, NULL, 'ACTIVO', '2026-08-30 06:43:45.990247+00', '2026-09-03 00:25:40.164055+00', 19.00);
 
 
---
--- Data for Name: product_variants; Type: TABLE DATA; Schema: public; Owner: -
---
+-- product_variants
 
 INSERT INTO public.product_variants (id, product_id, external_ref, label, sku, barcode, price_cop, volume_liters, unit, quantity, sort_order, status, created_at, updated_at, cost_cop) VALUES ('69584cdd-e48b-4463-9de8-5f753f394da9', '933ecc0c-8b65-43d8-87d6-3fe031e3b0c7', 'pres-1', '1 Galón (3.785 L)', 'PNT-EXT-001-V1', NULL, 142900.00, 3.785, 'GALON', NULL, 0, 'ACTIVO', '2026-08-30 06:43:45.990247+00', '2026-08-30 07:00:04.849412+00', 88598.00);
 INSERT INTO public.product_variants (id, product_id, external_ref, label, sku, barcode, price_cop, volume_liters, unit, quantity, sort_order, status, created_at, updated_at, cost_cop) VALUES ('66840ee2-9b4b-4abd-bfa9-d4933f5c9880', '933ecc0c-8b65-43d8-87d6-3fe031e3b0c7', 'pres-2', 'Cuñete 5 Galones (18.9 L)', 'PNT-EXT-001-V2', NULL, 629900.00, 18.900, 'GALON', NULL, 1, 'ACTIVO', '2026-08-30 06:43:45.990247+00', '2026-08-30 07:00:04.849412+00', 390538.00);
@@ -288,9 +243,7 @@ INSERT INTO public.product_variants (id, product_id, external_ref, label, sku, b
 INSERT INTO public.product_variants (id, product_id, external_ref, label, sku, barcode, price_cop, volume_liters, unit, quantity, sort_order, status, created_at, updated_at, cost_cop) VALUES ('7498410f-3f17-484a-b4a8-4c20a4d87ccb', '9d570b03-1889-475a-b461-336b5bead3e6', 'pres-ca2', 'Pack 3 Rollos 1.5"', 'PNT-HER-011-V2', NULL, 44900.00, NULL, 'GALON', NULL, 1, 'ACTIVO', '2026-08-30 06:43:45.990247+00', '2026-08-30 07:00:04.849412+00', 21552.00);
 
 
---
--- Data for Name: solutions; Type: TABLE DATA; Schema: public; Owner: -
---
+-- solutions
 
 INSERT INTO public.solutions (id, external_ref, name, category_id, is_kit, description, image_url, badge, application, surface_summary, features, system_summary, durability_estimate, spread_rate_info, packagings, step_by_step_guide, color_swatches, subtitle, problem_target, ideal_for, warranty, discount_percent, tools_included, status, created_at, updated_at) VALUES ('a5226d9d-b7e9-4205-a0e0-f8f8126c446f', 'sol-01', 'Sistema Fachada Koraza Protección Extrema', '642141ae-81b6-41ef-aa02-255ce0e5e098', false, 'Sistema elastomérico bicapa de máxima durabilidad y repelencia al agua, diseñado para fachadas expuestas a intemperie severa, radiación UV y contaminación urbana.', 'https://images.unsplash.com/photo-1541888946425-d0fbb18086f6?auto=format&fit=crop&q=80&w=600', 'Más Solicitado', 'Fachadas de edificios, casas, muros perimetrales exteriores', 'Concreto, Mortero, Ladrillo limpio, Revoque', '{"Puenteo de microfisuras de hasta 0.5 mm sin cuartearse","Hidrorrepelente con tecnología efecto loto autolimpiable con la lluvia","Protección antifúngica y antialgas por 5 a 7 años garantizados","Alta retención de color frente a luz solar directa y rayos UV"}', 'Sellador Antialcalino + Masilla Elastomérica + 2 Manos de Koraza', '5 a 7 años garantizados', '20-25 m²/galón a 2 manos (según rugosidad)', '{"Galón (3.785 L)","Cuñete (5 Gal / 18.9 L)"}', '{"Paso 1: Lavado a presión para retirar polvo, sales y material suelto.","Paso 2: Calafateo de fisuras con Masilla Elastomérica Pintuco.","Paso 3: Imprimación general con 1 mano de Sellador Antialcalino.","Paso 4: Aplicación de 2 manos cruzadas de Pintura Koraza 5 Años."}', '[{"hex": "#F8FAFC", "name": "Blanco Nieve"}, {"hex": "#FDE68A", "name": "Arena Real"}, {"hex": "#EA580C", "name": "Terracota"}, {"hex": "#94A3B8", "name": "Gris Cemento"}, {"hex": "#004F9F", "name": "Azul Pintuco"}]', NULL, NULL, NULL, NULL, 0.00, '{}', 'ACTIVO', '2026-08-30 06:43:45.990247+00', '2026-08-30 06:43:45.990247+00');
 INSERT INTO public.solutions (id, external_ref, name, category_id, is_kit, description, image_url, badge, application, surface_summary, features, system_summary, durability_estimate, spread_rate_info, packagings, step_by_step_guide, color_swatches, subtitle, problem_target, ideal_for, warranty, discount_percent, tools_included, status, created_at, updated_at) VALUES ('989ff2f5-2ce3-45da-b2fd-3c9d6e213a30', 'sol-02', 'Sistema Viniltex Avanzado Cero Olor Antibacterial', '570303ac-e7d2-4b9a-b05b-96a8e78e1133', false, 'Recubrimiento premium base agua de alta lavabilidad para ambientes interiores residenciales, comerciales e institucionales con requerimientos higiénicos.', 'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?auto=format&fit=crop&q=80&w=600', 'Eco & Salud', 'Salas, habitaciones, oficinas, consultorios médicos, colegios', 'Drywall, Yeso, Estuco, Mampostería interior', '{"Elimina el 99.9% de bacterias, hongos y virus en superficie","Ultra lavable con resistencia a más de 10,000 ciclos de frote","Bajo VOC y olor casi imperceptible para ocupación inmediata","Acabado mate sedoso uniforme de alta elegancia visual"}', 'Sellador Acrílico Interior + Estuco Profesional + 2 Manos Viniltex', 'Alta durabilidad lavable', '40-45 m²/galón a 2 manos', '{"1/4 Galón",Galón,"Cuñete (5 Gal)"}', '{"Paso 1: Lijado suave y retiro de polvo residual.","Paso 2: Resane de imperfecciones con Estuco Acrílico.","Paso 3: Aplicación de 2 manos de Viniltex Avanzado con rodillo antigota."}', '[{"hex": "#FFFFFF", "name": "Blanco Puro"}, {"hex": "#FEF3C7", "name": "Marfil Suave"}, {"hex": "#E2E8F0", "name": "Gris Niebla"}, {"hex": "#E0F2FE", "name": "Celeste Zen"}]', NULL, NULL, NULL, NULL, 0.00, '{}', 'ACTIVO', '2026-08-30 06:43:45.990247+00', '2026-08-30 06:43:45.990247+00');
@@ -305,9 +258,7 @@ INSERT INTO public.solutions (id, external_ref, name, category_id, is_kit, descr
 INSERT INTO public.solutions (id, external_ref, name, category_id, is_kit, description, image_url, badge, application, surface_summary, features, system_summary, durability_estimate, spread_rate_info, packagings, step_by_step_guide, color_swatches, subtitle, problem_target, ideal_for, warranty, discount_percent, tools_included, status, created_at, updated_at) VALUES ('a7ec87d5-91bd-4388-b464-13335c48715a', 'kit-metal-antioxidante', 'Kit Renovación Metal & Rejas Anticorrosivo', '66010161-dde7-443e-a498-b24cf8cfcdf7', true, 'Metales oxidados, descascarados o expuestos a sol y lluvia', 'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?auto=format&fit=crop&q=80&w=800', NULL, NULL, NULL, '{}', NULL, NULL, NULL, '{}', '{}', '[]', 'Tratamiento directo al óxido para portones, estructuras y cerramientos metálicos', 'Metales oxidados, descascarados o expuestos a sol y lluvia', 'Portones, rejas de fachada, barandas de balcones y vigas metálicas', 'Garantía Protección Anticorrosiva Pintuco', 10.00, '{"1 Brocha angular 2.5\" para rejas","1 Lija grano 80 y 120 para desbaste","1 Par de guantes de trabajo"}', 'ACTIVO', '2026-08-30 06:43:45.990247+00', '2026-08-30 06:43:45.990247+00');
 
 
---
--- Data for Name: solution_products; Type: TABLE DATA; Schema: public; Owner: -
---
+-- solution_products
 
 INSERT INTO public.solution_products (id, solution_id, product_id, variant_id, presentation_label, step_number, phase, role_description, quantity_for_85m2, image_url, sort_order, unit_price_cop) VALUES ('511c4645-3f3d-430f-a6a6-1e033d6002b8', '34c8cf14-2e62-4249-8b68-bd5d65d7c0e0', 'ae4e5ab7-39f8-44d2-a5e0-083c01724c2b', '7eb9fbe8-50eb-4428-9639-e7bbf9e643f8', 'Cuñete 5 Galones (18.9 L)', 2, 'Sellado', 'Fijar el sustrato, bloquear salitre alcalino y uniformizar absorción.', 1.00, 'https://images.unsplash.com/photo-1513694203232-719a280e022f?auto=format&fit=crop&q=80&w=400', 2, 389000.00);
 INSERT INTO public.solution_products (id, solution_id, product_id, variant_id, presentation_label, step_number, phase, role_description, quantity_for_85m2, image_url, sort_order, unit_price_cop) VALUES ('3be44976-bf38-456c-bb18-53358d5169e5', '34c8cf14-2e62-4249-8b68-bd5d65d7c0e0', '933ecc0c-8b65-43d8-87d6-3fe031e3b0c7', '66840ee2-9b4b-4abd-bfa9-d4933f5c9880', 'Cuñete 5 Galones (18.9 L)', 3, 'Acabado', 'Capa elastomérica 100% impermeable con protección UV y antihongos.', 1.00, 'https://images.unsplash.com/photo-1589939705384-5185137a7f0f?auto=format&fit=crop&q=80&w=400', 3, 629900.00);
@@ -321,9 +272,7 @@ INSERT INTO public.solution_products (id, solution_id, product_id, variant_id, p
 INSERT INTO public.solution_products (id, solution_id, product_id, variant_id, presentation_label, step_number, phase, role_description, quantity_for_85m2, image_url, sort_order, unit_price_cop) VALUES ('0bf18c45-7d42-4ad1-a90f-a041f3493d4a', '0a2bdefa-7f1f-491e-8eb0-e1f6f120ada5', '8d4f1c0e-e4b4-4292-99b2-b3be5eda0cc4', '9822cbbe-73fc-4173-9a96-d92869587a07', 'Cuñete 5 Galones (18.9 L)', 2, 'Acabado', 'Pintura superlavable con escudo activo contra bacterias y hongos.', 1.00, 'https://images.unsplash.com/photo-1562259949-e8e7689d7828?auto=format&fit=crop&q=80&w=400', 3, 529000.00);
 
 
---
--- Data for Name: surfaces; Type: TABLE DATA; Schema: public; Owner: -
---
+-- surfaces
 
 INSERT INTO public.surfaces (id, name, slug, description, is_frontend_type, sort_order, status, created_at, updated_at) VALUES ('9f77f3f7-056b-4e38-8ffc-afc3486e30bb', 'Concreto', 'concreto', NULL, true, 0, 'ACTIVO', '2026-08-30 06:43:45.990247+00', '2026-08-30 06:43:45.990247+00');
 INSERT INTO public.surfaces (id, name, slug, description, is_frontend_type, sort_order, status, created_at, updated_at) VALUES ('be3fae80-a48d-462d-ae38-0a9b1834b337', 'Cemento', 'cemento', NULL, true, 1, 'ACTIVO', '2026-08-30 06:43:45.990247+00', '2026-08-30 06:43:45.990247+00');
@@ -374,8 +323,5 @@ INSERT INTO public.surfaces (id, name, slug, description, is_frontend_type, sort
 INSERT INTO public.surfaces (id, name, slug, description, is_frontend_type, sort_order, status, created_at, updated_at) VALUES ('fe67e8a4-b33a-4232-b93f-0795a034e4cf', 'Pinturas previas', 'pinturas-previas', NULL, false, 46, 'ACTIVO', '2026-08-30 06:43:45.990247+00', '2026-08-30 06:43:45.990247+00');
 
 
---
--- PostgreSQL database dump complete
---
 
 

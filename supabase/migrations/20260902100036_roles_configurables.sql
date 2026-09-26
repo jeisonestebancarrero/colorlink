@@ -1,36 +1,13 @@
--- ============================================================
--- Roles configurables: crear, nombrar y decidir qué ve cada uno
--- ============================================================
--- Faltaban dos cosas para poder trabajar por ROL en vez de usuario por usuario:
---
---   1. `set_role_view` existía desde el principio y NO tenía pantalla. Decir
---      «este rol ya no ve Inventario» solo se podía hacer entrando a la base.
---      Lo único que había en el portal era la excepción por persona, así que
---      cada alta obligaba a repetir la misma configuración a mano.
---
---   2. No se podían crear roles. Los trece del enum eran los que había, y
---      cualquier estructura distinta —un jefe de tienda, un auxiliar— había
---      que forzarla reutilizando uno que no encajaba.
---
--- LO QUE HAY QUE SABER, Y NO ES UN DETALLE: en PostgreSQL un valor de enum se
--- puede AÑADIR pero **no se puede borrar**. Así que un rol creado no se elimina:
--- se ARCHIVA. Deja de ofrecerse para asignar y deja de aparecer en el portal,
--- pero el valor sigue existiendo en la base. Por eso el catálogo tiene una
--- columna `activo` en vez de un borrado, y por eso conviene pensar el nombre
--- antes de crearlo.
+-- Roles configurables: catálogo en role_meta y crear/renombrar/archivar desde el portal.
+-- Un valor de enum no se puede borrar en PostgreSQL, así que un rol se archiva (activo).
 
--- ------------------------------------------------------------
--- Catálogo de roles
--- ------------------------------------------------------------
--- Las etiquetas vivían en el frontend (`ETIQUETA_ROL`), así que un rol nuevo
--- habría aparecido con su código en mayúsculas hasta el siguiente despliegue.
--- Ahora viven en la base, que es lo que permite crearlos sin desplegar.
+-- Etiquetas en la base para poder crear roles sin desplegar el frontend.
 create table if not exists public.role_meta (
   role         text primary key,
   label        text not null,
   description  text,
-  -- Los trece originales no se pueden archivar ni renombrar: el sistema
-  -- depende de ellos (`is_staff()`, `handle_new_user`, las políticas RLS).
+  -- Los trece originales no se archivan ni renombran: los usan is_staff(),
+  -- handle_new_user y las políticas RLS.
   es_del_sistema boolean not null default false,
   activo       boolean not null default true,
   creado_por   uuid references public.profiles(id) on delete set null,
@@ -59,8 +36,7 @@ on conflict (role) do nothing;
 
 alter table public.role_meta enable row level security;
 
--- Lo lee cualquiera con sesión: hace falta para pintar el nombre de un rol en
--- la ficha de un usuario. Escribir, solo el administrador.
+-- Lectura para cualquier sesión (nombre del rol en fichas); escritura solo admin.
 create policy role_meta_lectura on public.role_meta
   for select to authenticated using (true);
 create policy role_meta_admin on public.role_meta
@@ -68,9 +44,6 @@ create policy role_meta_admin on public.role_meta
 
 grant select on public.role_meta to authenticated;
 
--- ------------------------------------------------------------
--- Crear un rol
--- ------------------------------------------------------------
 create or replace function public.crear_rol(
   _codigo text,
   _etiqueta text,
@@ -87,8 +60,7 @@ begin
     raise exception 'FORBIDDEN: solo un administrador crea roles' using errcode = '42501';
   end if;
 
-  -- El código se normaliza: es un valor de enum y va a quedar para siempre.
-  -- Sin tildes, sin espacios y en mayúsculas, como los que ya existen.
+  -- Valor de enum permanente: sin tildes, sin espacios y en mayúsculas.
   v_codigo := upper(trim(_codigo));
   v_codigo := translate(v_codigo, 'ÁÉÍÓÚÑ ', 'AEIOUN_');
   v_codigo := regexp_replace(v_codigo, '[^A-Z0-9_]', '', 'g');
@@ -104,8 +76,7 @@ begin
     raise exception 'YA_EXISTE: ya hay un rol con el código %', v_codigo using errcode = '22023';
   end if;
 
-  -- Añadir el valor al enum. `if not exists` cubre el caso de que el valor
-  -- quedara del enum pero se hubiera borrado su fila de catálogo.
+  -- if not exists cubre un valor que quedó en el enum sin fila de catálogo.
   execute format('alter type public.app_role add value if not exists %L', v_codigo);
 
   insert into public.role_meta (role, label, description, es_del_sistema, creado_por)
@@ -115,15 +86,11 @@ begin
   values ((select auth.uid()), 'ROLE_CREATE', 'role_meta', null,
           jsonb_build_object('rol', v_codigo, 'etiqueta', trim(_etiqueta)));
 
-  -- Nace SIN NADA. Un rol nuevo con permisos heredados de algún sitio sería la
-  -- forma más silenciosa de dar acceso de más.
+  -- Nace sin permisos para no conceder acceso de más en silencio.
   return jsonb_build_object('rol', v_codigo, 'etiqueta', trim(_etiqueta), 'permisos', 0);
 end;
 $$;
 
--- ------------------------------------------------------------
--- Renombrar y archivar
--- ------------------------------------------------------------
 create or replace function public.actualizar_rol(
   _codigo text,
   _etiqueta text default null,
@@ -146,16 +113,13 @@ begin
     raise exception 'NOT_FOUND: ese rol no existe' using errcode = 'P0002';
   end if;
 
-  -- Los del sistema se pueden renombrar pero NO archivar: `is_staff()`,
-  -- `handle_new_user` y varias políticas los nombran directamente, así que
-  -- apagarlos rompería el acceso sin que nada lo avisara.
+  -- Los del sistema no se archivan: el código los nombra directamente.
   if v_sistema and _activo = false then
     raise exception 'ROL_DEL_SISTEMA: este rol es parte del funcionamiento y no se puede archivar'
       using errcode = '22023';
   end if;
 
-  -- Archivar un rol que alguien tiene puesto lo dejaría con un acceso que ya
-  -- no se puede configurar desde ninguna pantalla.
+  -- No se archiva un rol asignado: quedaría un acceso imposible de configurar.
   if _activo = false and exists (select 1 from public.user_roles where role::text = _codigo) then
     raise exception 'ROL_EN_USO: hay personas con ese rol. Quítaselo antes de archivarlo.'
       using errcode = '22023';
@@ -175,9 +139,6 @@ begin
 end;
 $$;
 
--- ------------------------------------------------------------
--- Qué ve y qué puede cada rol, en una sola consulta
--- ------------------------------------------------------------
 create or replace function public.configuracion_de_roles()
 returns jsonb
 language sql

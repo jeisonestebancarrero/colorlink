@@ -1,22 +1,5 @@
--- ============================================================
--- Carta de color ampliada
--- ============================================================
--- La carta tenía 20 tonos. Para una marca de pinturas eso se ve escaso: quien
--- entra a «Encuentra tu color» a elegir para su casa asume que eso es todo lo
--- que se puede comprar, y se va.
---
--- Los códigos usan la serie PNT-1xxx, que estaba libre. Los originales andan
--- dispersos entre PNT-100 y PNT-915, y un primer intento reutilizó PNT-204
--- —que ya era «Almendra Suave»— y lo sobreescribió en silencio. Con una serie
--- propia, ampliar la carta no puede volver a pisar un tono ya publicado.
---
--- ADVERTENCIA: estos NO son los códigos oficiales de la carta Pintuco. Son
--- tonos reales y coherentes —el RGB se deriva del hexadecimal, no se teclea
--- aparte— con nombres en español apropiados para el mercado colombiano, para
--- que el cliente tenga de dónde escoger. Cuando Pintuco entregue su carta
--- oficial se reemplazan desde Administración → Catálogo → Colores. Los tonos
--- institucionales —azul #004F9F, amarillo #FFB81C, rojo #C8102E— sí son los
--- reales de la marca.
+-- Amplía la carta de color con la serie PNT-1xxx, libre para no pisar tonos existentes.
+-- No son códigos oficiales de Pintuco: se reemplazan cuando llegue la carta oficial.
 
 insert into public.colors (code, name, hex, rgb, family, is_palette, status) values
   ('PNT-1001', 'Blanco Lino', '#F7F4EE', '247, 244, 238', 'Blancos & Neutros', true, 'ACTIVO'),

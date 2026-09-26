@@ -1,17 +1,5 @@
--- ============================================================
--- La matriz de roles tiene que mirar `visible`
--- ============================================================
--- Corrige `configuracion_de_roles` de la migración anterior.
---
--- `set_role_view` NO borra la fila cuando se le quita una aplicación a un rol:
--- deja la fila con `visible = false`. Es lo correcto —así queda constancia de
--- quién lo cambió y cuándo, en `updated_by`— pero yo armé el resumen contando
--- todas las filas sin mirar esa columna.
---
--- Consecuencia: la matriz habría mostrado la casilla MARCADA en una aplicación
--- que el rol ya no ve. Quien reparte accesos se habría quedado creyendo que
--- alguien tiene un permiso que en realidad no tiene, que es exactamente el
--- error que esta pantalla existe para evitar.
+-- configuracion_de_roles debe filtrar visible: set_role_view desmarca con visible = false
+-- en vez de borrar la fila.
 
 create or replace function public.configuracion_de_roles()
 returns jsonb
@@ -40,8 +28,6 @@ as $$
       from (
         select rv.role::text as rol, jsonb_agg(rv.view_code) as codigos
         from public.role_views rv
-        -- Aquí estaba el fallo: sin este filtro, una aplicación retirada
-        -- seguía apareciendo marcada.
         where rv.visible
         group by rv.role
       ) t

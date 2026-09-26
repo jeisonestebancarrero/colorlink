@@ -1,14 +1,5 @@
--- ============================================================
--- BACK-OFFICE · 05 — Chatter, trazabilidad, IA y marco legal
--- ============================================================
-
--- ============================================================
--- CHATTER: conversación y trazabilidad en un mismo hilo
--- ============================================================
--- Modelo tipo Odoo: mensajes del cliente, notas internas del personal y
--- eventos automáticos del sistema conviven en una sola línea de tiempo.
--- Así la trazabilidad no es una pestaña aparte que nadie mira, sino el mismo
--- hilo donde se resuelve la duda.
+-- Chatter (mensajes, notas internas y eventos en un solo hilo), recomendaciones
+-- asistidas por IA y evidencia de aceptación legal.
 create type public.message_kind as enum (
   'MENSAJE',        -- visible para el cliente
   'NOTA_INTERNA',   -- solo personal Pintuco
@@ -24,14 +15,12 @@ create table public.conversation_messages (
   author_id  uuid references auth.users (id) on delete set null,
   kind       public.message_kind not null default 'MENSAJE',
   body       text not null,
-  -- Adjuntos en el bucket project-files; aquí solo las rutas.
+  -- Rutas en el bucket project-files.
   attachments jsonb not null default '[]'::jsonb,
-  -- Metadatos del evento automático (estado anterior, nuevo, guía, etc.)
   event_data jsonb not null default '{}'::jsonb,
   read_at    timestamptz,
   created_at timestamptz not null default now(),
 
-  -- Un mensaje pertenece exactamente a un hilo.
   constraint conversation_messages_un_hilo check (
     (order_id is not null and project_id is null) or
     (order_id is null and project_id is not null)
@@ -44,9 +33,7 @@ create index conversation_messages_project_idx on public.conversation_messages (
 comment on type public.message_kind is
   'NOTA_INTERNA nunca se entrega al cliente: la política RLS la excluye para quien no es personal.';
 
--- ------------------------------------------------------------
--- Trazabilidad automática: cada cambio de estado deja su huella en el hilo.
--- ------------------------------------------------------------
+-- Cada cambio de estado deja un evento en el hilo.
 create or replace function public.trazar_cambio_estado_pedido()
 returns trigger
 language plpgsql
@@ -103,9 +90,6 @@ create trigger shipments_trazabilidad
   after update on public.shipments
   for each row execute function public.trazar_cambio_estado_envio();
 
--- ------------------------------------------------------------
--- Escribir en el hilo
--- ------------------------------------------------------------
 create or replace function public.post_message(
   _order_id uuid, _project_id uuid, _body text, _internal boolean default false
 )
@@ -140,9 +124,8 @@ begin
     raise exception 'FORBIDDEN: no tienes acceso a esta conversación' using errcode = '42501';
   end if;
 
-  -- Una nota interna solo puede escribirla el personal: si un cliente lo
-  -- intenta, se degrada a mensaje normal en lugar de rechazarse, para no
-  -- perder lo que escribió.
+  -- Nota interna de un cliente se degrada a mensaje en vez de rechazarse, para no
+  -- perder lo escrito.
   if _internal and not public.is_staff() then
     _internal := false;
   end if;
@@ -156,13 +139,8 @@ begin
 end;
 $$;
 
--- ============================================================
--- RECOMENDACIONES ASISTIDAS POR IA (MÓDULO 12/13)
--- ============================================================
--- REGLA INNEGOCIABLE: la IA clasifica y sugiere; NUNCA calcula cantidades
--- ni precios. Esas salen de calculate_paint y del catálogo. Por eso esta
--- tabla guarda la justificación y la referencia a la solución, pero ninguna
--- cifra de producto.
+-- La IA clasifica y sugiere, nunca calcula cantidades ni precios: por eso esta
+-- tabla no guarda cifras de producto.
 create type public.recommendation_source as enum ('MOTOR_REGLAS','IA_ASISTIDA','ASESOR_TECNICO');
 create type public.recommendation_status as enum ('SUGERIDA','ACEPTADA','DESCARTADA');
 
@@ -176,8 +154,7 @@ create table public.recommendations (
   status       public.recommendation_status not null default 'SUGERIDA',
   priority     int not null default 1,
   justification text,
-  -- Confianza del modelo, cuando la fuente es IA. Sirve para decidir si se
-  -- muestra como sugerencia o se escala a un asesor humano.
+  -- Decide si se muestra como sugerencia o se escala a un asesor.
   confidence   numeric(4,3),
   model        text,
   accepted_at  timestamptz,
@@ -187,8 +164,7 @@ create table public.recommendations (
   constraint recommendations_prioridad_valida check (priority between 1 and 10),
   constraint recommendations_confianza_valida
     check (confidence is null or (confidence >= 0 and confidence <= 1)),
-  -- Si viene de IA debe quedar registrado qué modelo la produjo: sin
-  -- trazabilidad del origen no se puede auditar una recomendación técnica.
+  -- Una recomendación de IA debe registrar el modelo para poder auditarla.
   constraint recommendations_ia_con_modelo
     check (source <> 'IA_ASISTIDA' or model is not null)
 );
@@ -197,11 +173,7 @@ create index recommendations_project_idx on public.recommendations (project_id);
 comment on table public.recommendations is
   'La IA sugiere soluciones y justifica; las cantidades y precios provienen siempre del motor de cálculo y del catálogo.';
 
--- ============================================================
--- MARCO LEGAL COLOMBIANO
--- ============================================================
--- Ley 1581 de 2012 (habeas data) y Estatuto del Consumidor (Ley 1480 de 2011):
--- hay que poder demostrar QUÉ versión aceptó cada usuario y CUÁNDO.
+-- Ley 1581 de 2012 y Ley 1480 de 2011: hay que probar qué versión aceptó cada usuario y cuándo.
 create type public.legal_doc_kind as enum (
   'TERMINOS','PRIVACIDAD','HABEAS_DATA','GARANTIA','DEVOLUCIONES','COOKIES'
 );
@@ -216,7 +188,6 @@ create table public.legal_documents (
   published_at timestamptz not null default now(),
   constraint legal_documents_version_unica unique (kind, version)
 );
--- Una sola versión vigente por tipo de documento.
 create unique index legal_documents_vigente_unico
   on public.legal_documents (kind) where is_current;
 
@@ -225,7 +196,7 @@ create table public.user_consents (
   user_id     uuid not null references auth.users (id) on delete cascade,
   document_id uuid not null references public.legal_documents (id) on delete restrict,
   accepted_at timestamptz not null default now(),
-  -- Evidencia de la aceptación, exigible ante la SIC.
+  -- Evidencia exigible ante la SIC.
   ip_address  inet,
   user_agent  text,
   constraint user_consents_unico unique (user_id, document_id)
@@ -235,9 +206,6 @@ create index user_consents_user_idx on public.user_consents (user_id);
 comment on table public.user_consents is
   'Evidencia de aceptación de términos y tratamiento de datos (Ley 1581 de 2012).';
 
--- ============================================================
--- RLS
--- ============================================================
 alter table public.conversation_messages enable row level security;
 alter table public.recommendations       enable row level security;
 alter table public.legal_documents       enable row level security;
@@ -250,8 +218,7 @@ grant select on public.conversation_messages, public.recommendations to authenti
 grant select on public.legal_documents to anon, authenticated;
 grant select, insert on public.user_consents to authenticated;
 
--- El cliente ve su hilo SIN las notas internas. Esta exclusión es la razón
--- de ser del tipo NOTA_INTERNA: el personal comenta sin que el cliente lo lea.
+-- El cliente ve su hilo sin las notas internas.
 create policy "mensajes_cliente" on public.conversation_messages
   for select to authenticated
   using (
@@ -279,8 +246,7 @@ create policy "recomendaciones_staff" on public.recommendations
   using ( (select public.is_staff()) and (select public.can_access_project(project_id)) )
   with check ( (select public.is_staff()) and (select public.can_access_project(project_id)) );
 
--- Los documentos legales vigentes son públicos: deben poder leerse ANTES de
--- registrarse, que es justo cuando hay que aceptarlos.
+-- Públicos: deben leerse antes de registrarse, cuando se aceptan.
 create policy "legales_vigentes_publicos" on public.legal_documents
   for select to anon, authenticated using ( is_current );
 

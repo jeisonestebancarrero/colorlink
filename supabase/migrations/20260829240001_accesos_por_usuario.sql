@@ -1,20 +1,5 @@
--- ============================================================
--- Accesos por usuario, además de por rol
--- ============================================================
--- Hasta ahora el acceso se concedía solo por rol. Eso obliga a elegir entre
--- dos malas salidas cuando UNA persona necesita un módulo extra:
---   a) darle el acceso a TODO su rol — se lo damos a quien no lo necesita;
---   b) crear un rol nuevo para una sola persona — el catálogo de roles se
---      llena de casos particulares y deja de significar nada.
---
--- MODELO: el rol define la línea base; la excepción por usuario manda.
---   sin fila en user_views  -> vale lo que diga su rol
---   visible = true          -> se concede aunque el rol no lo tenga
---   visible = false         -> se retira aunque el rol sí lo tenga
---
--- La revocación explícita es tan necesaria como la concesión: permite
--- quitarle Tesorería a un contador concreto sin tocar el rol Contabilidad.
--- ============================================================
+-- Excepciones de acceso por usuario sobre la base del rol: sin fila vale el rol,
+-- visible/granted = true concede y false retira aunque el rol lo tenga.
 
 create table public.user_views (
   user_id    uuid not null references auth.users (id) on delete cascade,
@@ -41,9 +26,6 @@ create index user_permissions_user_id_idx on public.user_permissions (user_id);
 comment on table public.user_views is
   'Excepciones de acceso por persona. Prevalecen sobre lo que conceda el rol.';
 
--- ============================================================
--- has_permission: rol como base, excepción de usuario como decisión final
--- ============================================================
 create or replace function public.has_permission(_code text)
 returns boolean
 language sql
@@ -52,12 +34,12 @@ security definer
 set search_path = ''
 as $$
   select coalesce(
-    -- 1. Si hay excepción personal, esa manda: concede o retira.
+    -- La excepción personal manda, concede o retira.
     (select up.granted
        from public.user_permissions up
       where up.user_id = (select auth.uid())
         and up.permission_code = _code),
-    -- 2. Si no la hay, decide el rol.
+    -- Sin excepción decide el rol.
     (select exists (
        select 1
        from public.user_roles ur
@@ -69,9 +51,7 @@ as $$
   ) or public.is_admin();
 $$;
 
--- ============================================================
--- my_permissions: mismo criterio para permisos y para aplicaciones
--- ============================================================
+-- Mismo criterio de excepciones para permisos y aplicaciones.
 create or replace function public.my_permissions()
 returns jsonb
 language sql
@@ -80,14 +60,12 @@ security definer
 set search_path = ''
 as $$
   with yo as (select (select auth.uid()) as uid),
-  -- Permisos que da el rol
   por_rol as (
     select distinct rp.permission_code as code
     from public.user_roles ur
     join public.role_permissions rp on rp.role = ur.role
     where ur.user_id = (select uid from yo) and rp.granted
   ),
-  -- Excepciones personales
   excepciones as (
     select up.permission_code as code, up.granted
     from public.user_permissions up
@@ -99,7 +77,6 @@ as $$
     union
     select code from excepciones where granted
   ),
-  -- Aplicaciones que da el rol
   vistas_rol as (
     select distinct v.code
     from public.user_roles ur
@@ -134,9 +111,6 @@ as $$
   );
 $$;
 
--- ============================================================
--- Conceder o retirar acceso a una persona
--- ============================================================
 create or replace function public.set_user_view(
   _user_id uuid, _view_code text, _visible boolean, _reason text default null
 )
@@ -162,7 +136,7 @@ begin
 end;
 $$;
 
-/** Elimina la excepción: la persona vuelve a lo que diga su rol. */
+-- Elimina la excepción: vuelve a valer el rol.
 create or replace function public.clear_user_view(_user_id uuid, _view_code text)
 returns void
 language plpgsql
@@ -183,9 +157,6 @@ begin
 end;
 $$;
 
--- ============================================================
--- RLS
--- ============================================================
 alter table public.user_views       enable row level security;
 alter table public.user_permissions enable row level security;
 

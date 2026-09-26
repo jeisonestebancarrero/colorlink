@@ -1,27 +1,7 @@
--- ============================================================
--- El acuse de lectura se marca por LADOS, no por persona
--- ============================================================
--- Al poner los «chulitos» del chat salió un fallo en cómo se marcaba leído.
---
--- `marcar_conversacion_leida` marcaba todo lo que no fuera del propio autor.
--- Con dos personas basta, pero de este lado del mostrador hay varias: si un
--- asesor abría la conversación, los mensajes escritos por OTRO compañero
--- quedaban marcados como leídos. El chulito doble diría «el cliente lo vio»
--- cuando lo que pasó es que lo vio un compañero. Un acuse que miente es peor
--- que no tener acuse: se toma una decisión —volver a llamar o no— con un dato
--- falso.
---
--- La conversación tiene DOS LADOS: el cliente (el dueño del pedido y la gente
--- de su empresa) y el equipo. `read_at` pasa a significar «lo leyó el otro
--- lado», que es lo único que el chulito puede afirmar con honestidad.
---
--- Nota sobre la precisión que SÍ se puede prometer: dos chulos significan que
--- alguien del otro lado abrió la conversación donde estaba el mensaje. No que
--- lo haya leído con atención. Es lo mismo que promete cualquier chat.
+-- El acuse se marca por lados (cliente/equipo), no por persona: antes, un asesor que
+-- abría el chat marcaba como leídos los mensajes de otro compañero.
+-- read_at significa «lo abrió alguien del otro lado».
 
--- ------------------------------------------------------------
--- ¿Este mensaje lo escribió el lado del cliente?
--- ------------------------------------------------------------
 create or replace function public.es_del_lado_del_cliente(
   _order_id uuid, _author_id uuid
 ) returns boolean
@@ -43,9 +23,6 @@ as $$
   );
 $$;
 
--- ------------------------------------------------------------
--- Marcar leído: solo lo del OTRO lado
--- ------------------------------------------------------------
 create or replace function public.marcar_conversacion_leida(_order_id uuid)
 returns integer
 language plpgsql
@@ -64,8 +41,7 @@ begin
     raise exception 'FORBIDDEN: no tienes acceso a esta conversación' using errcode = '42501';
   end if;
 
-  -- De qué lado está quien abre. Alguien puede ser personal Y dueño del
-  -- pedido; en ese caso manda ser el dueño, porque el hilo es suyo.
+  -- Si es personal y dueño del pedido, prima ser dueño: el hilo es suyo.
   v_soy_equipo := public.is_staff()
     and not public.es_del_lado_del_cliente(_order_id, (select auth.uid()));
 
@@ -77,7 +53,6 @@ begin
      and m.author_id is distinct from (select auth.uid())
      and m.kind <> 'EVENTO'
      and (m.kind <> 'NOTA_INTERNA' or public.is_staff())
-     -- El cambio: solo lo que venga del OTRO lado.
      and public.es_del_lado_del_cliente(m.order_id, m.author_id) = v_soy_equipo;
 
   get diagnostics v_marcados = row_count;
@@ -85,11 +60,7 @@ begin
 end;
 $$;
 
--- ------------------------------------------------------------
--- La campana usa el mismo criterio
--- ------------------------------------------------------------
--- Si contara distinto de lo que marca, quedarían avisos imposibles de quitar:
--- el número diría que hay uno sin leer y abrir el chat no lo bajaría.
+-- Mismo criterio que al marcar; si no, habría avisos que abrir el chat no quita.
 create or replace function public.mensajes_sin_leer()
 returns table (
   order_id uuid,
@@ -105,7 +76,6 @@ set search_path = public
 as $$
   with mios as (
     select o.id, o.order_number,
-           -- De qué lado estoy en ESTE pedido.
            (public.is_staff()
              and not public.es_del_lado_del_cliente(o.id, (select auth.uid()))) as soy_equipo
     from public.orders o

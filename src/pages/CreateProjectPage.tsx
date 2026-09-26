@@ -53,7 +53,7 @@ export const CreateProjectPage: React.FC<CreateProjectPageProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [createdProjectResult, setCreatedProjectResult] = useState<Project | null>(null);
 
-  // Canonical Form State with default realistic Pintuco Case Study (Constructora Horizonte)
+  // Arranca con un caso de ejemplo precargado.
   const [formData, setFormData] = useState<ProjectFormData>({
     name: 'Fachada Edificio Residencial Horizonte',
     city: 'Medellín',
@@ -218,7 +218,7 @@ export const CreateProjectPage: React.FC<CreateProjectPageProps> = ({
       if (cond === 'Buen estado') {
         return { ...prev, conditions: ['Buen estado'] };
       }
-      // If adding another condition, remove 'Buen estado'
+      // 'Buen estado' excluye cualquier otra condición.
       nextConditions = nextConditions.filter((c) => c !== 'Buen estado');
 
       if (nextConditions.includes(cond)) {
@@ -244,7 +244,7 @@ export const CreateProjectPage: React.FC<CreateProjectPageProps> = ({
     }
   };
 
-  // If already created, render the structured Preliminary Diagnostic Results Engine
+  // Proyecto ya creado: se muestra el diagnóstico preliminar.
   if (createdProjectResult) {
     const analysis = createdProjectResult.preliminaryAnalysis;
     const products = createdProjectResult.recommendedProducts;
@@ -425,7 +425,6 @@ export const CreateProjectPage: React.FC<CreateProjectPageProps> = ({
     );
   }
 
-  // Multi-Step Customer Assistant Wizard View
   return (
     <div className="max-w-3xl mx-auto space-y-6 text-left pb-16">
       {/* Top Breadcrumb & Step Indicators */}

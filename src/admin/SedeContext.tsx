@@ -4,19 +4,8 @@ import React, {
 import { sedesService, type SedePermitida } from '../services/sedes';
 
 /**
- * Sede activa del portal interno, al estilo del selector de compañías de Odoo.
- *
- * QUÉ ES Y QUÉ NO ES:
- *   * Las sedes PERMITIDAS las decide el servidor (`sedes_permitidas()`) y las
- *     hace cumplir RLS. Aquí solo se leen para poder ofrecerlas.
- *   * Las sedes ACTIVAS son la selección de quien está mirando: acotan la
- *     pantalla DENTRO de lo permitido. Viven en el navegador porque no son un
- *     control de acceso; si lo fueran, bastaría cambiar el desplegable.
- *
- * Se pueden activar VARIAS a la vez, como en Odoo: un jefe regional necesita
- * ver Medellín e Itagüí juntas. Ninguna activa no es un estado válido —dejaría
- * las pantallas vacías sin explicación—, así que al desmarcar la última se
- * vuelve a todas.
+ * Sedes permitidas (`sedes_permitidas()`, aplicadas por RLS) y activas (selección local, no es
+ * control de acceso). Puede haber varias activas; nunca ninguna.
  */
 
 const CLAVE = 'colorlink.admin.sedes-activas.v1';
@@ -24,7 +13,7 @@ const CLAVE = 'colorlink.admin.sedes-activas.v1';
 interface SedeContextType {
   /** Todo lo que esta persona tiene permitido. */
   permitidas: SedePermitida[];
-  /** Lo que está mirando ahora. Subconjunto no vacío de `permitidas`. */
+  /** Subconjunto no vacío de `permitidas`. */
   activas: string[];
   /** true si el servidor la tiene acotada a algunas sedes. */
   restringido: boolean;
@@ -32,13 +21,7 @@ interface SedeContextType {
   alternar: (locationId: string) => void;
   soloEsta: (locationId: string) => void;
   activarTodas: () => void;
-  /**
-   * Filtro para las consultas de los módulos.
-   *
-   * `null` cuando están todas activas: así el módulo no manda un `in(...)` con
-   * las siete sedes y la consulta queda igual que antes. Un módulo que reciba
-   * `null` no debe filtrar: RLS ya limitó las filas a lo permitido.
-   */
+  /** Filtro para consultas; `null` con todas activas: no filtrar, RLS ya limita. */
   filtroSedes: string[] | null;
   recargar: () => Promise<void>;
 }
@@ -46,17 +29,8 @@ interface SedeContextType {
 const SedeContext = createContext<SedeContextType | undefined>(undefined);
 
 /**
- * «Todas» se representa con la AUSENCIA de selección guardada, no con la lista
- * completa.
- *
- * Guardar la lista completa tenía un defecto real: con las 7 sedes activas se
- * guardaban esos 7 ids; al crear una octava, los 7 guardados seguían siendo
- * válidos, así que la nueva quedaba PERMITIDA pero no activa y no aparecía en
- * los contadores ni en los filtros. Quien nunca había hecho una selección
- * parcial se perdía la sede nueva sin saber por qué.
- *
- * Con la ausencia como «todas», una sede nueva entra sola. Y quien SÍ eligió
- * un subconjunto conserva su elección, que es lo que pidió.
+ * «Todas» es la ausencia de selección guardada, no la lista completa: así una sede nueva
+ * queda activa sola en vez de quedar permitida pero oculta.
  */
 function leerGuardadas(): string[] | null {
   try {
@@ -96,14 +70,12 @@ export const SedeProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setPermitidas(lista);
       setRestringido(acotado);
 
-      // La selección guardada se DEPURA contra lo permitido: si a alguien le
-      // quitaron una sede, no puede seguir viéndola en su selector.
+      // Depura la selección guardada contra lo permitido.
       const validas = new Set(lista.map((s) => s.id));
       const guardadas = leerGuardadas();
       const depuradas = guardadas?.filter((id) => validas.has(id)) ?? null;
 
-      // Sin preferencia guardada —o si al depurarla no queda ninguna— se
-      // activan TODAS las permitidas, incluidas las creadas después.
+      // Sin preferencia válida se activan todas las permitidas.
       setActivas(depuradas && depuradas.length > 0 ? depuradas : lista.map((s) => s.id));
     } catch (e) {
       console.error('[sedes] no se pudieron cargar las sedes permitidas', e);
@@ -117,11 +89,10 @@ export const SedeProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => { void recargar(); }, [recargar]);
 
   const fijar = useCallback((ids: string[], todas: SedePermitida[]) => {
-    // Ninguna activa dejaría todas las pantallas vacías sin decir por qué.
+    // Ninguna activa dejaría las pantallas vacías.
     const finales = ids.length > 0 ? ids : todas.map((s) => s.id);
     setActivas(finales);
-    // Si quedaron todas, se BORRA la preferencia: así «todas» sigue queriendo
-    // decir todas cuando mañana exista una sede más.
+    // Con todas seleccionadas se borra la preferencia para incluir sedes futuras.
     guardar(finales.length === todas.length ? null : finales);
   }, []);
 

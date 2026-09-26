@@ -1,19 +1,5 @@
--- ============================================================
--- El correo de confirmación sale DESPUÉS del pago, no antes
--- ============================================================
--- `orders_correo_creado` se disparaba al fijarse el total del pedido, que
--- ocurre en el mismo instante en que se crea. El cliente recibía "Recibimos tu
--- pedido" antes de pagar, y si abandonaba el pago se quedaba con un correo de
--- una compra que nunca existió.
---
--- El pedido no es una venta hasta que hay cobro. Así que la confirmación se
--- manda cuando el cobro se resuelve, en cualquiera de sus dos formas:
---   · pago aprobado por la pasarela (status = PAGADO), o
---   · pedido a crédito de una empresa con cupo (is_credit), donde no hay cobro
---     en línea pero sí un compromiso en firme.
---
--- La plantilla PAGO_RECIBIDO ya distingue los dos casos y escribe el texto que
--- corresponde, incluida la fecha de vencimiento del crédito.
+-- La confirmación del pedido sale cuando se resuelve el cobro (PAGADO o a crédito),
+-- no al crearlo. PAGO_RECIBIDO ya distingue ambos casos.
 drop trigger if exists orders_correo_creado on public.orders;
 drop function if exists public.correo_pedido_creado();
 
@@ -32,8 +18,7 @@ begin
   v_confirmado := new.status = 'PAGADO' or new.is_credit;
   v_antes      := old.status = 'PAGADO' or old.is_credit;
 
-  -- Solo en la transición. Un pago ya confirmado que se vuelve a tocar no
-  -- puede mandar el correo otra vez.
+    -- Solo en la transición, para no reenviar el correo.
   if v_confirmado and not v_antes then
     select o.user_id, p.email into v_user, v_email
       from public.orders o

@@ -2,23 +2,14 @@ import { supabase } from '../lib/supabase';
 import type { CartItem, SolutionKit, StoreProduct } from '../types';
 
 /**
- * Carrito del visitante SIN sesión.
- *
- * Un visitante puede armar su compra antes de tener cuenta. La sesión se le
- * pide recién cuando va a pedir la cotización formal o a confirmar el pedido,
- * y lo que había armado no se pierde: al entrar, estas líneas se vuelcan al
- * carrito real con `cartService.absorberLineas` y este almacén queda vacío.
- *
- * PRINCIPIO IGUAL AL DEL SERVIDOR: aquí se guarda solo QUÉ variante, QUÉ color
- * y CUÁNTA cantidad. Nunca precios. El precio se lee del catálogo cada vez que
- * el carrito se muestra, así que nadie puede editarlo desde la consola del
- * navegador. Las tablas `carts` y `cart_items` niegan el acceso anónimo (401),
- * que es justamente la razón de que este carrito viva en el navegador.
+ * Carrito del visitante en el navegador, porque `carts`/`cart_items` niegan el acceso
+ * anónimo. Guarda solo variante, color y cantidad, nunca precios; al iniciar sesión
+ * se vuelca con `cartService.absorberLineas`.
  */
 
 const CLAVE = 'colorlink.carrito.invitado.v1';
 
-/** Cota de `cart_items_cantidad_positiva`: si se pasa, el volcado falla. */
+/** Tope de `cart_items_cantidad_positiva`; si se supera, el volcado falla. */
 export const CANTIDAD_MAXIMA = 999;
 
 export interface LineaInvitado {
@@ -28,29 +19,16 @@ export interface LineaInvitado {
   kitSolutionId: string | null;
 }
 
-/**
- * Identificador sintético de la línea.
- *
- * El carrito con sesión identifica cada línea por el `id` de `cart_items`.
- * Sin sesión no hay fila, así que se compone con lo que sí la hace única, que
- * es la misma pareja del índice `cart_items_unico`: variante y color. Así
- * `updateQuantity` y `removeFromCart` funcionan igual en los dos modos.
- */
+/** Id sintético variante+color (como `cart_items_unico`) para que las operaciones funcionen igual con y sin sesión. */
 export const idLinea = (variantId: string, colorId: string | null): string =>
   `inv:${variantId}:${colorId ?? 'sin-color'}`;
 
 const mismaLinea = (a: LineaInvitado, b: LineaInvitado): boolean =>
   a.variantId === b.variantId && a.colorId === b.colorId;
 
-// ------------------------------------------------------------
 // Almacenamiento
-// ------------------------------------------------------------
 
-/**
- * localStorage puede lanzar (modo privado, cuota llena, cookies bloqueadas).
- * Si falla, el visitante sigue navegando con el carrito en blanco en lugar de
- * ver la tienda caerse.
- */
+/** localStorage puede lanzar (modo privado, cuota, cookies bloqueadas); se devuelve vacío. */
 export function leerLineas(): LineaInvitado[] {
   try {
     const crudo = window.localStorage.getItem(CLAVE);
@@ -87,20 +65,14 @@ export function hayLineas(): boolean {
   return leerLineas().length > 0;
 }
 
-// ------------------------------------------------------------
-// Qué quería hacer el visitante cuando se le pidió la sesión
-// ------------------------------------------------------------
+// Intención pendiente al pedir la sesión
 
-/** La acción que exige cuenta y que disparó la petición de sesión. */
+/** Acción que exige cuenta y disparó la petición de sesión. */
 export type Intencion = 'cotizacion' | 'pedido';
 
 const CLAVE_INTENCION = 'colorlink.carrito.intencion.v1';
 
-/**
- * Se guarda en el navegador y no en memoria porque el acceso con Google
- * redirige toda la página: al volver, el estado de React ya no existe y sin
- * esto la persona aterrizaría en el panel sin saber que su carrito la espera.
- */
+/** En el navegador porque el acceso con Google recarga la página y se pierde el estado de React. */
 export function guardarIntencion(intencion: Intencion | null): void {
   try {
     if (intencion === null) window.localStorage.removeItem(CLAVE_INTENCION);
@@ -119,11 +91,9 @@ export function leerIntencion(): Intencion | null {
   }
 }
 
-// ------------------------------------------------------------
 // Resolución contra el catálogo (lectura anónima permitida)
-// ------------------------------------------------------------
 
-/** Traduce el nombre de color que muestra la interfaz al id real. */
+/** Nombre de color de la interfaz → id real. */
 async function resolverColorId(
   producto: StoreProduct,
   nombreColor?: string
@@ -135,9 +105,7 @@ async function resolverColorId(
   return (data as { id: string } | null)?.id ?? null;
 }
 
-// ------------------------------------------------------------
 // Escritura
-// ------------------------------------------------------------
 
 function fusionar(actuales: LineaInvitado[], nuevas: LineaInvitado[]): LineaInvitado[] {
   const resultado = [...actuales];
@@ -186,9 +154,7 @@ export async function agregarKit(kit: SolutionKit, multiplicador = 1): Promise<v
       .maybeSingle();
 
     const variantId = (variante as { id: string } | null)?.id;
-    // Misma deuda de datos que en el carrito del servidor: algunos pasos citan
-    // etiquetas que no son una variante real. Se omiten en lugar de romper la
-    // compra completa del kit.
+    // Algunos pasos del kit citan etiquetas sin variante real: se omiten sin romper la compra.
     if (!variantId) {
       console.warn(`[carrito-invitado] paso de kit sin variante: ${paso.productId} / ${paso.presentation}`);
       continue;
@@ -222,9 +188,7 @@ export function quitar(itemId: string): void {
   guardarLineas(leerLineas().filter((l) => idLinea(l.variantId, l.colorId) !== itemId));
 }
 
-// ------------------------------------------------------------
 // Lectura para mostrar
-// ------------------------------------------------------------
 
 interface FilaVariante {
   id: string;
@@ -245,12 +209,8 @@ const num = (v: string | number | null | undefined): number => {
 };
 
 /**
- * Convierte las líneas guardadas en artículos mostrables, leyendo nombre,
- * imagen y PRECIO del catálogo en el momento.
- *
- * Si una variante dejó de existir, su línea se descarta y el carrito local se
- * reescribe sin ella: un producto retirado del catálogo no puede dejar el
- * carrito del visitante roto para siempre.
+ * Arma los artículos leyendo nombre, imagen y precio del catálogo en el momento.
+ * Las variantes retiradas se descartan y se reescribe el carrito local.
  */
 export async function obtenerArticulos(): Promise<CartItem[]> {
   const lineas = leerLineas();
@@ -306,7 +266,7 @@ export async function obtenerArticulos(): Promise<CartItem[]> {
       colorName: color?.name,
       colorCode: color?.code,
       colorHex: color?.hex,
-      // Precio SIEMPRE del catálogo, igual que en el carrito del servidor.
+      // El precio siempre sale del catálogo.
       unitPrice: num(v.price_cop),
       quantity: l.quantity,
       image: p?.image_url ?? '',

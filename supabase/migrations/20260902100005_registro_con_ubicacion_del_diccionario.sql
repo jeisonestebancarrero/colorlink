@@ -1,23 +1,5 @@
--- ============================================================
--- El registro guarda la ubicación del diccionario
--- ============================================================
--- `handle_new_user` recibía la ciudad como texto libre y la escribía tal cual
--- en `profiles.city` y en `companies.city`. De ahí salieron 'Bogotá' en un
--- registro y 'Bogotá D.C.' en otro.
---
--- Ahora el registro manda el código DIVIPOLA del municipio, y esta función:
---   1. Lo valida contra el diccionario. Si no existe, no se guarda.
---   2. Deriva `city` del nombre oficial, para no romper lo que ya lee esa
---      columna, pero la verdad queda en `municipality_code`.
---   3. **Crea la primera dirección del cliente** con lo que escribió en el
---      registro. Es lo que hace que el carrito pueda precargarla después: sin
---      esto, "completarse con la dirección registrada" no tendría de dónde.
---   4. Si es empresa, crea además su **sede principal** con esa dirección. Así
---      una empresa recién registrada ya tiene una sede, y el carrito solo
---      tiene que preguntar cuando haya más de una.
---
--- El barrio se valida contra su municipio: un barrio de Medellín en una
--- dirección de Cali sería un dato peor que no tener barrio.
+-- handle_new_user valida el municipio DIVIPOLA, deriva city, crea la primera
+-- dirección del cliente y, si es empresa, su sede principal.
 
 create or replace function public.handle_new_user()
 returns trigger
@@ -38,7 +20,6 @@ declare
   v_avatar       text;
   v_doc_type     public.document_type;
   v_doc_number   text;
-  -- Ubicación del diccionario.
   v_country      text;
   v_mun_code     text;
   v_barrio_id    uuid;
@@ -58,9 +39,6 @@ begin
   v_address      := nullif(trim(coalesce(new.raw_user_meta_data ->> 'address', '')), '');
   v_phone        := nullif(trim(coalesce(new.raw_user_meta_data ->> 'phone', '')), '');
 
-  -- ----------------------------------------------------------
-  -- Ubicación
-  -- ----------------------------------------------------------
   v_country := coalesce(
     nullif(trim(coalesce(new.raw_user_meta_data ->> 'country_code', '')), ''), 'CO');
   if not exists (select 1 from public.countries where code = v_country) then
@@ -68,16 +46,13 @@ begin
   end if;
 
   v_mun_code := nullif(trim(coalesce(new.raw_user_meta_data ->> 'municipality_code', '')), '');
-  -- Un código que no está en DIVIPOLA se descarta: mejor sin ciudad que con
-  -- una inventada, porque la clave ajena de `profiles` la rechazaría y el alta
-  -- entera reventaría dentro del disparador.
+    -- Un código fuera de DIVIPOLA se descarta: la FK de profiles haría fallar el alta.
   if v_mun_code is not null
      and not exists (select 1 from public.municipalities where code = v_mun_code) then
     v_mun_code := null;
   end if;
 
-  -- `city` se deriva del nombre oficial. Si no vino municipio, se respeta el
-  -- texto que haya llegado, para no perder el dato de un registro por Google.
+    -- Sin municipio se conserva el texto recibido (p. ej. registro con Google).
   if v_mun_code is not null then
     select m.name into v_city from public.municipalities m where m.code = v_mun_code;
   else
@@ -90,7 +65,7 @@ begin
   exception when invalid_text_representation then
     v_barrio_id := null;
   end;
-  -- El barrio tiene que ser de ESE municipio.
+    -- El barrio debe pertenecer al municipio.
   if v_barrio_id is not null and (
     v_mun_code is null or not exists (
       select 1 from public.neighborhoods n
@@ -100,9 +75,6 @@ begin
     v_barrio_id := null;
   end if;
 
-  -- ----------------------------------------------------------
-  -- Documento e identidad
-  -- ----------------------------------------------------------
   v_doc_type := case
     when new.raw_user_meta_data ->> 'document_type' in ('CC','CE','NIT','PASAPORTE','PEP')
     then (new.raw_user_meta_data ->> 'document_type')::public.document_type
@@ -121,7 +93,7 @@ begin
   v_first_name := nullif(trim(coalesce(new.raw_user_meta_data ->> 'first_name', '')), '');
   v_last_name  := nullif(trim(coalesce(new.raw_user_meta_data ->> 'last_name', '')), '');
 
-  -- Proveedor externo (Google): solo llega el nombre completo.
+    -- Google solo envía el nombre completo.
   if v_first_name is null then
     v_full_name := nullif(trim(coalesce(
       new.raw_user_meta_data ->> 'full_name',
@@ -155,11 +127,7 @@ begin
   values (new.id, 'CLIENTE')
   on conflict on constraint user_roles_unicos do nothing;
 
-  -- ----------------------------------------------------------
-  -- Primera dirección del cliente
-  -- ----------------------------------------------------------
-  -- Solo si trajo dirección Y municipio válido: una dirección sin ciudad no la
-  -- acepta la tabla, y con razón.
+    -- Solo con dirección y municipio válido.
   if v_address is not null and v_mun_code is not null then
     insert into public.customer_addresses (
       user_id, label, address_line, municipality_code, neighborhood_id, is_default
@@ -168,9 +136,6 @@ begin
     on conflict do nothing;
   end if;
 
-  -- ----------------------------------------------------------
-  -- Empresa
-  -- ----------------------------------------------------------
   if v_company_name is not null then
     select id into v_existente
       from public.companies
@@ -193,8 +158,7 @@ begin
       return new;
     end if;
 
-    -- Se crea SIEMPRE una empresa nueva, nunca se vincula por nombre: bastaría
-    -- escribir el nombre de otra constructora para acceder a sus proyectos.
+      -- Siempre empresa nueva: vincular por nombre daría acceso a proyectos ajenos.
     insert into public.companies (
       name, nit, city, email, status, country_code, municipality_code, neighborhood_id, address
     )
@@ -213,9 +177,7 @@ begin
     values (new.id, 'CLIENTE_B2B', v_company_id)
     on conflict on constraint user_roles_unicos do nothing;
 
-    -- Sede principal con la dirección del registro. Una empresa recién
-    -- registrada queda con UNA sede, así que el carrito no le pregunta nada
-    -- hasta que registre la segunda.
+      -- Sede principal con la dirección del registro.
     if v_address is not null and v_mun_code is not null then
       insert into public.company_branches (
         company_id, name, address_line, municipality_code, neighborhood_id,

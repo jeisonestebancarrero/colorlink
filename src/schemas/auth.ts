@@ -2,12 +2,8 @@ import { z } from 'zod';
 import type { ClientType } from '../types';
 
 /**
- * Validación de entrada de autenticación (MÓDULO 28).
- *
- * Estos esquemas se aplican ANTES de llamar a Supabase, pero no son la
- * defensa real: la validación que cuenta ocurre en la base de datos
- * (constraints, enums, RLS) y en Supabase Auth. Aquí solo evitamos viajes
- * de red inútiles y damos mensajes claros al usuario.
+ * Validación previa a Supabase para dar mensajes claros y ahorrar viajes; la
+ * defensa real está en la base (constraints, RLS) y en Supabase Auth.
  */
 
 export const CLIENT_TYPES = [
@@ -18,9 +14,7 @@ export const CLIENT_TYPES = [
   'Distribuidor',
 ] as const;
 
-// Comprobación en tiempo de compilación: si alguien añade un valor a la
-// unión `ClientType` en src/types/index.ts sin actualizar esta lista (ni el
-// enum `public.client_type` en la migración), `tsc` falla aquí.
+// Falla en compilación si `ClientType` cambia sin actualizar esta lista (y el enum public.client_type).
 const _clientTypesCoincidenConElFrontend: readonly ClientType[] = CLIENT_TYPES;
 void _clientTypesCoincidenConElFrontend;
 
@@ -29,18 +23,10 @@ export const loginSchema = z.object({
   password: z.string().min(1, 'La contraseña es obligatoria'),
 });
 
-// Refleja exactamente las validaciones que ya hace RegisterPage.tsx,
-// incluida la longitud mínima de 6 caracteres, que además coincide con
-// `minimum_password_length` de supabase/config.toml.
+// Contraseña mínima de 6: coincide con minimum_password_length de supabase/config.toml.
 export const TIPOS_DOCUMENTO = ['CC', 'CE', 'PASAPORTE', 'PEP'] as const;
 
-/**
- * Cómo se nombra cada tipo en pantalla.
- *
- * Vive junto a la lista y no en una pantalla: estaba solo en el registro, y
- * cuando el modal de «completa tu perfil» tuvo que pedir el documento habría
- * habido dos copias que se desincronizan en cuanto alguien agregue un tipo.
- */
+/** Etiqueta de cada tipo; junto a la lista para que registro y perfil no diverjan. */
 export const ETIQUETA_DOCUMENTO: Record<string, string> = {
   CC: 'Cédula de ciudadanía',
   CE: 'Cédula de extranjería',
@@ -48,11 +34,7 @@ export const ETIQUETA_DOCUMENTO: Record<string, string> = {
   PEP: 'Permiso especial de permanencia',
 };
 
-/**
- * El registro tiene dos formas y por eso el esquema es una unión: exigirle
- * NIT a una persona natural, o cédula a una empresa, obligaría a inventar
- * datos para poder continuar.
- */
+/** Unión por tipo de registro: a una persona no se le exige NIT ni a una empresa cédula. */
 export const registerSchema = z.object({
   firstName: z.string().trim().min(1, 'El nombre es obligatorio'),
   lastName: z.string().trim().min(1, 'El apellido es obligatorio'),
@@ -73,11 +55,7 @@ export const registroPersonaSchema = z.object({
   documentNumber: z.string().trim().min(5, 'Ingresa un número de documento válido'),
   email: z.email('Ingresa un correo electrónico válido'),
   phone: z.string().trim().min(1, 'El teléfono es obligatorio'),
-  /**
-   * Ubicación del diccionario, no texto libre. `city` desapareció de aquí a
-   * propósito: la ciudad se deriva en el servidor del código DIVIPOLA, que es
-   * lo que evita tener 'Bogotá' y 'Bogotá D.C.' como dos ciudades.
-   */
+  /** Ubicación del diccionario; la ciudad se deriva en el servidor del código DIVIPOLA. */
   countryCode: z.string().trim().length(2, 'Selecciona el país'),
   departmentCode: z.string().trim().min(1, 'Selecciona el departamento'),
   municipalityCode: z.string().trim().min(1, 'Selecciona la ciudad'),
@@ -96,11 +74,7 @@ export const registroEmpresaSchema = z.object({
   lastName: z.string().trim().min(1, 'El apellido del representante es obligatorio'),
   email: z.email('Ingresa un correo electrónico válido'),
   phone: z.string().trim().min(1, 'El teléfono es obligatorio'),
-  /**
-   * Ubicación del diccionario, no texto libre. `city` desapareció de aquí a
-   * propósito: la ciudad se deriva en el servidor del código DIVIPOLA, que es
-   * lo que evita tener 'Bogotá' y 'Bogotá D.C.' como dos ciudades.
-   */
+  /** Ubicación del diccionario; la ciudad se deriva en el servidor del código DIVIPOLA. */
   countryCode: z.string().trim().length(2, 'Selecciona el país'),
   departmentCode: z.string().trim().min(1, 'Selecciona el departamento'),
   municipalityCode: z.string().trim().min(1, 'Selecciona la ciudad'),

@@ -1,30 +1,8 @@
--- ============================================================
--- Anular una factura y registrar un egreso
--- ============================================================
--- Dos huecos del mismo tipo: la base tenía el estado y el permiso, pero no la
--- operación.
---
---   · `invoice_status` incluye 'ANULADA', las columnas `voided_at` y
---     `void_reason` estaban ahí, y el permiso `invoices.void` ya existía en
---     `role_permissions`. Lo único que faltaba era la función. Una factura mal
---     emitida se quedaba en los libros para siempre.
---   · `treasury_direction` incluye 'EGRESO' y no había forma de registrar uno.
---     Tesorería solo sabía cobrar: pagar un flete, un proveedor o un servicio
---     había que anotarlo fuera del sistema, y la caja del sistema decía más
---     dinero del que había.
+-- Operaciones que faltaban: anular factura (invoices.void) y registrar egresos de tesorería.
 
--- ------------------------------------------------------------
--- El origen del asiento: falta EGRESO
--- ------------------------------------------------------------
--- `journal_source` tenía MANUAL, FACTURA, RECEPCION, RECAUDO y
--- AJUSTE_INVENTARIO. Sin un valor propio, un egreso tendría que registrarse
--- como MANUAL y en el libro sería indistinguible de un comprobante escrito a
--- mano: se perdería poder decir de dónde salió cada salida de dinero.
+-- Origen propio para distinguir los egresos de los asientos manuales en el libro.
 alter type public.journal_source add value if not exists 'EGRESO';
 
--- ------------------------------------------------------------
--- Anular una factura
--- ------------------------------------------------------------
 create or replace function public.anular_factura(
   _invoice_id uuid,
   _motivo text
@@ -44,9 +22,7 @@ begin
       using errcode = '42501';
   end if;
 
-  -- El motivo es obligatorio y no es burocracia: una factura anulada sin
-  -- explicación es lo primero que pregunta una auditoría, y meses después
-  -- nadie recuerda por qué.
+  -- Motivo obligatorio: es lo primero que pide una auditoría.
   if coalesce(trim(_motivo), '') = '' then
     raise exception 'VALIDATION: escribe el motivo de la anulación'
       using errcode = '22023';
@@ -64,12 +40,8 @@ begin
     raise exception 'YA_ANULADA: esa factura ya estaba anulada' using errcode = '22023';
   end if;
 
-  -- NO se anula una factura que ya tiene dinero recibido.
-  --
-  -- Anularla dejaría el recaudo colgando de un documento que dejó de existir:
-  -- la cartera cuadraría, la caja no, y el dinero del cliente quedaría sin
-  -- respaldo. Lo correcto es devolver primero —o emitir una nota de crédito—,
-  -- y eso es una decisión de negocio, no algo que esta función deba adivinar.
+  -- No se anula con recaudos: el dinero quedaría sin respaldo. Primero se devuelve
+  -- o se emite nota crédito.
   select coalesce(sum(amount_cop), 0) into v_recaudado
   from public.treasury_movements
   where invoice_id = _invoice_id and direction = 'INGRESO';
@@ -87,9 +59,7 @@ begin
          void_reason = trim(_motivo)
    where id = _invoice_id;
 
-  -- Se revierte su asiento contable. `void_journal_entry` genera el asiento
-  -- CONTRARIO en lugar de borrar el original: en contabilidad no se borra, se
-  -- reversa, para que quede la huella de que existió.
+  -- void_journal_entry reversa el asiento en lugar de borrarlo.
   select id into v_asiento
   from public.journal_entries
   where invoice_id = _invoice_id and status = 'REGISTRADO'
@@ -100,11 +70,7 @@ begin
     v_revertido := true;
   end if;
 
-  -- El INVENTARIO no se toca a propósito. La salida física la manda el estado
-  -- del pedido (`mover_inventario_por_estado`), no la factura: si la mercancía
-  -- ya salió, devolverla al sistema porque se anuló el documento inventaría
-  -- existencias que no están en la bodega. Si además hay que devolverla, se
-  -- hace desde el pedido.
+  -- El inventario no se toca: lo mueve el estado del pedido, no la factura.
 
   insert into public.audit_logs (user_id, action, entity, entity_id, metadata)
   values ((select auth.uid()), 'INVOICE_VOID', 'invoices', _invoice_id,
@@ -121,9 +87,6 @@ begin
 end;
 $$;
 
--- ------------------------------------------------------------
--- Registrar un egreso
--- ------------------------------------------------------------
 create or replace function public.registrar_egreso(
   _account_id uuid,
   _amount numeric,
@@ -161,11 +124,8 @@ begin
   end if;
   v_cuenta_banco := case when v_tipo = 'CAJA' then '1105' else '1110' end;
 
-  -- LA CONTRAPARTIDA LA ELIGE QUIEN REGISTRA, y por eso es obligatoria.
-  -- Un egreso no dice por sí solo qué se pagó: puede ser un gasto (5135), un
-  -- abono a un proveedor (2205) o una compra. Elegir una por defecto metería
-  -- todos los pagos en la misma cuenta y el estado de resultados diría
-  -- cualquier cosa.
+  -- La contrapartida es obligatoria: un egreso puede ser gasto, abono a proveedor o
+  -- compra, y no se puede deducir.
   select name into v_nombre_cta
   from public.accounts
   where code = _cuenta_contrapartida and is_postable and is_active;
@@ -179,10 +139,7 @@ begin
       using errcode = '22023';
   end if;
 
-  -- El saldo NO bloquea la operación: una cuenta bancaria puede quedar en
-  -- descubierto y la caja puede tener un faltante real que hay que registrar
-  -- igual. Pero se devuelve para que la pantalla lo advierta: un egreso que
-  -- deja la caja en negativo casi siempre es un error de digitación.
+  -- El saldo no bloquea (descubiertos y faltantes son reales); se devuelve para advertir.
   select coalesce(sum(case when direction = 'INGRESO' then amount_cop else -amount_cop end), 0)
     into v_saldo_antes
   from public.treasury_movements
@@ -196,9 +153,7 @@ begin
   )
   returning id into v_mov;
 
-  -- El asiento: se debita lo que se pagó y se acredita de dónde salió.
-  -- `asentar_recaudo` deja pasar los egresos precisamente porque su
-  -- contrapartida no se puede deducir; aquí ya se sabe cuál es.
+  -- Débito a la contrapartida, crédito a la cuenta de origen.
   perform public.post_journal_entry(
     'Egreso — ' || trim(_concept),
     jsonb_build_array(

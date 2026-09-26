@@ -3,17 +3,8 @@ import { readFileSync, existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 /**
- * Pasarela de pagos.
- *
- * Lo que se vigila, que es donde de verdad se pierde plata:
- *   1. Que nadie pueda dar por pagado un pedido sin pasar por la pasarela.
- *      `confirmar_pago` es del webhook y de nadie más.
- *   2. Que un pedido sin cobro no se pueda alistar. Alistar es sacar
- *      mercancía de la bodega.
- *   3. Que el crédito no se lo pueda conceder el propio cliente, ni exceder
- *      el cupo aprobado.
- *   4. Que la firma de integridad se calcule en el servidor: si se firmara en
- *      el navegador, cualquiera pagaría mil pesos por un pedido de un millón.
+ * Pasarela de pagos: solo el webhook confirma pagos, sin cobro no se alista, el
+ * cliente no se concede crédito ni excede el cupo, y la firma se calcula en el servidor.
  */
 
 function leerEnvLocal(): Record<string, string> {
@@ -78,8 +69,7 @@ describe.skipIf(!disponible)('Pagos', () => {
 
   /** Crea un pedido nuevo del cliente, listo para cobrar. */
   async function nuevoPedido(): Promise<string> {
-    // Solo puede haber un carrito activo por persona, así que se reutiliza el
-    // que exista en vez de intentar crear otro.
+    // Solo puede haber un carrito activo por persona: se reutiliza el existente.
     const existente = await fetch(
       `${API}/rest/v1/carts?select=id&is_active=eq.true&limit=1`,
       { headers: cab(tCliente) },
@@ -118,8 +108,7 @@ describe.skipIf(!disponible)('Pagos', () => {
     const id = await rpc('create_order_from_cart', tCliente, {
       _delivery_method: 'RETIRO_TIENDA',
       _pickup_location_id: (punto as Array<{ id: string }>)[0].id,
-      // Quién recibe es obligatorio desde 20260902100002: sin nombre, documento
-      // y teléfono, el punto de retiro no sabe a quién le entrega.
+      // Destinatario obligatorio: el punto de retiro necesita saber a quién entrega.
       _recipient_name: 'Carlos Mendoza',
       _recipient_document_type: 'CC',
       _recipient_document_number: '71234567',
@@ -149,7 +138,6 @@ describe.skipIf(!disponible)('Pagos', () => {
     });
   });
 
-  // ── Lo que no se puede saltar ──────────────────────────────────────────
   it('un cliente no puede confirmar su propio pago', async () => {
     const r = await rpc('confirmar_pago', tCliente, {
       _referencia: 'LO-QUE-SEA',
@@ -188,7 +176,6 @@ describe.skipIf(!disponible)('Pagos', () => {
     expect(JSON.stringify(await r.json())).toMatch(/SIN_COBRO/);
   });
 
-  // ── Iniciar el cobro ───────────────────────────────────────────────────
   it('iniciar el pago devuelve referencia y monto en centavos', async () => {
     const r = await rpc('iniciar_pago', tCliente, { _order_id: pedido, _metodo: 'PSE' });
     expect(r.ok).toBe(true);
@@ -201,8 +188,7 @@ describe.skipIf(!disponible)('Pagos', () => {
       headers: cab(tCliente),
     }).then((x) => x.json());
 
-    // El monto lo calcula el servidor a partir del pedido: es lo que impide
-    // que alguien firme un cobro por un valor distinto al que debe.
+    // El monto lo calcula el servidor desde el pedido; el cliente no puede alterarlo.
     expect(Number(d.centavos)).toBe(Math.round(Number(o.total_cop)) * 100);
   });
 
@@ -217,7 +203,6 @@ describe.skipIf(!disponible)('Pagos', () => {
     expect(JSON.stringify(await r.json())).toMatch(/FORBIDDEN|NOT_FOUND/);
   });
 
-  // ── Pago aprobado ──────────────────────────────────────────────────────
   it('el pago aprobado confirma el pedido solo', async () => {
     const r = await rpc('simular_pago', tCliente, { _order_id: pedido, _aprobar: true });
     expect(r.ok).toBe(true);
@@ -235,7 +220,6 @@ describe.skipIf(!disponible)('Pagos', () => {
     expect(JSON.stringify(await r.json())).toMatch(/YA_PAGADO/);
   });
 
-  // ── Abandonar el pago ──────────────────────────────────────────────────
   it('cerrar sin pagar cancela el pedido y devuelve los productos al carrito', async () => {
     const abandonado = await nuevoPedido();
 
@@ -262,7 +246,6 @@ describe.skipIf(!disponible)('Pagos', () => {
     expect(JSON.stringify(await r.json())).toMatch(/YA_EN_CURSO/);
   });
 
-  // ── Crédito ────────────────────────────────────────────────────────────
   it('un cliente de contado no puede pedir a crédito', async () => {
     const nuevo = await nuevoPedido();
     const r = await rpc('iniciar_pago', tCliente, { _order_id: nuevo, _metodo: 'CREDITO' });
@@ -300,7 +283,6 @@ describe.skipIf(!disponible)('Pagos', () => {
     expect(JSON.stringify(await r.json())).toMatch(/CUPO_INVALIDO/);
   });
 
-  // ── Configuración ──────────────────────────────────────────────────────
   it('el cobro real no se puede encender sin llaves', async () => {
     const r = await rpc('configurar_pasarela', tAdmin, {
       _datos: { payments_enabled: true, payments_test_mode: false },

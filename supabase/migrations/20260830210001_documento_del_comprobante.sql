@@ -1,17 +1,5 @@
--- ============================================================
--- Del comprobante al documento que lo originó
--- ============================================================
--- Un asiento contable NO lleva las líneas de producto: un comprobante con
--- cuarenta renglones deja de ser legible y duplica la factura. El detalle
--- vive en el documento y el asiento lo referencia.
---
--- Pero referenciarlo con un texto —«Factura POS-000001»— no sirve de nada si
--- desde ahí no se puede llegar al documento. Quien revisa un asiento necesita
--- ver QUÉ se vendió o QUÉ llegó sin salir a buscarlo a otra pantalla.
---
--- Esta función devuelve ese detalle, y lo hace por función y no exponiendo
--- las tablas porque una de ellas guarda el costo, que es confidencial y solo
--- lo puede ver quien tenga `costs.read`.
+-- Detalle del documento que originó un asiento (factura, recepción o recaudo).
+-- Va por función porque las recepciones incluyen el costo, visible solo con costs.read.
 create or replace function public.detalle_documento_comprobante(_entry_id uuid)
 returns jsonb
 language plpgsql
@@ -36,7 +24,6 @@ begin
 
   v_ve_costos := public.has_permission('costs.read');
 
-  -- ---------- Factura ----------
   if v_asiento.invoice_id is not null then
     select jsonb_build_object(
              'tipo', 'FACTURA',
@@ -64,7 +51,6 @@ begin
       into v_lineas
     from public.invoice_items ii where ii.invoice_id = v_asiento.invoice_id;
 
-  -- ---------- Recepción ----------
   elsif v_asiento.receipt_id is not null then
     select jsonb_build_object(
              'tipo', 'RECEPCION',
@@ -80,8 +66,7 @@ begin
     left join public.pickup_locations l on l.id = r.location_id
     where r.id = v_asiento.receipt_id;
 
-    -- El costo unitario solo se incluye si la persona puede ver costos: en
-    -- una recepción, el «valor unitario» ES el costo de compra.
+      -- En una recepción el valor unitario es el costo de compra: requiere costs.read.
     select jsonb_agg(jsonb_build_object(
              'descripcion', p.name,
              'codigo', p.code,
@@ -96,7 +81,6 @@ begin
     join public.products p on p.id = v.product_id
     where ri.receipt_id = v_asiento.receipt_id;
 
-  -- ---------- Recaudo ----------
   elsif v_asiento.movement_id is not null then
     select jsonb_build_object(
              'tipo', 'RECAUDO',
@@ -113,8 +97,6 @@ begin
   end if;
 
   if v_cabecera is null then
-    -- Un comprobante manual no tiene documento, y decirlo es más útil que
-    -- devolver una estructura vacía que la pantalla tenga que adivinar.
     return jsonb_build_object('tipo', 'MANUAL');
   end if;
 
@@ -128,12 +110,7 @@ $$;
 revoke all on function public.detalle_documento_comprobante(uuid) from public, anon;
 grant execute on function public.detalle_documento_comprobante(uuid) to authenticated;
 
--- ============================================================
--- Estado de resultados
--- ============================================================
--- El balance de prueba lista cuentas; no dice si el negocio ganó o perdió.
--- Es la pregunta que hace cualquiera que abra este módulo, y sale de las
--- mismas cifras que ya están registradas.
+-- Estado de resultados a partir de las mismas cifras del balance de prueba.
 create view public.v_estado_resultados as
 select
   a.class                        as clase,

@@ -1,29 +1,7 @@
 /**
- * Pintu por voz — Edge Function
- * ============================================================
- * Emite el token EFÍMERO con el que el navegador abre la llamada con el
- * modelo. Es lo único que hace, y es todo lo que debe hacer.
- *
- * POR QUÉ EXISTE ESTA FUNCIÓN, en vez de conectar el navegador directo:
- *
- *   1. LA LLAVE NO SALE DE AQUÍ. Una llave de OpenAI en el paquete JavaScript
- *      se la lleva cualquiera que abra las herramientas del navegador y se le
- *      factura al dueño hasta que la cancele. La llave real vive en
- *      `app_settings.ai_api_key` y solo se lee con permisos de servicio. Al
- *      navegador le llega un `ek_...` que caduca en minutos y solo sirve para
- *      esta llamada.
- *   2. LA CONFIGURACIÓN TAMPOCO SE NEGOCIA EN EL CLIENTE. El modelo, la voz,
- *      las instrucciones y el tope de tokens se fijan aquí. Si el navegador
- *      pudiera elegirlos, cualquiera cambiaría `gpt-realtime-2.1-mini` por el
- *      modelo caro, o borraría las reglas que impiden que Pintu invente
- *      precios.
- *
- * LO QUE **NO** VIAJA AL MODELO: aquí no se le manda el catálogo, ni los
- * pedidos, ni nada. La API de voz es con estado y relee todo el contexto en
- * cada turno, así que un catálogo metido en las instrucciones se paga en cada
- * frase de la conversación. En su lugar se le dan HERRAMIENTAS, y las ejecuta
- * el navegador con la sesión de quien llama: RLS sigue mandando y solo viaja
- * lo que hace falta para esa pregunta.
+ * Emite el token efímero (ek_...) de la llamada de voz; la llave real no sale del servidor.
+ * Modelo, voz, instrucciones y topes se fijan aquí para que el cliente no los altere.
+ * Los datos privados llegan por herramientas que el navegador ejecuta con la sesión del usuario (RLS).
  */
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { CORS } from '../_shared/cors.ts';
@@ -34,20 +12,12 @@ const respuesta = (cuerpo: unknown, status = 200) =>
     headers: { ...CORS, 'Content-Type': 'application/json' },
   });
 
-/** El modelo barato. Ver el comentario de costos más abajo. */
+/** Modelo mini por costo. */
 const MODELO_VOZ = 'gpt-realtime-2.1-mini';
 
 /**
- * Quién es Pintu.
- *
- * Está escrito para VOZ, no para pantalla: sin listas, sin viñetas, sin
- * markdown, frases cortas. Y está escrito para ser CORTO, porque estas
- * instrucciones se releen en cada turno de la conversación y se pagan cada
- * vez. Cada frase que sobra aquí se multiplica por toda la llamada.
- *
- * Las reglas de la 1 a la 5 no son de estilo: son las que impiden que un
- * modelo suelto sobre un catálogo de pinturas afirme un rendimiento con total
- * seguridad y un cliente compre cuatro galones de menos para su fachada.
+ * Prompt para voz: corto porque se relee y se paga en cada turno.
+ * Las reglas 1 a 5 evitan que invente precios o rendimientos.
  */
 const INSTRUCCIONES = `
 Eres Pintu, asesor de la tienda de Pintuco en Colombia. Estás en una llamada
@@ -106,13 +76,7 @@ Si la persona se molesta o pide un humano, no insistas: ofrece pasarla al
 equipo. Saluda una sola vez al empezar, corto.
 `.trim();
 
-/**
- * Las herramientas. Las ejecuta el NAVEGADOR con la sesión del cliente.
- *
- * Las descripciones son cortas a propósito: viajan en cada turno igual que las
- * instrucciones. Y los parámetros son pocos porque cada uno es una decisión
- * más que el modelo puede equivocar.
- */
+/** Herramientas que ejecuta el navegador con la sesión del cliente; descripciones cortas porque viajan en cada turno. */
 const HERRAMIENTAS = [
   {
     type: 'function',
@@ -177,8 +141,7 @@ Deno.serve(async (req: Request) => {
   const anon = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
   const jwt = req.headers.get('Authorization') ?? '';
 
-  // Sin sesión no hay llamada: el token efímero cuesta dinero real en cuanto
-  // se usa, así que no se le entrega a un visitante anónimo.
+  // El token efímero genera costo: nunca a visitantes anónimos.
   if (!jwt) {
     return respuesta(
       { success: false, error: { code: 'UNAUTHENTICATED', message: 'Inicia sesión para hablar con Pintu.' } },
@@ -213,30 +176,8 @@ Deno.serve(async (req: Request) => {
     );
   }
 
-  // ─────────────────────────────────────────────────────────────────────
-  // La base de conocimiento: un RESUMEN del catálogo, generado en vivo.
-  // ─────────────────────────────────────────────────────────────────────
-  // Aquí hay una decisión que depende del tamaño real del catálogo, y conviene
-  // dejarla escrita porque se invierte si el catálogo crece.
-  //
-  // La API de voz relee las instrucciones en CADA turno. Por eso la regla
-  // general es no meterle datos: se pagarían una y otra vez. PERO el prefijo
-  // constante de una sesión se cobra como contexto en caché —$0,30 por millón
-  // frente a $10—, y este catálogo cabe en unas 300 palabras.
-  //
-  // Con esas dos cosas juntas, meter un resumen sale MÁS BARATO que no
-  // meterlo: sin él, cada «¿cuál es la más económica para exterior?» obliga a
-  // una llamada a herramienta y a un turno de audio extra para contestar, y un
-  // turno de audio cuesta bastante más que releer trescientas palabras en
-  // caché. El resumen le deja responder de una.
-  //
-  // Las herramientas NO desaparecen: siguen para lo que no puede vivir aquí
-  // —los pedidos, que son privados y cambian; el cálculo, que debe hacer la
-  // base; y el detalle fino de presentaciones—.
-  //
-  // SE GENERA EN CADA LLAMADA desde la base, así que si cargan un producto,
-  // una presentación o una categoría nueva, entra solo. No hay ninguna
-  // referencia escrita a mano.
+  // Resumen del catálogo generado en cada llamada: con ~300 palabras en caché sale más barato
+  // que un turno extra de herramienta. Revisar si el catálogo crece mucho.
   const [cat, tiendas, perfil] = await Promise.all([
     admin.from('products')
       .select('code, name, environment, finish, spread_rate_m2_per_gal, categories(name), product_variants(price_cop, status)')
@@ -300,56 +241,25 @@ Deno.serve(async (req: Request) => {
           instructions: `${INSTRUCCIONES}\n\n${CONOCIMIENTO}`,
           audio: {
             input: {
-              // La transcripción de lo que dice el cliente se paga aparte,
-              // pero sin ella la pantalla no puede mostrar qué entendió Pintu
-              // ni queda registro de la llamada. En un sistema que se vende,
-              // eso vale más que lo que cuesta.
-              //
-              // `language: es` no es cosmético: sin fijarlo, Whisper oye el
-              // ruido de fondo de un micrófono en silencio y lo transcribe
-              // como frases sueltas en inglés («Thank you.», «Now.»). Cada una
-              // de esas alucinaciones abría un turno y hacía responder a
-              // Pintu: audio facturado por conversar con el ruido ambiente.
+              // La transcripción permite mostrar y registrar lo entendido. language: es evita
+              // que Whisper convierta el silencio en frases en inglés que abren turnos.
               transcription: { model: 'whisper-1', language: 'es' },
               turn_detection: {
                 type: 'server_vad',
-                // El umbral por defecto (0.5) está bien calibrado para una
-                // voz normal a un palmo del micrófono del portátil. Se probó
-                // a 0.65 para frenar las alucinaciones del silencio y el
-                // resultado fue que dejaba de oír a quien hablaba normal: el
-                // remedio para el ruido es `language: es` en la
-                // transcripción, no volver sordo al detector.
+                // Valores más altos dejan de oír una voz normal; el ruido se resuelve con language: es.
                 threshold: 0.5,
-                // Un poco de audio ANTES del disparo, o la primera sílaba se
-                // pierde y el modelo entiende media palabra.
+                // Audio previo al disparo para no perder la primera sílaba.
                 prefix_padding_ms: 300,
-                // El turno se cierra a los 0,7 s de que el cliente calla. Más
-                // largo se siente lento; más corto lo interrumpe a mitad de
-                // frase.
+                // Equilibrio entre respuesta ágil y no cortar al cliente.
                 silence_duration_ms: 700,
-                // Corte del lado del SERVIDOR si nadie habla en 30 s. No
-                // sustituye al del navegador, lo respalda: el navegador
-                // ralentiza los temporizadores de una pestaña en segundo
-                // plano, así que si el cliente cambia de pestaña con la
-                // llamada abierta, el único que corta a tiempo es este.
+                // Respaldo del corte del navegador, que se ralentiza en pestañas en segundo plano.
                 idle_timeout_ms: 30_000,
               },
             },
-            // Voz masculina. Las voces del proveedor no tienen región: el
-            // acento colombiano no sale de elegir la voz, sale de pedírselo
-            // en las instrucciones. Si se quiere otro timbre, las válidas
-            // para este modelo son alloy, ash, ballad, cedar, coral, echo,
-            // marin, sage y verse; masculinas: ash, ballad, cedar, echo, verse.
+            // El acento sale de las instrucciones, no de la voz. Masculinas: ash, ballad, cedar, echo, verse.
             output: { voice: 'cedar' },
           },
-          // Red de seguridad, NO el limitador normal.
-          //
-          // Quien acorta las respuestas es la instrucción de hablar en dos
-          // frases; esto solo evita el monólogo si el modelo se desboca. A 200
-          // y a 320 el tope se alcanzaba en respuestas normales y las cortaba
-          // A MITAD DE PALABRA, que suena a llamada caída. 500 tokens de audio
-          // son unos 25 segundos: de sobra para dos frases, y sigue siendo un
-          // techo firme para la factura.
+          // Solo red de seguridad (~25 s de audio); topes menores cortaban respuestas normales.
           max_output_tokens: 500,
           tools: HERRAMIENTAS,
           tool_choice: 'auto',
@@ -360,8 +270,7 @@ Deno.serve(async (req: Request) => {
     if (!r.ok) {
       const detalle = await r.text();
       console.error('[asistente-voz] proveedor', r.status, detalle.slice(0, 300));
-      // El mensaje del proveedor no se reenvía: suele traer pistas de la
-      // cuenta y de la facturación.
+      // No se reenvía el detalle del proveedor: expone datos de la cuenta.
       return respuesta({
         success: false,
         error: {
@@ -378,11 +287,8 @@ Deno.serve(async (req: Request) => {
         token: datos.value,
         expira: datos.expires_at,
         modelo: MODELO_VOZ,
-        // El nombre viaja aparte porque el saludo se pide con un
-        // `response.create` que trae sus PROPIAS instrucciones, y esas
-        // SUSTITUYEN a las de la sesión: el nombre que va en el conocimiento
-        // no lo ve el modelo en ese primer turno. Por eso hay que metérselo
-        // ahí. Era el motivo por el que saludaba sin nombre.
+        // El saludo usa response.create, cuyas instrucciones reemplazan las de la sesión:
+        // el nombre debe ir también ahí.
         nombre,
       },
     });

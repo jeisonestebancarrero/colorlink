@@ -1,13 +1,6 @@
 import { supabase } from '../lib/supabase';
 
-/**
- * Puntos de venta — administración.
- *
- * No hay nada que "sincronizar" con la tienda del cliente: los dos portales
- * leen LA MISMA tabla `pickup_locations`. Lo que se guarde aquí es lo que el
- * cliente ve en Puntos de Retiro. El único desfase es el cache de catálogo
- * del navegador del cliente, que dura cinco minutos.
- */
+/** Puntos de venta: la tienda lee la misma `pickup_locations`; solo se desfasa por la caché de catálogo (5 min). */
 
 function errorLegible(contexto: string, error: { message: string }): Error {
   console.error(`[puntos-venta] ${contexto}:`, error.message);
@@ -83,7 +76,7 @@ const aNumero = (v: number | string | null): number | null => {
 };
 
 export const puntoVentaService = {
-  /** Todos, incluidos los inactivos: el personal debe poder reactivarlos. */
+  /** Incluye inactivos para poder reactivarlos. */
   async listar(): Promise<PuntoVenta[]> {
     const { data, error } = await supabase
       .from('pickup_locations')
@@ -135,13 +128,7 @@ export const puntoVentaService = {
     return String(data);
   },
 
-  /**
-   * Sube la foto de una tienda y devuelve su URL pública.
-   *
-   * El nombre lleva una marca de tiempo a propósito: si se reutilizara el
-   * mismo nombre, los navegadores y las CDN seguirían mostrando la imagen
-   * vieja durante horas y parecería que el cambio no se guardó.
-   */
+  /** Sube la foto y devuelve su URL pública; la marca de tiempo evita servir la anterior desde caché. */
   async subirFoto(archivo: File, referencia: string): Promise<string> {
     const extension = (archivo.name.split('.').pop() ?? 'jpg').toLowerCase();
     const ruta = `${referencia || 'tienda'}-${Date.now()}.${extension}`;

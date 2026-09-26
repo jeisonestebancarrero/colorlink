@@ -7,21 +7,8 @@ import {
 import logoPintuco from '../../../assets/brand/pintuco-logo.jpeg';
 
 /**
- * La llamada con Pintu.
- *
- * Se dibuja como una llamada de teléfono a propósito: pantalla propia, avatar
- * grande, contador corriendo y un solo botón rojo para colgar. Un chat con un
- * micrófono al lado se usa como un chat —la gente escribe— y entonces no hay
- * conversación, hay dictado.
- *
- * El avatar reacciona al ESTADO REAL de la conversación, no a un temporizador:
- * los anillos crecen con la amplitud de la voz de Pintu, que llega medida del
- * audio que está sonando. Una animación decorativa que no sigue a la voz se
- * nota enseguida y rompe la ilusión de que hay alguien al otro lado.
- *
- * Va en un PORTAL colgado de `document.body` por el mismo motivo que el resto
- * de diálogos del sistema: dentro del `<main>` con `z-10` quedaría por debajo
- * de la cabecera de la tienda.
+ * Llamada de voz con Pintu, con interfaz de teléfono para que se hable en vez de escribir.
+ * Va en un portal sobre `document.body` para no quedar bajo la cabecera (`z-10` del `<main>`).
  */
 
 const ETIQUETA: Record<EstadoLlamada, string> = {
@@ -38,24 +25,8 @@ const reloj = (s: number) =>
   `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
 
 /**
- * Pintu, el asesor.
- *
- * Es una PERSONA dibujada, no un icono. La primera versión era un círculo con
- * dos puntos y una raya, y se leía como lo que era: un chatbot. En una llamada
- * de voz el avatar es lo único que se ve durante minutos, y un símbolo plano
- * no sostiene la idea de que hay un asesor al otro lado.
- *
- * Regla de esta pantalla: **nunca se queda quieta**. Cuatro capas de
- * movimiento, y solo dos dependen de que haya voz:
- *
- *   1. RESPIRA SIEMPRE. Hombros y cabeza suben y bajan, aunque nadie hable.
- *   2. PARPADEA a intervalos irregulares. Cada N segundos exactos se nota
- *      mecánico; el azar es lo que lo hace parecer vivo.
- *   3. LA BOCA SIGUE LA VOZ REAL — la amplitud medida del audio que suena, no
- *      un temporizador. Una animación que no sigue a la voz se descubre al
- *      segundo turno.
- *   4. LAS CEJAS Y LA MIRADA cambian con el estado: sube las cejas cuando
- *      escucha, mira de lado cuando piensa.
+ * Avatar animado: respira siempre, parpadea a intervalos aleatorios, la boca sigue
+ * la amplitud real del audio y cejas/mirada cambian con el estado.
  */
 const CaraPintu: React.FC<{ estado: EstadoLlamada; nivel: number }> = ({ estado, nivel }) => {
   const [parpadeo, setParpadeo] = useState(false);
@@ -77,8 +48,7 @@ const CaraPintu: React.FC<{ estado: EstadoLlamada; nivel: number }> = ({ estado,
   const pensando = estado === 'pensando';
   const activo = hablando || escuchando;
 
-  // Boca: alto y ancho siguen la amplitud. El mínimo no es cero, o parece un
-  // muñeco mal sincronizado.
+  // El mínimo no es cero para que la boca no se vea desincronizada.
   const altoBoca = hablando ? 2.5 + nivel * 13 : 2.5;
   const anchoBoca = hablando ? 15 + nivel * 5 : 16;
   const cejas = escuchando ? -3.5 : hablando ? -1 : 0;
@@ -141,16 +111,14 @@ const CaraPintu: React.FC<{ estado: EstadoLlamada; nivel: number }> = ({ estado,
             <ellipse cx="88" cy="55" rx="4" ry="6" fill="#e8ab81" />
             {/* Cara */}
             <ellipse cx="60" cy="52" rx="28" ry="32" fill="#f0b98f" />
-            {/* Pelo: corto y con la frente DESPEJADA. Antes bajaba hasta las
-                cejas y con las orejas grandes la cara se leía como un
-                pasamontañas. */}
+            {/* Pelo corto con la frente despejada. */}
             <path d="M32 44 C34 27 46 20 60 20 C74 20 86 27 88 44
                      C86 36 78 31 60 31 C48 31 39 34 32 44 Z" fill="#3b2a1e" />
             <path d="M32 44 C36 38 44 34 54 33 C46 36 40 40 36 47 Z" fill="#2b1e15" />
-            {/* Rubor: quita el aire de retrato policial */}
+            {/* Rubor */}
             <ellipse cx="41" cy="60" rx="6" ry="3.5" fill="#e08a6a" opacity=".28" />
             <ellipse cx="79" cy="60" rx="6" ry="3.5" fill="#e08a6a" opacity=".28" />
-            {/* Cejas, más suaves y arqueadas */}
+            {/* Cejas */}
             <path d="M42 41.5 q7.5 -3.5 15 0" fill="none" stroke="#3b2a1e"
                   strokeWidth="3" strokeLinecap="round"
                   transform={`translate(0 ${cejas})`}
@@ -177,10 +145,7 @@ const CaraPintu: React.FC<{ estado: EstadoLlamada; nivel: number }> = ({ estado,
             {/* Nariz */}
             <path d="M60 54 v6 c0 1.5 -1.5 2.4 -3.2 2.4" fill="none" stroke="#d69a72"
                   strokeWidth="2" strokeLinecap="round" />
-            {/* La boca. EN REPOSO SONRÍE.
-                Antes era un óvalo oscuro fijo, y una cara seria con la boca
-                entreabierta es exactamente lo que le daba mala pinta. Solo se
-                abre cuando hay voz, y entonces sigue la amplitud. */}
+            {/* En reposo sonríe; con voz se abre según la amplitud. */}
             {hablando && nivel > 0.08 ? (
               <>
                 <ellipse cx="60" cy={70 + altoBoca / 4} rx={anchoBoca / 2} ry={altoBoca / 2}
@@ -198,8 +163,7 @@ const CaraPintu: React.FC<{ estado: EstadoLlamada; nivel: number }> = ({ estado,
 
       </div>
 
-      {/* La chapa de la marca, como el gafete de un asesor. Fuera del círculo
-          de la cara: encima se apoyaba sobre el hombro y ensuciaba el polo. */}
+      {/* Chapa de marca fuera del círculo de la cara. */}
       <img
         src={logoPintuco}
         alt="Pintuco"
@@ -207,8 +171,7 @@ const CaraPintu: React.FC<{ estado: EstadoLlamada; nivel: number }> = ({ estado,
                    ring-2 ring-white shadow-md bg-white"
       />
 
-      {/* Los puntos de «está pensando» van ARRIBA, como un bocadillo. Dentro
-          del círculo caían sobre el cuello y parecían un collar. */}
+      {/* Indicador de «pensando» arriba, como bocadillo. */}
       {pensando && (
         <div className="absolute -top-1 left-1/2 -translate-x-1/2 flex gap-1.5
                         bg-white rounded-full px-2.5 py-1.5 shadow-md border border-slate-200">
@@ -323,8 +286,7 @@ export const LlamadaPintu: React.FC<Props> = ({ onCerrar, onTranscripcion }) => 
           </div>
         )}
 
-        {/* Lo que se va diciendo. No es decoración: deja ver que Pintu entendió
-            bien, y es lo que queda como registro de la llamada. */}
+        {/* Transcripción visible: confirma lo entendido y queda como registro. */}
         <div className="px-5 pb-4 min-h-[132px] max-h-52 overflow-y-auto space-y-2">
           {ultimos.length === 0 && estado !== 'conectando' && (
             <p className="text-xs text-slate-400 text-center pt-6">
@@ -364,10 +326,7 @@ export const LlamadaPintu: React.FC<Props> = ({ onCerrar, onTranscripcion }) => 
             {silenciado ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
           </button>
 
-          {/* Barras del micrófono. Responden a «¿me está oyendo?», que es la
-              primera pregunta cuando Pintu no contesta. Si hablas y estas
-              barras no se mueven, el problema es el micrófono o su permiso, no
-              Pintu. */}
+          {/* Nivel del micrófono: si no se mueve al hablar, el problema es el micrófono o su permiso. */}
           <div className="flex items-end gap-[3px] h-8 w-14" aria-hidden>
             {[0, 1, 2, 3, 4, 5].map((i) => {
               const umbral = (i + 1) / 7;
@@ -394,8 +353,7 @@ export const LlamadaPintu: React.FC<Props> = ({ onCerrar, onTranscripcion }) => 
           </button>
         </div>
 
-        {/* Lo que va costando, a la vista. Un asistente de voz que no muestra
-            su consumo es una factura sorpresa. */}
+        {/* Consumo visible para evitar sorpresas en el costo. */}
         <div className="px-6 pb-4 -mt-2 text-center">
           <p className="text-[11px] text-slate-400">
             {consultas > 0

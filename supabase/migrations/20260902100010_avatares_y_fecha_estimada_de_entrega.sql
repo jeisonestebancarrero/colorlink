@@ -1,28 +1,6 @@
--- ============================================================
--- Foto de perfil y fecha estimada de entrega
--- ============================================================
--- Dos huecos del bloque de cuenta:
---
--- 1. FOTO DE PERFIL. La columna `profiles.avatar_url` existía desde el
---    principio y la llenaba únicamente Google al entrar con su proveedor.
---    Quien se registraba con correo no tenía forma de poner una foto, y una
---    empresa tampoco su logo.
---
--- 2. FECHA ESTIMADA DE ENTREGA. El retiro en tienda tenía
---    `pickup_scheduled_date` y el envío no tenía nada: el cliente veía "24-48
---    horas" escrito en la interfaz, sin una fecha guardada en el pedido, y el
---    despacho no tenía contra qué medirse.
+-- Bucket de fotos de perfil y logos, y fecha estimada de entrega para envíos.
 
--- ------------------------------------------------------------
--- 1. Bucket de avatares
--- ------------------------------------------------------------
--- PÚBLICO, como `productos` y `tiendas`. Una foto de perfil se muestra en la
--- cabecera y en los hilos de conversación; servirla con URL firmada obligaría
--- a renovar el enlace en cada render. No es dato sensible: la pone la persona
--- para que se vea.
---
--- 2 MB es suficiente para un avatar y evita que alguien suba una foto de 8 MB
--- que haga lenta cada pantalla donde aparezca.
+-- Público: el avatar se muestra en muchas pantallas y no es sensible. Límite de 2 MB.
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values (
   'avatares', 'avatares', true, 2097152,
@@ -38,10 +16,7 @@ create policy "avatares_lectura_publica" on storage.objects
   for select to public
   using (bucket_id = 'avatares');
 
--- CADA UNO EN SU CARPETA. La ruta tiene que empezar por el id del usuario, y
--- la política lo comprueba: sin esto, cualquier cliente autenticado podría
--- sobrescribir la foto de otro, que es el defecto clásico de un bucket
--- compartido. `storage.foldername(name)` devuelve las carpetas de la ruta.
+-- La ruta debe empezar por el id del usuario para que nadie sobrescriba la foto de otro.
 drop policy if exists "avatares_escritura_propia" on storage.objects;
 create policy "avatares_escritura_propia" on storage.objects
   for insert to authenticated
@@ -66,16 +41,12 @@ create policy "avatares_borrado_propio" on storage.objects
     and (storage.foldername(name))[1] = (select auth.uid())::text
   );
 
--- Logo de la empresa. La columna no existía.
 alter table public.companies
   add column if not exists logo_url text;
 
 comment on column public.companies.logo_url is
   'Logo de la empresa cliente. Lo sube el OWNER o ADMIN desde su perfil.';
 
--- ------------------------------------------------------------
--- 2. Fecha estimada de entrega
--- ------------------------------------------------------------
 alter table public.orders
   add column if not exists estimated_delivery_date date;
 
@@ -86,18 +57,8 @@ alter table public.shipments
   add column if not exists estimated_delivery_date date;
 
 /**
- * Días hábiles de entrega según a dónde va.
- *
- * Se calcula en el SERVIDOR y no en el navegador: es una promesa comercial
- * que va al correo y a la pantalla de despacho, y no puede depender de la
- * hora del computador del cliente.
- *
- * Los tramos son los que Pintuco puede sostener hoy con sus cinco puntos:
- *   * misma ciudad de un punto de venta — 2 días
- *   * resto del departamento de un punto — 3 días
- *   * cualquier otro municipio          — 5 días
- * Se cuentan días HÁBILES: prometer una entrega en domingo es prometer algo
- * que no va a pasar.
+ * Días hábiles de entrega calculados en el servidor: 2 misma ciudad de un punto,
+ * 3 mismo departamento, 5 resto del país.
  */
 create or replace function public.dias_de_entrega(_municipality_code text)
 returns int
@@ -113,9 +74,7 @@ begin
     return 5;
   end if;
 
-  -- Los puntos de venta guardan la ciudad como texto, así que la comparación
-  -- se hace contra el nombre del municipio del diccionario. Cuando
-  -- `pickup_locations` migre a `municipality_code`, esto se simplifica.
+    -- pickup_locations guarda la ciudad como texto; se compara por nombre de municipio.
   select exists (
     select 1
     from public.pickup_locations pl
@@ -142,11 +101,7 @@ begin
 end;
 $$;
 
-/**
- * Suma días hábiles a una fecha, saltando sábados y domingos.
- *
- * `extract(isodow)` devuelve 6 para sábado y 7 para domingo.
- */
+/** Suma días hábiles saltando fines de semana (isodow 6 y 7). */
 create or replace function public.sumar_dias_habiles(_desde date, _dias int)
 returns date
 language plpgsql

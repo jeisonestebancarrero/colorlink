@@ -5,20 +5,9 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { limpiarCuentasDePrueba } from './limpieza';
 
 /**
- * Normalización de nombres, direcciones, documentos y teléfonos.
- *
- * Lo que se vigila:
- *   1. Que el mismo dato se guarde siempre igual, escríbalo quien lo escriba:
- *      nombres y direcciones en mayúsculas, documento sin puntos, teléfono con
- *      indicativo.
- *   2. **Que normalizar no rompa las búsquedas.** Es el defecto que ya ocurrió:
- *      al guardar el NIT sin puntos, el alta seguía buscando la empresa con el
- *      NIT tal como se escribió, no la encontraba, y quien se registraba con
- *      el NIT de una empresa existente perdía el registro entero en vez de
- *      quedar con una solicitud de vinculación. Cualquier comparación contra
- *      una columna normalizada tiene que normalizar los dos lados.
- *
- * La prueba deja la base como la encontró.
+ * Normalización de nombres, direcciones, documentos y teléfonos, y que no rompa las
+ * búsquedas: toda comparación contra una columna normalizada debe normalizar ambos lados.
+ * La base queda como estaba.
  */
 
 function leerEnvLocal(): Record<string, string> {
@@ -80,7 +69,7 @@ describe.skipIf(!disponible || !SERVICE)('Normalización de datos', () => {
   });
 
   afterAll(async () => {
-    // Primero lo que se recogió por el camino, que es lo más específico.
+    // Primero lo registrado por el camino.
     for (const id of empresasCreadas) {
       await admin.from('company_branches').delete().eq('company_id', id);
       await admin.from('company_join_requests').delete().eq('company_id', id);
@@ -95,16 +84,10 @@ describe.skipIf(!disponible || !SERVICE)('Normalización de datos', () => {
       await admin.auth.admin.deleteUser(id).catch(() => undefined);
     }
 
-    // Y después una pasada por PATRÓN, que es la que de verdad garantiza que
-    // no quede nada: varias cuentas se crean DENTRO de un `it`, así que si
-    // ese `it` falla antes de registrar el id, la lista de arriba no las
-    // incluye y se quedaban en la base para siempre.
+    // Luego una pasada por patrón: cuentas creadas dentro de un `it` fallido no llegan a la lista.
     await limpiarCuentasDePrueba(admin, sello);
   });
 
-  // ----------------------------------------------------------
-  // Las funciones
-  // ----------------------------------------------------------
   it('el documento queda sin puntos, como lo pide la DIAN', async () => {
     expect(await norm('normalizar_documento', { _numero: '71.234.567' })).toBe('71234567');
     expect(await norm('normalizar_documento', { _numero: '1.020.304.050' })).toBe('1020304050');
@@ -112,8 +95,7 @@ describe.skipIf(!disponible || !SERVICE)('Normalización de datos', () => {
   });
 
   it('el NIT conserva el guion del dígito de verificación', async () => {
-    // El guion sí significa algo: separa el NIT del DV. Quitarlo cambiaría el
-    // número.
+    // El guion separa el NIT del DV: quitarlo cambiaría el número.
     expect(await norm('normalizar_documento', { _numero: '900.123.456-7' })).toBe('900123456-7');
   });
 
@@ -131,7 +113,7 @@ describe.skipIf(!disponible || !SERVICE)('Normalización de datos', () => {
     const tel = (n: string) => norm('normalizar_telefono', { _numero: n });
     expect(await tel('300 123 4567')).toBe('+573001234567');
     expect(await tel('3001234567')).toBe('+573001234567');
-    // Ya traía el 57 pero sin el '+': no se le pone otro.
+    // Ya trae el 57 sin '+': no se duplica.
     expect(await tel('57 300 123 4567')).toBe('+573001234567');
     expect(await tel('+57 300 1234567')).toBe('+573001234567');
     // Cero de marcación nacional.
@@ -142,17 +124,13 @@ describe.skipIf(!disponible || !SERVICE)('Normalización de datos', () => {
   });
 
   it('un número de otro país NO recibe el +57', async () => {
-    // Quien escribe '+' está diciendo el país. Imponerle Colombia dejaría el
-    // número inservible.
+    // Un '+' explícito indica el país: no se impone Colombia.
     expect(await norm('normalizar_telefono', { _numero: '+1 305 555 1212' }))
       .toBe('+13055551212');
     expect(await norm('normalizar_telefono', { _numero: '+34 600 123 456' }))
       .toBe('+34600123456');
   });
 
-  // ----------------------------------------------------------
-  // Que normalizar no rompa las búsquedas
-  // ----------------------------------------------------------
   it('el aviso de documento repetido funciona aunque se escriba con puntos', async () => {
     const documento = String(sello).slice(-9);
     const email = `norm.doc.${sello}@correo.test`;
@@ -174,7 +152,7 @@ describe.skipIf(!disponible || !SERVICE)('Normalización de datos', () => {
     expect(p.first_name).toBe('DIEGO');
     expect(p.phone).toBe('+573001112222');
 
-    // Y se encuentra escribiéndolo CON puntos, que es como lo escribe la gente.
+    // Se encuentra escrito con puntos, como lo escribe la gente.
     const conPuntos = documento.replace(/(\d{3})(?=\d)/g, '$1.');
     const { data: tomado } = await admin.rpc('documento_ya_registrado', {
       _tipo: 'CC', _numero: conPuntos,
@@ -207,10 +185,8 @@ describe.skipIf(!disponible || !SERVICE)('Normalización de datos', () => {
     expect(empresa.nit).toBe(`901${String(sello).slice(-6)}-3`);
     expect(empresa.name).toBe(`CONSTRUCTORA NORMALIZADA ${sello}`);
 
-    // Ahora un colega se registra con el MISMO NIT, escrito CON puntos.
-    // Antes del arreglo esto reventaba el alta: la búsqueda comparaba el texto
-    // crudo contra la columna normalizada, no encontraba la empresa, intentaba
-    // crear otra y chocaba con el índice único del NIT.
+    // Un colega se registra con el mismo NIT escrito con puntos: la búsqueda debe
+    // normalizar o chocaría con el índice único del NIT.
     const alta2 = await signup(emailColega, {
       first_name: 'Colega', last_name: 'Nuevo', client_type: 'Constructor',
       company: `Constructora Normalizada ${sello}`, company_nit: nitCrudo,
@@ -223,7 +199,7 @@ describe.skipIf(!disponible || !SERVICE)('Normalización de datos', () => {
     const colega = p2 as { id: string; company_id: string | null };
     usuariosCreados.push(colega.id);
 
-    // No se le dio acceso a la empresa: queda pendiente de aprobación.
+    // Sin acceso a la empresa: queda pendiente de aprobación.
     expect(colega.company_id).toBeNull();
 
     const { data: solicitudes } = await admin
@@ -233,7 +209,7 @@ describe.skipIf(!disponible || !SERVICE)('Normalización de datos', () => {
     expect((solicitudes as Array<{ company_id: string }>)[0].company_id)
       .toBe(dueno.company_id);
 
-    // Y sigue habiendo UNA sola empresa con ese NIT.
+    // Sigue habiendo una sola empresa con ese NIT.
     const { count } = await admin
       .from('companies').select('id', { count: 'exact', head: true })
       .eq('nit', empresa.nit);
@@ -264,7 +240,7 @@ describe.skipIf(!disponible || !SERVICE)('Normalización de datos', () => {
     expect(p.city).toBe('MEDELLÍN');
     expect(p.address).toBe('CRA 43A # 18 SUR - 135, APTO 501');
 
-    // Y quedó su dirección principal, lista para que el carrito la proponga.
+    // Queda su dirección principal, para que el carrito la proponga.
     const { data: dirs } = await admin
       .from('customer_addresses')
       .select('address_line, municipality_code, is_default')
@@ -310,8 +286,7 @@ describe.skipIf(!disponible || !SERVICE)('Normalización de datos', () => {
   });
 
   it('el barrio no se duplica por mayúsculas ni por espacios', async () => {
-    // Es lo que hace que el segundo cliente de un municipio ELIJA el barrio en
-    // lugar de volver a escribirlo con otra caja.
+    // Así el siguiente cliente del municipio elige el barrio en vez de reescribirlo.
     const { data: cli } = await admin.auth.admin.createUser({
       email: `norm.barrio.${sello}@correo.test`,
       password: 'pintuco2025*',
@@ -332,7 +307,7 @@ describe.skipIf(!disponible || !SERVICE)('Normalización de datos', () => {
     });
     expect(uno.error).toBeNull();
 
-    // Las tres variantes tienen que devolver el MISMO id.
+    // Las tres variantes deben devolver el mismo id.
     for (const variante of [nombre.toUpperCase(), nombre.toLowerCase(), `  ${nombre}  `]) {
       const otro = await sesion.rpc('registrar_barrio', {
         _municipality_code: '05001', _nombre: variante,

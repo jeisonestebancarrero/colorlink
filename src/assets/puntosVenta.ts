@@ -8,25 +8,8 @@ import guayabal from '../../assets/brand/guayabal.jpg';
 import fondoMarca from '../../assets/brand/fondo.png';
 
 /**
- * Imágenes de los puntos de venta.
- *
- * ATENCIÓN, y conviene tenerlo presente antes de reutilizarlas: las imágenes
- * NO son todas del mismo tipo.
- * Algunas son la fachada real de una Tienda Pintuco y otras son la ciudad o
- * el sector —la Ventana al Mundo en Barranquilla, el skyline de El Poblado—.
- * Sirven como imagen de ubicación, que es como se usan aquí: acompañan al
- * nombre y la dirección, que son los que identifican la tienda. Por eso la
- * etiqueta que va encima dice la CIUDAD y nunca «así se ve la tienda»: quien
- * llegara buscando una fachada que no es la suya no la encontraría.
- *
- * Se indexan por `external_ref` ('store-med-poblado') y no por el UUID: ese
- * identificador es estable y legible, y sobrevive a un reseed de la base.
- *
- * Estas imágenes son solo el punto de partida. Una tienda creada desde el
- * portal interno no puede tener archivo aquí —no existía al compilar—, así
- * que la vía normal para poner o cambiar una foto es Administración → Puntos
- * de venta, que sube el archivo y llena `pickup_locations.image_url`. Esa
- * columna tiene prioridad sobre todo lo de este archivo.
+ * Imágenes de respaldo por `external_ref` (estable tras un reseed). Algunas son la ciudad, no la fachada:
+ * se rotulan con la ciudad. `pickup_locations.image_url`, subida desde el portal, tiene prioridad.
  */
 const POR_TIENDA: Record<string, string> = {
   'store-barranquilla-prado': barranquilla,
@@ -41,13 +24,7 @@ const POR_TIENDA: Record<string, string> = {
 /** Fondo de marca para las tiendas que todavía no tienen imagen propia. */
 export const FONDO_MARCA = fondoMarca;
 
-/**
- * Imagen de un punto de venta.
- *
- * `esFoto` distingue una fotografía real del fondo de marca: la primera se
- * puede recortar a lo ancho como una cabecera, el segundo es un logotipo y
- * recortarlo lo estropea.
- */
+/** Imagen de un punto de venta; `esFoto` indica si admite recorte (el fondo de marca no). */
 export function imagenPunto(
   referencia: string | null | undefined,
   urlRemota?: string | null,
@@ -57,7 +34,7 @@ export function imagenPunto(
   return local ? { src: local, esFoto: true } : { src: fondoMarca, esFoto: false };
 }
 
-/** ¿Hay imagen propia para esta tienda? Útil para decidir el diseño. */
+/** Indica si la tienda tiene imagen propia. */
 export function tieneFoto(referencia: string | null | undefined, urlRemota?: string | null): boolean {
   return Boolean((urlRemota && urlRemota.trim() !== '') || (referencia && POR_TIENDA[referencia]));
 }

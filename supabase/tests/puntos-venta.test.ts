@@ -3,17 +3,8 @@ import { readFileSync, existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 /**
- * Puntos de venta.
- *
- * Lo que se vigila:
- *   1. Que lo que guarda administración sea EXACTAMENTE lo que ve el cliente.
- *      Los dos portales leen la misma tabla; esta prueba lo comprueba desde
- *      las dos puntas, porque es la promesa que sostiene todo el módulo.
- *   2. Que una tienda desactivada desaparezca de la tienda pública, pero siga
- *      siendo visible para el personal —si no, no habría cómo reactivarla—.
- *   3. Que un cliente no pueda crear ni editar tiendas.
- *   4. Que no se acepten coordenadas fuera de Colombia: casi siempre son
- *      latitud y longitud invertidas, y mandarían al cliente a otro país.
+ * Puntos de venta: ambos portales leen la misma tabla; una tienda inactiva sale
+ * de la tienda pública pero no del portal interno; coordenadas fuera de Colombia se rechazan.
  */
 
 function leerEnvLocal(): Record<string, string> {
@@ -108,7 +99,7 @@ describe.skipIf(!disponible)('Puntos de venta', () => {
   });
 
   it('el cliente la ve de inmediato en la tienda pública', async () => {
-    // Esta es la promesa del módulo: no hay dos copias que sincronizar.
+    // Los dos portales leen la misma fila: no hay copias que sincronizar.
     const filas = await fetch(
       `${API}/rest/v1/pickup_locations?select=name,city,address,has_express_pickup,stock_readiness_hours&id=eq.${creada}`,
       { headers: cab() },

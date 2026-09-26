@@ -1,30 +1,17 @@
--- ============================================================
--- FASE 2 · 04 — Roles, membresías y funciones de autorización
--- ============================================================
--- PRINCIPIO DE SEGURIDAD CENTRAL (MÓDULO 29/30):
--- El rol NO vive en una columna del perfil. Si estuviera en `profiles.role`
--- y el usuario puede editar su propio perfil, cualquiera se ascendería a
--- ADMINISTRADOR desde la consola del navegador. Por eso vive en una tabla
--- aparte que NO tiene ninguna política de INSERT/UPDATE/DELETE: la única vía
--- de escritura son las funciones `grant_role` / `revoke_role`, que exigen
--- ser administrador.
--- ============================================================
+-- Roles, membresías y funciones de autorización. El rol vive en una tabla sin
+-- políticas de escritura: solo grant_role/revoke_role (admin) la modifican.
 
--- ------------------------------------------------------------
--- Asignación de roles de aplicación
--- ------------------------------------------------------------
 create table public.user_roles (
   id         uuid primary key default gen_random_uuid(),
   user_id    uuid not null references auth.users (id) on delete cascade,
   role       public.app_role not null,
-  -- Ámbito opcional: permite que un ASESOR lo sea solo para una empresa.
+  -- Ámbito opcional: un rol limitado a una empresa.
   company_id uuid references public.companies (id) on delete cascade,
   granted_by uuid references auth.users (id) on delete set null,
   granted_at timestamptz not null default now(),
 
-  -- NULLS NOT DISTINCT (PostgreSQL 15+) evita duplicados cuando company_id
-  -- es NULL; sin esta cláusula Postgres trataría cada NULL como distinto y
-  -- un usuario podría acumular el mismo rol global varias veces.
+  -- NULLS NOT DISTINCT (PG15+): sin esto, cada company_id NULL cuenta como distinto
+  -- y el mismo rol global podría repetirse.
   constraint user_roles_unicos unique nulls not distinct (user_id, role, company_id)
 );
 
@@ -35,9 +22,6 @@ create index user_roles_company_id_idx on public.user_roles (company_id);
 comment on table public.user_roles is
   'Roles de aplicación. Un usuario puede tener varios. SIN políticas de escritura: solo se modifica vía grant_role/revoke_role.';
 
--- ------------------------------------------------------------
--- Pertenencia a empresas (multi-tenant, MÓDULO 62)
--- ------------------------------------------------------------
 create table public.company_members (
   company_id   uuid not null references public.companies (id) on delete cascade,
   user_id      uuid not null references auth.users (id) on delete cascade,
@@ -53,17 +37,8 @@ create index company_members_user_id_idx on public.company_members (user_id);
 comment on table public.company_members is
   'Vínculo usuario-empresa. Determina qué datos de qué empresa puede ver cada usuario.';
 
--- ============================================================
--- FUNCIONES DE AUTORIZACIÓN
--- ============================================================
--- Todas son SECURITY DEFINER con search_path bloqueado. Esto NO es
--- cosmético: sin SECURITY DEFINER, una política sobre `projects` que
--- consulte `user_roles` (que a su vez tiene RLS) provoca RECURSIÓN INFINITA.
---
--- Se declaran STABLE para que Postgres las evalúe una sola vez por consulta
--- cuando se invocan como `(select public.is_admin())` dentro de una política,
--- en lugar de una vez por fila.
--- ============================================================
+-- SECURITY DEFINER evita la recursión infinita de RLS al consultar user_roles desde
+-- otras políticas; STABLE permite evaluarlas una vez por consulta con (select ...).
 
 create or replace function public.has_role(_role public.app_role)
 returns boolean
@@ -93,7 +68,7 @@ as $$
   );
 $$;
 
--- Personal interno de Pintuco: asesores, técnicos y administradores.
+-- Personal interno: asesores, técnicos y administradores.
 create or replace function public.is_staff()
 returns boolean
 language sql
@@ -108,7 +83,7 @@ as $$
   );
 $$;
 
--- Empresas activas del usuario actual. Base del aislamiento entre tenants.
+-- Base del aislamiento entre tenants.
 create or replace function public.my_company_ids()
 returns setof uuid
 language sql
@@ -137,7 +112,6 @@ as $$
   );
 $$;
 
--- Puede administrar la empresa (OWNER o ADMIN de esa empresa).
 create or replace function public.can_manage_company(_company_id uuid)
 returns boolean
 language sql
@@ -154,12 +128,7 @@ as $$
   );
 $$;
 
--- ============================================================
--- RPC DE ADMINISTRACIÓN DE ROLES
--- ============================================================
--- Única puerta de escritura sobre user_roles. Verifica is_admin() en el
--- servidor: da igual lo que envíe el navegador.
--- ============================================================
+-- Única vía de escritura sobre user_roles; valida is_admin() en el servidor.
 
 create or replace function public.grant_role(
   _user_id uuid,
@@ -204,8 +173,7 @@ begin
       using errcode = '42501';
   end if;
 
-  -- Protección contra bloqueo total del sistema: no se puede revocar el
-  -- último ADMINISTRADOR que queda.
+  -- Evita dejar el sistema sin administradores.
   if _role = 'ADMINISTRADOR'
      and (select count(*) from public.user_roles where role = 'ADMINISTRADOR') <= 1 then
     raise exception 'LAST_ADMIN: no se puede revocar el único administrador del sistema'
@@ -219,13 +187,7 @@ begin
 end;
 $$;
 
--- ============================================================
--- LECTURA DE PERMISOS PARA EL FRONTEND
--- ============================================================
--- Devuelve roles y empresas del usuario actual en una sola llamada, para
--- que AuthContext pueda decidir qué botones mostrar (capa 3, solo UX).
--- La autorización real la sigue aplicando RLS en cada consulta.
--- ============================================================
+-- Roles y empresas del usuario en una llamada, solo para la UI; RLS sigue autorizando.
 
 create or replace function public.my_access()
 returns jsonb
@@ -251,9 +213,6 @@ as $$
   );
 $$;
 
--- ------------------------------------------------------------
--- Permisos de ejecución: `anon` no necesita ninguna de estas funciones.
--- ------------------------------------------------------------
 revoke execute on function public.grant_role(uuid, public.app_role, uuid)  from public, anon;
 revoke execute on function public.revoke_role(uuid, public.app_role, uuid) from public, anon;
 revoke execute on function public.my_access()                              from public, anon;

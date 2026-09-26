@@ -6,20 +6,8 @@ import { supabase } from '../../src/lib/supabase';
 import { cartService } from '../../src/services/commerce';
 
 /**
- * Volcado del carrito del visitante a su cuenta.
- *
- * Es la parte del cambio donde de verdad se puede perder una venta: si el
- * volcado falla o reemplaza en vez de sumar, la persona inicia sesión y su
- * carrito aparece incompleto o vacío. Lo que se vigila:
- *   1. Que las líneas del visitante lleguen al carrito real con su cantidad.
- *   2. Que al volcar sobre un carrito que ya tenía cosas las cantidades se
- *      SUMEN y no se reemplacen.
- *   3. Que ninguna línea supere el tope de la base (999): pasarse haría
- *      fallar el volcado entero justo al iniciar sesión.
- *   4. Que el precio lo ponga el catálogo y no el navegador.
- *
- * La prueba deja la base como la encontró: borra las líneas que creó y
- * restituye las cantidades que ya existían.
+ * Volcado del carrito del visitante a su cuenta: las cantidades se suman, nunca
+ * superan el tope de 999 y el precio lo pone el catálogo. La base queda como estaba.
  */
 
 function leerEnvLocal(): Record<string, string> {
@@ -52,9 +40,7 @@ async function hayInstancia(): Promise<boolean> {
 const disponible = await hayInstancia();
 
 describe.skipIf(!disponible)('Carrito del visitante que inicia sesión', () => {
-  // El cliente es el singleton de producción a propósito: `cartService` usa
-  // ese y no otro, así que autenticarlo aquí es lo que hace que la prueba
-  // ejercite el mismo camino que el navegador.
+  // Se usa el singleton de producción a propósito: es el que usa `cartService`.
   const cli = supabase;
   let cartId = '';
   let variantes: string[] = [];
@@ -85,8 +71,7 @@ describe.skipIf(!disponible)('Carrito del visitante que inicia sesión', () => {
         .map((i) => [i.variant_id, i.quantity])
     );
 
-    // Dos variantes reales del catálogo. No se codifican UUID a mano: cambian
-    // con cada siembra.
+    // Variantes reales; los UUID cambian con cada siembra.
     const { data: vs } = await cli.from('product_variants').select('id').limit(2);
     variantes = ((vs ?? []) as Array<{ id: string }>).map((v) => v.id);
     expect(variantes).toHaveLength(2);
@@ -98,7 +83,7 @@ describe.skipIf(!disponible)('Carrito del visitante que inicia sesión', () => {
   afterAll(async () => {
     if (!cartId) return;
     await cli.from('cart_items').delete().eq('cart_id', cartId).in('variant_id', variantes);
-    // Restituye lo que había antes de la prueba, si la prueba lo tocó.
+    // Restituye las cantidades previas que la prueba haya tocado.
     for (const [variantId, quantity] of previas) {
       if (!variantes.includes(variantId)) continue;
       await cli.from('cart_items').insert({ cart_id: cartId, variant_id: variantId, quantity });
@@ -106,10 +91,7 @@ describe.skipIf(!disponible)('Carrito del visitante que inicia sesión', () => {
     await cli.auth.signOut();
   });
 
-  /**
-   * Llama al volcado REAL de producción, no a una réplica: es justo el código
-   * del que depende que nadie pierda su carrito al iniciar sesión.
-   */
+  /** Usa el volcado real de producción, no una réplica. */
   const volcar = (
     lineas: Array<{ variantId: string; colorId: string | null; quantity: number }>
   ) => cartService.absorberLineas(
@@ -136,8 +118,7 @@ describe.skipIf(!disponible)('Carrito del visitante que inicia sesión', () => {
   it('SUMA sobre lo que el carrito ya tenía, no lo reemplaza', async () => {
     await volcar([{ variantId: variantes[0], colorId: null, quantity: 3 }]);
 
-    // 2 de la prueba anterior + 3 = 5. Si reemplazara, quedaría en 3 y la
-    // persona perdería lo que había guardado en una visita anterior.
+    // 2 + 3 = 5; si reemplazara quedaría en 3.
     expect(await cantidadDe(variantes[0])).toBe(5);
   });
 
@@ -158,7 +139,7 @@ describe.skipIf(!disponible)('Carrito del visitante que inicia sesión', () => {
     // Ninguna columna de la línea guarda un importe.
     expect(Object.keys(fila).some((k) => /price|cop|total|precio/i.test(k) && k !== 'product_variants'))
       .toBe(false);
-    // Y el precio sí llega, pero desde el catálogo.
+    // El precio llega desde el catálogo.
     expect(Number(fila.product_variants.price_cop)).toBeGreaterThan(0);
   });
 

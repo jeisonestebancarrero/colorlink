@@ -6,22 +6,8 @@ import { Input } from './Input';
 import { Button } from './Button';
 
 /**
- * Poner o cambiar la contraseña de la cuenta.
- *
- * Existe por un caso muy concreto: quien entra con Google NO TIENE
- * contraseña, y el portal interno solo acepta correo y contraseña —a
- * propósito, porque no se autoservicia—. Sin esta sección, a un empleado
- * que se registró con Google no había forma de darle acceso al back-office
- * salvo tocando la base de datos.
- *
- * La recuperación por correo no sirve para ese caso: manda un código de 6
- * dígitos que exige plantilla propia, y la plantilla exige SMTP propio.
- * Aquí no hace falta ninguna de las dos cosas: la persona ya demostró quién
- * es al tener la sesión abierta.
- *
- * Cuando la cuenta YA tiene contraseña se pide la actual y se comprueba de
- * verdad contra el servidor. Sin esa comprobación, una sesión olvidada en un
- * computador ajeno bastaría para quedarse con la cuenta.
+ * Crear o cambiar la clave desde la sesión. Quien entra con Google no tiene clave y el portal
+ * interno solo acepta correo y clave. Si ya existe, se valida la actual contra el servidor.
  */
 export const ContrasenaDeLaCuenta: React.FC = () => {
   const [tieneClave, setTieneClave] = useState<boolean | null>(null);
@@ -33,13 +19,8 @@ export const ContrasenaDeLaCuenta: React.FC = () => {
   const [listo, setListo] = useState(false);
   const [ocupado, setOcupado] = useState(false);
 
-  // Se mira si la cuenta tiene una identidad de tipo `email`, que es lo que
-  // Supabase entiende por «entra con correo y contraseña».
-  //
-  // El intento anterior fue preguntarle a la base por `encrypted_password`, y
-  // resultó peor: en la nube una cuenta que SOLO ha entrado con Google aparece
-  // con hash igualmente. La pantalla le exigía una contraseña actual que no
-  // existe y la dejaba sin forma de crearse una.
+  // Tener clave = tener identidad `email`. `encrypted_password` no sirve: en la nube
+  // las cuentas solo de Google también traen hash.
   useEffect(() => {
     supabase.auth
       .getUser()
@@ -63,7 +44,6 @@ export const ContrasenaDeLaCuenta: React.FC = () => {
         const { data } = await supabase.auth.getUser();
         const correo = data.user?.email;
         if (!correo) throw new Error('Tu sesión expiró. Vuelve a entrar.');
-        // Se comprueba contra el servidor, no contra nada guardado aquí.
         const { error: fallo } = await supabase.auth.signInWithPassword({
           email: correo,
           password: actual,

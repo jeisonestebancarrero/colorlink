@@ -4,26 +4,9 @@ import { resolve } from 'node:path';
 import { limpiarCuentasDePrueba, clienteDeServicio } from './limpieza';
 
 /**
- * Ponerle contraseña a una cuenta que entró con Google.
- *
- * El portal interno solo acepta correo y contraseña —a propósito, porque no se
- * autoservicia—, así que a un empleado que se registró con Google no había
- * forma de darle acceso al back-office sin tocar la base de datos.
- *
- * Lo que se vigila aquí:
- *   1. Que ponerse contraseña NO le quite el acceso con Google. Es la duda
- *      inmediata de cualquiera que lo hace, y perder el proveedor original
- *      dejaría a la persona fuera si olvida la clave nueva.
- *   2. Que la señal con la que la pantalla decide si pedir la contraseña
- *      actual sea fiable.
- *
- * Sobre el punto 2 hubo un error que vale la pena dejar escrito: se intentó
- * resolver preguntándole a la base por `auth.users.encrypted_password`. En la
- * instancia local funciona —una cuenta de Google lo tiene en nulo—, pero en
- * Supabase Cloud NO: una cuenta que solo ha entrado con Google aparece con
- * hash igualmente. La pantalla le habría exigido una contraseña actual
- * inexistente. Se decide por las IDENTIDADES, que es lo que el propio Supabase
- * entiende por «entra con correo y contraseña».
+ * Contraseña para cuentas de Google (el portal interno solo acepta correo y clave):
+ * añadirla no quita el acceso con Google, y la pantalla decide por las identidades,
+ * no por `encrypted_password`, que en Supabase Cloud existe aunque la cuenta no tenga clave.
  */
 
 function leerEnvLocal(): Record<string, string> {
@@ -64,7 +47,7 @@ function auth(token: string) {
   return { apikey: ANON, Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
 }
 
-/** Sesión sin contraseña, como la que deja un acceso con Google. */
+/** Sesión sin contraseña, como la de un acceso con Google. */
 async function sesionSinClave(correo: string): Promise<string> {
   const r = await fetch(`${API}/auth/v1/admin/generate_link`, {
     method: 'POST',
@@ -80,7 +63,7 @@ async function sesionSinClave(correo: string): Promise<string> {
   return frag.get('access_token') ?? '';
 }
 
-/** Los proveedores con los que esa cuenta puede entrar. */
+/** Proveedores con los que la cuenta puede entrar. */
 async function proveedores(userId: string): Promise<string[]> {
   const r = await fetch(`${API}/auth/v1/admin/users/${userId}`, { headers: admin() });
   const u = await r.json();
@@ -116,9 +99,8 @@ describe.skipIf(!disponible)('Contraseña de la cuenta · Google y correo conviv
     const u = await r.json();
     userId = u.id;
 
-    // Se deja como si hubiera entrado por Google: sin contraseña y con el
-    // proveedor externo. Crear la cuenta por la API la deja con una clave
-    // aleatoria, que es justo lo que este caso NO tiene.
+    // Se simula una cuenta de Google: sin contraseña y con proveedor externo
+    // (crearla por la API le pone una clave aleatoria).
     await fetch(`${API}/auth/v1/admin/users/${userId}`, {
       method: 'PUT',
       headers: admin(),
@@ -151,29 +133,24 @@ describe.skipIf(!disponible)('Contraseña de la cuenta · Google y correo conviv
   });
 
   it('y el acceso con Google sigue intacto', async () => {
-    // El proveedor original no se reemplaza: se le SUMA la contraseña.
+    // El proveedor original se conserva; la contraseña se suma.
     const r = await fetch(`${API}/auth/v1/admin/users/${userId}`, { headers: admin() });
     const u = await r.json();
     const proveedores = (u.identities ?? []).map((i: { provider: string }) => i.provider);
     expect(proveedores.length).toBeGreaterThan(0);
-    // Se comprueba que sigue habiendo una identidad utilizable, y que ponerle
-    // clave no borró ninguna.
+    // Sigue habiendo una identidad utilizable y no se borró ninguna.
     expect(await sesionSinClave(CORREO)).not.toBe('');
   });
 
   it('la señal de «tiene contraseña» no se basa en el hash de la base', async () => {
-    // Esta cuenta acaba de recibir una contraseña. Lo que se comprueba no es
-    // que el hash exista —en la nube existe hasta sin contraseña— sino que la
-    // decisión de la pantalla se toma con los proveedores.
+    // En la nube el hash existe incluso sin contraseña: la decisión se toma por proveedores.
     const p = await proveedores(userId);
     expect(Array.isArray(p)).toBe(true);
     expect(p.length).toBeGreaterThan(0);
   });
 
   it('la función que miraba el hash ya no existe', async () => {
-    // Se borró a propósito: respondía «sí tiene contraseña» para cuentas de
-    // Google que nunca tuvieron una, y dejaba a esas personas sin poder
-    // crearse la suya.
+    // Retirada: respondía que sí a cuentas de Google sin contraseña y les impedía crearla.
     const r = await fetch(`${API}/rest/v1/rpc/tengo_password`, {
       method: 'POST',
       headers: auth(token),

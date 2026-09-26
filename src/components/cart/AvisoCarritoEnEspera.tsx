@@ -2,15 +2,7 @@ import React from 'react';
 import { ShoppingCart } from 'lucide-react';
 import { leerLineas, leerIntencion } from '../../services/carritoInvitado';
 
-/**
- * Aviso en las pantallas de acceso y registro: el carrito que la persona armó
- * sin cuenta sigue ahí y la está esperando.
- *
- * Sin esto, quien llega desde el carrito ve un formulario de acceso sin
- * explicación y no tiene motivo para creer que su compra sobrevivió. Se lee
- * directo del almacén local (no hace falta red ni sesión) y no se muestra nada
- * si no hay nada guardado.
- */
+/** Avisa en acceso/registro que el carrito armado sin cuenta sigue guardado (lee localStorage, sin red). */
 export const AvisoCarritoEnEspera: React.FC = () => {
   const lineas = leerLineas();
   if (lineas.length === 0) return null;

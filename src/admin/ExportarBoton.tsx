@@ -2,48 +2,28 @@ import React, { useState } from 'react';
 import { Download, FileSpreadsheet, FileText, Loader2, Check } from 'lucide-react';
 
 /**
- * Exportar a CSV o a PDF lo que la pantalla está mostrando.
- *
- * PRINCIPIO: se exporta EXACTAMENTE lo que se ve. Si el filtro dice «facturas
- * de 2025 de Medellín», el archivo trae eso y nada más. Un botón que exportara
- * todo el histórico ignorando los filtros produce archivos que nadie pidió y
- * que además revelan sedes que quien exporta no está mirando.
- *
- * Y como las filas vienen de la pantalla, ya pasaron por RLS: no hay forma de
- * exportar una fila que la persona no podía ver.
- *
- * CSV en lugar de XLSX: un .xlsx exige una librería de medio megabyte para
- * escribir un formato que Excel abre igual desde un CSV. Se usa punto y coma y
- * BOM UTF-8, que es lo que Excel en español espera; con coma parte las cifras
- * en columnas equivocadas y sin BOM se rompen los acentos.
- *
- * El PDF se arma con `window.print()` sobre un iframe aislado, la misma
- * técnica que la cotización del cliente: imprimir la página entera saca la
- * barra de navegación y los filtros.
+ * Exporta a CSV o PDF exactamente las filas visibles (ya filtradas por RLS y por pantalla).
+ * CSV con «;» y BOM UTF-8 para Excel en español; PDF vía `window.print()` en un iframe aislado.
  */
 
 export interface ColumnaExport<T> {
   /** Encabezado tal como debe salir en el archivo. */
   titulo: string;
-  /** Valor de la celda. Devolver texto ya formateado. */
+  /** Texto ya formateado. */
   valor: (fila: T) => string | number | null | undefined;
-  /** Alinea a la derecha en el PDF. Para cifras. */
+  /** Alinea a la derecha en el PDF (cifras). */
   numerica?: boolean;
 }
 
 interface Props<T> {
-  /** Filas visibles en la pantalla, con sus filtros ya aplicados. */
+  /** Filas visibles, con filtros aplicados. */
   filas: readonly T[];
   columnas: Array<ColumnaExport<T>>;
-  /** Nombre del archivo, sin extensión. Se le añade la fecha. */
+  /** Sin extensión; se le añade la fecha. */
   nombre: string;
   /** Título del documento impreso. */
   titulo: string;
-  /**
-   * Descripción de los filtros activos, p. ej. «2025 · Medellín · Emitidas».
-   * Va impresa en el PDF: un listado sin decir qué filtro tenía es un listado
-   * que nadie puede volver a reproducir.
-   */
+  /** Filtros activos (p. ej. «2025 · Medellín · Emitidas»), impresos en el PDF. */
   filtros?: string;
 }
 
@@ -84,7 +64,7 @@ export function ExportarBoton<T>({
         columnas.map((c) => csvCelda(c.titulo)).join(';'),
         ...filas.map((f) => columnas.map((c) => csvCelda(cel(c.valor(f)))).join(';')),
       ];
-      // BOM al principio: sin él Excel en Windows lee los acentos como basura.
+      // Sin BOM, Excel en Windows rompe los acentos.
       const blob = new Blob(['﻿' + lineas.join('\r\n')], {
         type: 'text/csv;charset=utf-8;',
       });
@@ -95,7 +75,7 @@ export function ExportarBoton<T>({
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
-      // Liberar el objeto: sin esto el blob se queda en memoria toda la sesión.
+      // Libera el blob.
       setTimeout(() => URL.revokeObjectURL(url), 1000);
       setListo(true);
       setTimeout(() => setListo(false), 2000);
@@ -144,8 +124,7 @@ export function ExportarBoton<T>({
 </table>
 </body></html>`;
 
-      // Iframe aislado: `window.print()` sobre la página imprimiría la barra
-      // de navegación, los filtros y el menú. Ya pasó con la cotización.
+      // Iframe aislado para no imprimir navegación ni filtros.
       const marco = document.createElement('iframe');
       marco.style.position = 'fixed';
       marco.style.right = '0';
@@ -182,9 +161,7 @@ export function ExportarBoton<T>({
         onClick={() => setAbierto((v) => !v)}
         disabled={vacio}
         title={vacio ? 'No hay nada que exportar con los filtros actuales' : 'Exportar lo que se ve'}
-        /* Sólido y en azul Pintuco, no un contorno pálido: la primera versión
-           era un botón blanco entre otros botones blancos y no se distinguía
-           de los filtros. Exportar es una acción, no un filtro más. */
+        /* Botón sólido para distinguirlo de los filtros. */
         className="px-3.5 py-2 rounded-lg text-xs font-bold flex items-center gap-2
                    shadow-2xs transition-all cursor-pointer
                    disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none

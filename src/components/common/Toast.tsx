@@ -20,16 +20,11 @@ export const Toast: React.FC = () => {
     info: 'border-blue-200 bg-white text-slate-800 shadow-blue-500/10',
   };
 
-  // En un portal por la misma razón que el diálogo: colgado de `main`, que
-  // tiene `relative z-10`, el aviso quedaba por debajo de la cabecera y de
-  // cualquier capa con `z` mayor fuera de ese contenedor.
+  // Portal: dentro de `main` (relative z-10) el aviso quedaba bajo la cabecera.
   return createPortal(
     <div
       id="colorlink-toast-container"
-      /* `bottom-24` y no `bottom-6`: ahí abajo está la burbuja del asistente,
-         y en ese punto exacto el aviso la tapaba justo cuando la persona iba a
-         pulsarla. El aviso es pasajero y la burbuja permanente, así que el
-         aviso es el que se aparta. */
+      /* bottom-24: más abajo tapaba la burbuja del asistente, que es permanente. */
       className="fixed bottom-24 right-6 z-50 max-w-md w-full animate-in slide-in-from-bottom-5 duration-300 pointer-events-auto"
     >
       <div

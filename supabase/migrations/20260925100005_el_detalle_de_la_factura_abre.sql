@@ -1,15 +1,5 @@
--- ============================================================================
--- El detalle de un comprobante de factura vuelve a abrir
--- ============================================================================
--- `detalle_documento_comprobante` ordenaba las líneas de la factura por
--- `invoice_items.created_at`, una columna que esa tabla no tiene. Al pulsar un
--- comprobante de origen FACTURA la consulta fallaba y la pantalla no mostraba
--- nada: ni las líneas del asiento ni la factura que lo originó. Los de
--- recepción sí abrían, porque sus líneas sí tienen `created_at`.
---
--- Se ordena por `sort_order`, que es el orden en que la factura imprime sus
--- líneas. Salió al recorrer Contabilidad para el manual de usuario.
--- ============================================================================
+-- detalle_documento_comprobante ordenaba por invoice_items.created_at, que no existe,
+-- y fallaba en comprobantes de factura. Se ordena por sort_order.
 
 CREATE OR REPLACE FUNCTION public.detalle_documento_comprobante(_entry_id uuid)
  RETURNS jsonb
@@ -35,7 +25,6 @@ begin
 
   v_ve_costos := public.has_permission('costs.read');
 
-  -- ---------- Factura ----------
   if v_asiento.invoice_id is not null then
     select jsonb_build_object(
              'tipo', 'FACTURA',
@@ -63,7 +52,6 @@ begin
       into v_lineas
     from public.invoice_items ii where ii.invoice_id = v_asiento.invoice_id;
 
-  -- ---------- Recepción ----------
   elsif v_asiento.receipt_id is not null then
     select jsonb_build_object(
              'tipo', 'RECEPCION',
@@ -79,8 +67,7 @@ begin
     left join public.pickup_locations l on l.id = r.location_id
     where r.id = v_asiento.receipt_id;
 
-    -- El costo unitario solo se incluye si la persona puede ver costos: en
-    -- una recepción, el «valor unitario» ES el costo de compra.
+    -- En una recepción el valor unitario es el costo: solo con permiso de costos.
     select jsonb_agg(jsonb_build_object(
              'descripcion', p.name,
              'codigo', p.code,
@@ -95,7 +82,6 @@ begin
     join public.products p on p.id = v.product_id
     where ri.receipt_id = v_asiento.receipt_id;
 
-  -- ---------- Recaudo ----------
   elsif v_asiento.movement_id is not null then
     select jsonb_build_object(
              'tipo', 'RECAUDO',
@@ -112,8 +98,6 @@ begin
   end if;
 
   if v_cabecera is null then
-    -- Un comprobante manual no tiene documento, y decirlo es más útil que
-    -- devolver una estructura vacía que la pantalla tenga que adivinar.
     return jsonb_build_object('tipo', 'MANUAL');
   end if;
 

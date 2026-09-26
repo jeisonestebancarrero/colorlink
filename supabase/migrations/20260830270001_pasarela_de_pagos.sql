@@ -1,26 +1,6 @@
--- ============================================================
--- Pasarela de pagos: el particular paga antes, la empresa puede ir a crédito
--- ============================================================
--- Hasta ahora el checkout creaba el pedido y un pago en estado PENDIENTE que
--- nadie cobraba nunca. En la práctica el cliente "confirmaba" sin pagar.
---
--- La regla del negocio no es la misma para todos, y por eso no se resuelve con
--- un solo camino:
---
---   · PERSONA NATURAL → paga antes. El pedido queda a la espera del pago y no
---     se alista hasta que la pasarela lo confirme. Es lo normal en cualquier
---     tienda en línea y evita alistar mercancía que nadie pagó.
---   · EMPRESA CON CRÉDITO APROBADO → puede pedir y pagar después, dentro del
---     plazo pactado. Es como se compra material de obra en Colombia; negarlo
---     sacaría del sistema justamente a los clientes que más compran.
---
--- La pasarela es Wompi (Bancolombia), que es la que usa la mayoría del comercio
--- colombiano. La confirmación NO la da el navegador: la da el webhook firmado,
--- porque cualquiera puede llamar una URL diciendo "ya pagué".
+-- Pasarela Wompi: persona natural paga antes; empresa con crédito aprobado paga
+-- después. El pago lo confirma el webhook firmado, nunca el navegador.
 
--- ------------------------------------------------------------
--- 1. Condiciones de pago de cada empresa
--- ------------------------------------------------------------
 do $$ begin
   create type public.payment_terms as enum ('CONTADO', 'CREDITO');
 exception when duplicate_object then null; end $$;
@@ -41,9 +21,6 @@ alter table public.companies
     or (payment_terms = 'CREDITO' and credit_days between 1 and 180)
   );
 
--- ------------------------------------------------------------
--- 2. Configuración de la pasarela
--- ------------------------------------------------------------
 alter table public.app_settings
   add column if not exists payments_enabled boolean not null default false,
   add column if not exists payments_test_mode boolean not null default true,
@@ -51,10 +28,8 @@ alter table public.app_settings
   add column if not exists wompi_integrity_secret text,
   add column if not exists wompi_events_secret text;
 
--- Los secretos NO se leen desde el navegador. La llave pública sí: es la que
--- el widget necesita y por eso se llama pública. Se revoca la tabla entera y
--- se vuelve a conceder columna por columna, porque un GRANT a nivel de tabla
--- deja sin efecto cualquier REVOKE sobre una columna suelta.
+-- Los secretos no se leen desde el navegador. Se concede por columna porque un
+-- GRANT de tabla anula el REVOKE de una columna.
 revoke select on public.app_settings from authenticated;
 grant select (
   id, company_name, company_legal_name, company_nit, company_address,
@@ -65,9 +40,6 @@ grant select (
   payments_enabled, payments_test_mode, wompi_public_key
 ) on public.app_settings to authenticated;
 
--- ------------------------------------------------------------
--- 3. Datos del pago
--- ------------------------------------------------------------
 alter table public.payments
   add column if not exists due_date date,
   add column if not exists is_credit boolean not null default false,
@@ -80,9 +52,6 @@ comment on column public.payments.is_credit is
 create unique index if not exists payments_reference_unica
   on public.payments (reference) where reference is not null;
 
--- ------------------------------------------------------------
--- 4. ¿Este cliente puede comprar a crédito?
--- ------------------------------------------------------------
 create or replace function public.condiciones_de_pago(_user_id uuid default null)
 returns jsonb
 language plpgsql
@@ -99,7 +68,6 @@ begin
     raise exception 'FORBIDDEN: no hay sesión' using errcode = '42501';
   end if;
 
-  -- Solo el propio cliente o el personal interno pueden consultarlo.
   if v_id <> (select auth.uid()) and not public.is_staff() then
     raise exception 'FORBIDDEN: no puedes ver las condiciones de otro cliente'
       using errcode = '42501';
@@ -119,7 +87,7 @@ begin
     );
   end if;
 
-  -- Cartera pendiente: lo facturado a crédito que todavía no se ha recaudado.
+    -- Cartera: lo facturado a crédito sin recaudar.
   select coalesce(sum(i.total_cop), 0) into v_deuda
     from public.invoices i
     join public.orders o on o.id = i.order_id
@@ -144,12 +112,7 @@ $$;
 revoke all on function public.condiciones_de_pago(uuid) from public;
 grant execute on function public.condiciones_de_pago(uuid) to authenticated;
 
--- ------------------------------------------------------------
--- 5. Iniciar el pago de un pedido
--- ------------------------------------------------------------
--- Devuelve lo que el widget de Wompi necesita. La firma de integridad se
--- calcula aquí y no en el navegador: si el monto se firmara en el cliente,
--- cualquiera podría pagar 1.000 pesos por un pedido de un millón.
+-- La firma de integridad se calcula en el servidor para que el cliente no altere el monto.
 create or replace function public.iniciar_pago(_order_id uuid, _metodo text default 'PSE')
 returns jsonb
 language plpgsql
@@ -187,7 +150,6 @@ begin
   select * into v_conf from public.app_settings limit 1;
   v_cond := public.condiciones_de_pago(v_pedido.user_id);
 
-  -- ── Compra a crédito: no hay cobro en línea ────────────────────────────
   if _metodo = 'CREDITO' then
     if not (v_cond ->> 'a_credito')::boolean then
       raise exception 'SIN_CREDITO: esta cuenta no tiene crédito aprobado'
@@ -214,14 +176,12 @@ begin
     );
   end if;
 
-  -- ── Cobro en línea ─────────────────────────────────────────────────────
   if not coalesce(v_conf.payments_enabled, false) then
     raise exception 'PASARELA_APAGADA: el cobro en línea no está configurado'
       using errcode = '22023';
   end if;
 
-  -- La referencia identifica el pago ante la pasarela y ante nosotros. Lleva
-  -- el número del pedido para poder rastrearla a ojo en el panel de Wompi.
+    -- Lleva el número de pedido para rastrearla en el panel de Wompi.
   v_ref := v_pedido.order_number || '-' || substr(md5(random()::text || clock_timestamp()::text), 1, 8);
   v_centavos := (round(v_pedido.total_cop) * 100)::bigint;
 
@@ -240,7 +200,7 @@ begin
     'centavos', v_centavos,
     'moneda', 'COP',
     'llave_publica', v_conf.wompi_public_key,
-    -- Wompi exige sha256(referencia + centavos + moneda + secreto).
+      -- Wompi exige sha256(referencia + centavos + moneda + secreto).
     'firma', case
       when v_conf.wompi_integrity_secret is null then null
       else encode(
@@ -256,9 +216,7 @@ $$;
 revoke all on function public.iniciar_pago(uuid, text) from public;
 grant execute on function public.iniciar_pago(uuid, text) to authenticated;
 
--- ------------------------------------------------------------
--- 6. Confirmar el pago (lo llama el webhook, nunca el navegador)
--- ------------------------------------------------------------
+-- Solo lo llama el webhook con service_role.
 create or replace function public.confirmar_pago(
   _referencia   text,
   _estado       text,
@@ -274,8 +232,6 @@ declare
   v_pago   public.payments%rowtype;
   v_nuevo  public.payment_status;
 begin
-  -- Solo el servicio puede confirmar pagos. Si esto lo pudiera llamar un
-  -- usuario, cualquiera marcaría sus pedidos como pagados.
   if coalesce(current_setting('request.jwt.claims', true)::jsonb ->> 'role', '') <> 'service_role' then
     raise exception 'FORBIDDEN: solo el webhook puede confirmar pagos' using errcode = '42501';
   end if;
@@ -285,8 +241,7 @@ begin
     raise exception 'NOT_FOUND: no hay pago con esa referencia' using errcode = 'P0002';
   end if;
 
-  -- Un pago ya confirmado no se vuelve a tocar: las pasarelas reenvían el
-  -- mismo evento varias veces y no se puede duplicar el efecto.
+    -- Idempotente: la pasarela reenvía el mismo evento.
   if v_pago.status = 'PAGADO' then
     return jsonb_build_object('resultado', 'YA_APLICADO', 'pago', v_pago.id);
   end if;
@@ -307,8 +262,7 @@ begin
          updated_at = now()
    where id = v_pago.id;
 
-  -- El pago aprobado es lo que confirma el pedido. Antes de eso no se alista
-  -- nada: es la diferencia entre una venta y una intención de compra.
+    -- Solo el pago aprobado confirma el pedido.
   if v_nuevo = 'PAGADO' then
     update public.orders
        set status = 'CONFIRMADO', updated_at = now()
@@ -330,9 +284,7 @@ $$;
 revoke all on function public.confirmar_pago(text, text, text, text) from public;
 grant execute on function public.confirmar_pago(text, text, text, text) to service_role;
 
--- ------------------------------------------------------------
--- 7. El pedido no avanza si no está pagado ni es a crédito
--- ------------------------------------------------------------
+-- El pedido no avanza si no está pagado ni es a crédito.
 create or replace function public.pedido_cobrado(_order_id uuid)
 returns boolean
 language sql
@@ -353,16 +305,8 @@ comment on function public.pedido_cobrado(uuid) is
 revoke all on function public.pedido_cobrado(uuid) from public;
 grant execute on function public.pedido_cobrado(uuid) to authenticated;
 
--- ------------------------------------------------------------
--- 8. Pago simulado — SOLO en modo prueba
--- ------------------------------------------------------------
--- Permite recorrer el flujo completo (pedido → pago → confirmación → factura →
--- contabilidad) antes de tener credenciales de Wompi.
---
--- CUIDADO: mientras `payments_test_mode` esté en verdadero, un cliente puede
--- dar por pagado su propio pedido. Es aceptable en pruebas y NO lo es en
--- producción: al conectar las llaves reales hay que apagar el modo prueba
--- desde Configuración. La pantalla lo advierte en rojo mientras esté activo.
+-- Pago simulado solo en modo prueba. Con payments_test_mode activo un cliente
+-- puede dar por pagado su pedido: apagarlo al conectar las llaves reales.
 create or replace function public.simular_pago(_order_id uuid, _aprobar boolean default true)
 returns jsonb
 language plpgsql

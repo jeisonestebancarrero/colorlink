@@ -4,20 +4,8 @@ import { resolve } from 'node:path';
 import { limpiarCuentasDePrueba, clienteDeServicio } from './limpieza';
 
 /**
- * Entregar un retiro en tienda con el código del cliente.
- *
- * El código se le daba al cliente, viajaba en el correo y se imprimía en la
- * ficha… y no se comprobaba en ninguna parte: el pedido se daba por entregado
- * pulsando un botón. Era decorativo, y cualquiera podía llevarse la mercancía
- * diciendo un número de pedido.
- *
- * Lo que se vigila aquí, en orden de gravedad:
- *   1. Que un cliente cualquiera NO pueda entregarse su propio pedido. Sería
- *      marcar como recibido algo que nunca salió de la bodega.
- *   2. Que un código que no existe no entregue nada.
- *   3. Que NO se entregue un pedido que todavía se está alistando: es el error
- *      exacto que este código previene.
- *   4. Que no se pueda entregar dos veces.
+ * Entrega de retiro en tienda validando el código del cliente: el cliente no se
+ * autoentrega, un código inexistente o un pedido en alistamiento no se entregan, y no hay doble entrega.
  */
 
 function leerEnvLocal(): Record<string, string> {
@@ -128,9 +116,7 @@ describe.skipIf(!disponible)('Entrega por código · el código autoriza, no el 
   });
 
   it('avisa que NO ESTÁ PAGADO, que es lo que importa en el mostrador', async () => {
-    // Antes decía «no está listo para retiro». Es verdad, pero quien atiende
-    // entiende que falta alistarlo y entrega igual «porque ya está ahí». La
-    // mercancía salía sin cobrar.
+    // El mensaje debe dejar claro que aún se está alistando; uno ambiguo llevaba a entregar igual.
     const r = await entregar(tokenMostrador, CODIGO);
     expect(r.ok).toBe(false);
     expect(r.mensaje).toContain('SIN_PAGO');
@@ -151,8 +137,7 @@ describe.skipIf(!disponible)('Entrega por código · el código autoriza, no el 
   });
 
   it('con el pedido listo, el código lo entrega', async () => {
-    // Un pedido sin pagar NO avanza: lo impide `orders_exigir_cobro`, y hace
-    // bien —no se entrega mercancía que nadie ha cobrado—. Se paga primero.
+    // `orders_exigir_cobro` impide avanzar un pedido sin pagar; se paga primero.
     await fetch(`${API}/rest/v1/payments`, {
       method: 'POST', headers: { ...admin(), Prefer: 'return=minimal' },
       body: JSON.stringify({

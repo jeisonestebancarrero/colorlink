@@ -29,7 +29,6 @@ interface ColorVisualizerPageProps {
 }
 
 export const ColorVisualizerPage: React.FC<ColorVisualizerPageProps> = ({ onNavigate }) => {
-  // FASE 4 — carta de color y productos desde Supabase.
   const { data: PINTUCO_COLOR_PALETTES, isLoading: cargandoColores, error: errorColores, reload } =
     useColorPalette();
   const { data: PINTUCO_PRODUCTS, isLoading: cargandoProductos } = useProducts();
@@ -41,18 +40,7 @@ export const ColorVisualizerPage: React.FC<ColorVisualizerPageProps> = ({ onNavi
 
   const [selectedFamily, setSelectedFamily] = useState<string>('Blancos & Neutros');
   const [searchQuery, setSearchQuery] = useState<string>('');
-  /**
-   * CORRECCIÓN: el estado inicial no puede leer del catálogo.
-   *
-   * El inicializador de useState corre UNA sola vez, en el primer render,
-   * cuando la carta de color todavía está vacía porque llega por red. El
-   * valor quedaba en `undefined` para siempre y la página se caía en blanco
-   * al pintar `selectedColor.hex`.
-   *
-   * Ahora el estado guarda solo la elección explícita del usuario y el color
-   * mostrado se deriva en cada render, con respaldo al primer color de la
-   * carta mientras no haya elegido ninguno.
-   */
+  /** Solo la elección explícita: el catálogo llega por red y no sirve como valor inicial. El color mostrado se deriva. */
   const [colorElegido, setColorElegido] = useState<ColorSwatch | null>(null);
   const selectedColor =
     colorElegido ?? PINTUCO_COLOR_PALETTES[1] ?? PINTUCO_COLOR_PALETTES[0];
@@ -85,7 +73,6 @@ export const ColorVisualizerPage: React.FC<ColorVisualizerPageProps> = ({ onNavi
   };
 
   const handleBuyPaint = () => {
-    // Find matching product
     const prod =
       selectedRoom === 'facade'
         ? PINTUCO_PRODUCTS.find((p) => p.id === 'prod-koraza-5') || PINTUCO_PRODUCTS[0]
@@ -123,11 +110,9 @@ export const ColorVisualizerPage: React.FC<ColorVisualizerPageProps> = ({ onNavi
 
   const currentRoomObj = roomEnvironments.find((r) => r.id === selectedRoom) || roomEnvironments[0];
 
-  // FASE 4 — estados de carga y error (MÓDULO 37).
   if (isLoading) return <CatalogLoading />;
   if (error) return <CatalogError mensaje={error} onReintentar={reload} />;
-  // Sin colores no hay nada que visualizar: se evita el render en vez de
-  // dejar que reviente al leer una propiedad de undefined.
+  // Sin colores no se renderiza: `selectedColor` sería undefined.
   if (!selectedColor) {
     return (
       <CatalogError
@@ -206,9 +191,7 @@ export const ColorVisualizerPage: React.FC<ColorVisualizerPageProps> = ({ onNavi
 
             {/* Room Canvas Simulation */}
             <div className="relative h-80 sm:h-96 rounded-xl overflow-hidden border border-slate-200 shadow-inner group">
-              {/* La escena se dibuja en SVG: así el color entra solo en el
-                  muro y no vira la fotografía entera, que era lo que pasaba
-                  al teñir con mix-blend sobre una foto de archivo. */}
+              {/* Escena en SVG para teñir solo el muro; mix-blend sobre una foto viraba toda la imagen. */}
               <SimuladorAmbiente ambiente={currentRoomObj.id} color={selectedColor.hex} />
 
               {/* Ambient Info Floating Badge */}

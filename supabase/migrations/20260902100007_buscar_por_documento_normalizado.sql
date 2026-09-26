@@ -1,28 +1,6 @@
--- ============================================================
--- Buscar por documento y por NIT usando el valor NORMALIZADO
--- ============================================================
--- DEFECTO INTRODUCIDO POR 20260902100006 Y CORREGIDO AQUÍ.
---
--- Al normalizar los documentos, `companies.nit` quedó guardado sin puntos
--- ('901123456-1'), pero `handle_new_user` seguía buscando la empresa con el
--- texto tal como lo escribió la persona ('901.123456-1'). Al no encontrarla,
--- se iba por la rama de "crear empresa nueva" y chocaba con el índice único
--- del NIT: el alta entera reventaba con un error opaco.
---
--- El daño concreto: quien se registraba con el NIT de una empresa que YA
--- existe —el caso normal de un segundo empleado— perdía el registro completo
--- en lugar de quedar con una solicitud de vinculación pendiente. Es justo lo
--- que evitaba el control que ya existía, y la normalización lo desactivó.
---
--- Lo mismo pasaba con la cédula: `documento_ya_registrado` comparaba el número
--- crudo contra la columna normalizada, así que '71.234.567' no encontraba al
--- dueño de '71234567' y la persona llegaba hasta el índice único para
--- enterarse. Cualquier comparación contra estas columnas tiene que normalizar
--- los dos lados.
+-- Corrige 20260902100006: las búsquedas por NIT y cédula comparaban el valor crudo
+-- contra la columna normalizada y el alta fallaba en el índice único.
 
--- ------------------------------------------------------------
--- Aviso de documento ya tomado
--- ------------------------------------------------------------
 create or replace function public.documento_ya_registrado(_tipo text, _numero text)
 returns boolean
 language sql
@@ -38,9 +16,6 @@ as $$
   );
 $$;
 
--- ------------------------------------------------------------
--- Alta de usuario
--- ------------------------------------------------------------
 create or replace function public.handle_new_user()
 returns trigger
 language plpgsql
@@ -74,8 +49,7 @@ begin
   end;
 
   v_company_name := nullif(trim(coalesce(new.raw_user_meta_data ->> 'company', '')), '');
-  -- NORMALIZADO desde el principio: es la forma en que está guardado, y por
-  -- tanto la única con la que se puede buscar.
+    -- Normalizado, igual que está guardado.
   v_company_nit  := public.normalizar_documento(new.raw_user_meta_data ->> 'company_nit');
   v_doc_number   := public.normalizar_documento(new.raw_user_meta_data ->> 'document_number');
   v_address      := nullif(trim(coalesce(new.raw_user_meta_data ->> 'address', '')), '');
@@ -120,7 +94,7 @@ begin
     else null
   end;
 
-  -- Se compara normalizado contra normalizado.
+    -- Normalizado contra normalizado.
   if v_doc_number is not null and exists (
     select 1 from public.profiles p
     where p.document_number = v_doc_number
@@ -175,8 +149,6 @@ begin
   end if;
 
   if v_company_name is not null then
-    -- La búsqueda usa el NIT normalizado por los dos lados. Antes de este
-    -- arreglo no encontraba nada y el alta reventaba.
     select id into v_existente
       from public.companies
      where v_company_nit is not null

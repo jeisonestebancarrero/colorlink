@@ -1,22 +1,6 @@
 /**
- * Plantillas de correo de ColorLink.
- *
- * POR QUÉ EL HTML VIVE AQUÍ Y NO EN LA BASE:
- * el correo tiene su propio HTML —tablas, estilos en línea, nada de flexbox ni
- * de hojas externas— porque Outlook y Gmail descartan casi todo lo demás.
- * Mantenerlo en TypeScript permite componerlo con funciones y probarlo; en SQL
- * habría terminado siendo una concatenación imposible de leer.
- *
- * DECISIONES DE DISEÑO:
- *  · Ancho fijo de 600 px y tabla externa: es lo único que se ve igual en
- *    Gmail, Outlook y el correo del iPhone.
- *  · Estilos en línea. Las hojas de estilo se eliminan en varios clientes.
- *  · El logo va como imagen remota SI hay una URL configurada, y siempre
- *    acompañado de un texto con la marca: la mitad de los clientes bloquean
- *    imágenes por defecto y un correo sin encabezado legible parece spam.
- *  · Los datos de contacto son los del PUNTO DE VENTA del pedido, no los de la
- *    empresa: quien recibe el correo quiere llamar a la tienda donde va a
- *    recoger, no a una línea nacional.
+ * Plantillas de correo: tablas de 600 px y estilos en línea, lo único que respetan Gmail y Outlook.
+ * El contacto que se muestra es el del punto de venta del pedido, no el de la empresa.
  */
 
 import { LOGO_CID } from './logo.ts';
@@ -184,19 +168,13 @@ export function envolver(opciones: {
 </body>
 </html>`;
 
-  // Se colapsa el espacio entre etiquetas ANTES de enviar.
-  //
-  // El correo se codifica en quoted-printable, que parte las líneas largas y
-  // codifica el espacio final como `=20`. Con el HTML indentado, esos `=20`
-  // terminaban impresos dentro del mensaje —se veían sueltos junto al logo y
-  // encima de la tabla—. Sin saltos ni sangría no hay nada que codificar.
+  // Sin sangría ni saltos: quoted-printable convierte el espacio final en `=20` visible.
   return documento
     .replace(/\n\s*/g, '')
     .replace(/>\s+</g, '><')
     .trim();
 }
 
-// ── Piezas reutilizables del contenido ──────────────────────────────────
 export const saludo = (nombre: string) =>
   `<p class="marca-texto" style="margin:0 0 14px;font-size:16px;color:${MARCA.texto};">Hola <strong>${esc(nombre)}</strong>,</p>`;
 
@@ -251,12 +229,7 @@ export function tablaPedido(
   </table>`;
 }
 
-/**
- * Línea de tiempo del pedido.
- *
- * Se pintan todos los pasos, no solo el actual: el cliente quiere saber
- * cuánto falta, y un correo que solo dice "PREPARANDO" no responde eso.
- */
+/** Línea de tiempo con todos los pasos, para que el cliente vea cuánto falta. */
 const PASOS = [
   ['PENDIENTE', 'Pedido recibido'],
   ['CONFIRMADO', 'Pago confirmado'],

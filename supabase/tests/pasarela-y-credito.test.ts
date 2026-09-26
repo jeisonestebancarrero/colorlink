@@ -6,24 +6,9 @@ import { supabase } from '../../src/lib/supabase';
 import { pasarelaService } from '../../src/services/pasarelaAdmin';
 
 /**
- * Pantalla de la pasarela y del cupo de crédito.
- *
- * Las tres funciones de la base ya estaban probadas en `pagos.test.ts`; lo que
- * se vigila aquí es la capa que se acaba de escribir, donde están los errores
- * que la base no puede atrapar:
- *
- *   1. Que un campo de secreto EN BLANCO conserve el secreto guardado. Es el
- *      error caro: si el servicio mandara la cadena vacía, abrir la pantalla y
- *      guardar cualquier cosa borraría las llaves de Wompi y los pagos dejarían
- *      de funcionar sin que nada lo dijera.
- *   2. Que los secretos NO vuelvan al navegador, solo si están puestos.
- *   3. Que apagar el crédito no borre la condición aprobada.
- *   4. Que el saldo pendiente se atribuya a la empresa correcta: es la cifra
- *      con la que se decide un cupo.
- *   5. Que los errores de la base lleguen en español y digan qué hacer.
- *
- * Deja la configuración exactamente como la encontró, porque `payments_*` es
- * la misma fila que usa la tienda.
+ * Capa de servicio de pasarela y crédito: un secreto en blanco conserva el guardado,
+ * los secretos no vuelven al navegador, el saldo se atribuye a la empresa correcta y
+ * los errores llegan en español. Restaura `payments_*`, que comparte fila con la tienda.
  */
 
 function leerEnvLocal(): Record<string, string> {
@@ -57,9 +42,9 @@ async function hayInstancia(): Promise<boolean> {
 const disponible = await hayInstancia();
 
 describe.skipIf(!disponible || !SERVICE)('Pasarela y cupo de crédito', () => {
-  /** Servicio: escribe con permisos de superusuario, solo para restituir. */
+  /** Cliente de servicio, solo para restaurar. */
   let root: SupabaseClient;
-  /** Lo que había antes de tocar nada. */
+  /** Configuración original. */
   let originalPagos: Record<string, unknown> = {};
   let empresaId = '';
   let creditoOriginal = { payment_terms: 'CONTADO', credit_days: 30, credit_limit_cop: 0 };
@@ -67,8 +52,7 @@ describe.skipIf(!disponible || !SERVICE)('Pasarela y cupo de crédito', () => {
   beforeAll(async () => {
     root = createClient(API, SERVICE, { auth: { persistSession: false } });
 
-    // `pasarelaService` usa el cliente compartido de la aplicación, igual que
-    // lo usaría la pantalla: hay que iniciar sesión en ESE cliente.
+    // `pasarelaService` usa el cliente compartido de la app: la sesión debe iniciarse en ese.
     const s = await supabase.auth.signInWithPassword(ADMIN);
     if (s.error) throw new Error(`admin: ${s.error.message}`);
 
@@ -100,10 +84,6 @@ describe.skipIf(!disponible || !SERVICE)('Pasarela y cupo de crédito', () => {
     await supabase.auth.signOut();
   });
 
-  // ----------------------------------------------------------
-  // Pasarela
-  // ----------------------------------------------------------
-
   it('el estado dice si hay llaves, nunca cuáles', async () => {
     await root.from('app_settings').update({
       wompi_integrity_secret: 'secreto_de_prueba_integridad',
@@ -119,8 +99,7 @@ describe.skipIf(!disponible || !SERVICE)('Pasarela y cupo de crédito', () => {
   });
 
   it('un secreto en blanco CONSERVA el que estaba guardado', async () => {
-    // El error caro: abrir la pantalla, cambiar solo el interruptor y guardar
-    // no puede borrar las llaves de Wompi.
+    // Cambiar solo el interruptor y guardar no puede borrar las llaves de Wompi.
     await root.from('app_settings').update({
       wompi_public_key: 'pub_test_conservame',
       wompi_integrity_secret: 'integridad_conservame',
@@ -181,15 +160,10 @@ describe.skipIf(!disponible || !SERVICE)('Pasarela y cupo de crédito', () => {
     expect(e.prueba).toBe(false);
     expect(e.activa).toBe(true);
 
-    // Se devuelve enseguida a modo prueba: dejar el entorno local cobrando de
-    // verdad sería exactamente el descuido que la pantalla intenta evitar.
+    // Se vuelve a modo prueba: el entorno local no debe quedar cobrando de verdad.
     await pasarelaService.guardar({ activa: true, prueba: true });
     expect((await pasarelaService.estado()).prueba).toBe(true);
   });
-
-  // ----------------------------------------------------------
-  // Cupo de crédito
-  // ----------------------------------------------------------
 
   it('aprobar crédito guarda plazo y cupo', async () => {
     await pasarelaService.fijarCredito(empresaId, true, 45, 8_000_000);
@@ -212,14 +186,8 @@ describe.skipIf(!disponible || !SERVICE)('Pasarela y cupo de crédito', () => {
   });
 
   it('pasar a contado BORRA plazo y cupo, y es a propósito', async () => {
-    // Al escribir esto supuse lo contrario —que conservaría la condición para
-    // no tener que volver a averiguarla— y la base me corrigió: pone las dos
-    // cifras en cero. Es lo correcto: un cupo de 5 millones colgando de una
-    // empresa marcada CONTADO se lee como crédito vigente, y quien mire la
-    // ficha no puede saber si está aprobado o es un resto de antes.
-    //
-    // Se prueba tal cual para que la pantalla no prometa otra cosa: al apagar
-    // el crédito, avisa de que hay que volver a escribir plazo y cupo.
+    // Apagar el crédito pone plazo y cupo en cero: un cupo colgando de una empresa CONTADO
+    // parecería vigente. La pantalla avisa que hay que reescribirlos.
     await pasarelaService.fijarCredito(empresaId, true, 60, 5_000_000);
     await pasarelaService.fijarCredito(empresaId, false, 60, 5_000_000);
 
@@ -230,8 +198,7 @@ describe.skipIf(!disponible || !SERVICE)('Pasarela y cupo de crédito', () => {
   });
 
   it('la bitácora registra QUÉ llave se cambió, nunca su valor', async () => {
-    // La razón de que esto exista: si un día los pagos dejan de funcionar, lo
-    // primero que hay que poder responder es quién cambió qué y cuándo.
+    // Auditoría: debe poder saberse quién cambió la pasarela y cuándo.
     await pasarelaService.guardar({
       activa: true, prueba: true,
       secretoIntegridad: 'valor_que_no_debe_quedar_registrado',
@@ -248,8 +215,7 @@ describe.skipIf(!disponible || !SERVICE)('Pasarela y cupo de crédito', () => {
       entity: string; entity_id: string | null; metadata: Record<string, unknown>;
     };
     expect(fila.entity).toBe('app_settings');
-    // `app_settings` tiene clave numérica; `entity_id` es uuid. Meter el id ahí
-    // es lo que hacía fallar la función entera.
+    // `app_settings` tiene clave numérica y `entity_id` es uuid: debe quedar nulo.
     expect(fila.entity_id).toBeNull();
     expect(fila.metadata.cambio_secreto_integridad).toBe(true);
     expect(fila.metadata.cambio_secreto_eventos).toBe(false);
@@ -260,7 +226,7 @@ describe.skipIf(!disponible || !SERVICE)('Pasarela y cupo de crédito', () => {
     const lista = await pasarelaService.empresas();
     expect(lista.length).toBeGreaterThan(0);
 
-    // El saldo tiene que coincidir con la cartera real, empresa por empresa.
+    // El saldo debe coincidir con la cartera real, empresa por empresa.
     const { data } = await root.from('v_cartera')
       .select('company_id, saldo').gt('saldo', 0);
     const esperado = new Map<string, number>();
@@ -282,10 +248,7 @@ describe.skipIf(!disponible || !SERVICE)('Pasarela y cupo de crédito', () => {
   });
 
   it('buscar por NIT funciona con puntos y sin ellos', async () => {
-    // La prueba PONE el NIT en lugar de buscar una empresa que ya lo tenga.
-    // Antes dependía de encontrar una, y la única que lo tenía resultó ser
-    // basura de otra prueba: al limpiar la base, esta se cayó. Un dato que la
-    // prueba necesita lo crea la prueba.
+    // La prueba asigna el NIT en vez de buscar una empresa que ya lo tenga.
     const NIT = '901555444-3';
     const { data: previo } = await root.from('companies')
       .select('nit').eq('id', empresaId).single();
@@ -297,8 +260,7 @@ describe.skipIf(!disponible || !SERVICE)('Pasarela y cupo de crédito', () => {
       const directo = await pasarelaService.empresas(NIT);
       expect(directo.map((e) => e.nit)).toContain(NIT);
 
-      // Como lo escribiría una persona: con puntos, aunque la base lo guarda
-      // sin ellos por exigencia de la DIAN.
+      // Con puntos, como lo escribe una persona; la base lo guarda sin ellos.
       const buscado = await pasarelaService.empresas('901.555.444-3');
       expect(buscado.map((e) => e.nit)).toContain(NIT);
     } finally {

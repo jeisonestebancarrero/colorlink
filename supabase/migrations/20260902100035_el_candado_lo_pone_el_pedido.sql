@@ -1,32 +1,7 @@
--- ============================================================
--- Quien cierra la conversación es el PEDIDO, no el chat
--- ============================================================
--- Corrige la migración anterior (20260902100034), donde entendí al revés la
--- regla del negocio.
---
--- LO QUE HICE MAL: «terminar chat» bloqueaba la conversación para siempre. Eso
--- significa que un asesor —o el propio cliente por error— podía dejar sin voz
--- a alguien que tiene un pedido EN CURSO. Un cliente con mercancía por llegar
--- siempre tiene que poder escribir; cortarle el canal es lo peor que puede
--- hacer un sistema de pedidos.
---
--- LO CORRECTO:
---
---   · Mientras el pedido está VIVO (pendiente, confirmado, preparando, enviado,
---     listo para retiro), la conversación NO se puede cerrar. Terminar solo da
---     por atendida la charla del momento: la burbuja vuelve al asistente y el
---     hilo sigue disponible desde el pedido.
---
---   · Cuando el pedido TERMINA —entregado o cancelado— la conversación se
---     cierra sola. Ahí sí deja de tener sentido escribir: el asunto se acabó,
---     y lo que venga después es un caso nuevo.
---
--- Así el candado lo pone un hecho del negocio y no el humor de quien esté
--- atendiendo.
+-- Corrige la 20260902100034: cerrar el chat no puede silenciar a un cliente con pedido
+-- en curso. Mientras el pedido esté vivo, «terminar» solo marca atendida; al entregarse
+-- o cancelarse, la conversación se cierra sola.
 
--- ------------------------------------------------------------
--- ¿Está vivo el pedido?
--- ------------------------------------------------------------
 create or replace function public.pedido_en_curso(_order_id uuid)
 returns boolean
 language sql
@@ -45,9 +20,6 @@ comment on function public.pedido_en_curso(uuid) is
   'El pedido sigue vivo. Mientras lo esté, su conversación no se puede cerrar: '
   'un cliente con mercancía por llegar siempre tiene que poder escribir.';
 
--- ------------------------------------------------------------
--- Escribir: manda el estado del PEDIDO
--- ------------------------------------------------------------
 create or replace function public.post_message(
   _order_id uuid,
   _project_id uuid,
@@ -82,9 +54,7 @@ begin
       into v_estado, v_puede
     from public.orders o where o.id = _order_id;
 
-    -- El único motivo para no dejar escribir es que el PEDIDO haya terminado.
-    -- Antes se miraba `chat_cerrado_en`, y eso permitía dejar mudo a un cliente
-    -- con un pedido en curso.
+    -- Solo un pedido terminado impide escribir; chat_cerrado_en ya no bloquea.
     if v_estado in ('ENTREGADO', 'CANCELADO') then
       raise exception 'PEDIDO_CERRADO: el pedido % ya terminó; esta conversación quedó cerrada',
         (select order_number from public.orders where id = _order_id)
@@ -110,12 +80,8 @@ begin
 end;
 $$;
 
--- ------------------------------------------------------------
--- «Terminar» pasa a significar «dar por atendida»
--- ------------------------------------------------------------
--- Ya no bloquea nada mientras el pedido siga vivo: cierra la atención del
--- momento. Sirve para que el equipo sepa qué hilos siguen pendientes y para
--- que la burbuja vuelva al asistente, sin quitarle la voz a nadie.
+-- «Terminar» marca la atención como resuelta sin bloquear: sirve para saber qué
+-- queda pendiente y devolver la burbuja al asistente.
 create or replace function public.cerrar_conversacion(_order_id uuid)
 returns jsonb
 language plpgsql
@@ -160,14 +126,10 @@ begin
   return jsonb_build_object(
     'cerrada', true,
     'ya_estaba', false,
-    -- Lo que la pantalla necesita saber para no mentirle a nadie.
     'se_puede_seguir', v_en_curso);
 end;
 $$;
 
--- ------------------------------------------------------------
--- El estado que pinta las pantallas
--- ------------------------------------------------------------
 create or replace function public.estado_conversacion(_order_id uuid)
 returns jsonb
 language sql
@@ -179,10 +141,8 @@ as $$
     jsonb_build_object(
       'numero', o.order_number,
       'estado_pedido', o.status::text,
-      -- Se puede escribir mientras el PEDIDO esté vivo. Es lo único que manda.
       'se_puede_escribir', o.status not in ('ENTREGADO', 'CANCELADO'),
-      -- «Atendida» es otra cosa: alguien la dio por resuelta. No impide nada,
-      -- solo sirve para saber qué queda pendiente y para cerrar la burbuja.
+      -- «Atendida» no bloquea; solo indica qué queda pendiente.
       'atendida', o.chat_cerrado_en is not null,
       'atendida_en', o.chat_cerrado_en
     )
@@ -191,9 +151,7 @@ as $$
   where o.id = _order_id;
 $$;
 
--- Escribir vuelve a abrir la atención: si alguien escribe, es que no estaba
--- resuelto. Aquí sí es automático, al revés que antes, porque «atendida» no
--- bloquea a nadie y dejarla marcada escondería un hilo que sigue vivo.
+-- Un mensaje nuevo reabre la atención: si alguien escribe, no estaba resuelto.
 create or replace function public.marcar_conversacion_atendida_off()
 returns trigger
 language plpgsql

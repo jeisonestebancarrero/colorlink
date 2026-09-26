@@ -4,22 +4,10 @@ import 'leaflet/dist/leaflet.css';
 import type { PedidoCliente } from '../../services/tracking';
 
 /**
- * Mapa real de seguimiento sobre cartografía de Colombia.
- *
- * Usa Leaflet con teselas de OpenStreetMap: sin clave de API ni costo por
- * uso, y con la geografía real del país.
- *
- * QUÉ ES REAL Y QUÉ NO, para no prometer de más:
- *   — Real: las ciudades de origen y destino, y su ubicación en el mapa.
- *   — Estimado: la posición del vehículo. El sistema conoce el ESTADO del
- *     envío, no sus coordenadas GPS, así que el marcador se interpola sobre
- *     la ruta según el avance. Se advierte en la propia pantalla.
- *
- * Cuando la transportadora entregue coordenadas reales, solo hay que
- * sustituir esa interpolación por el punto que ella reporte.
+ * Mapa de seguimiento con Leaflet + OpenStreetMap (sin API key). Origen y destino son reales;
+ * la posición del vehículo se interpola según el progreso, porque no hay GPS de la transportadora.
  */
 
-/** Coordenadas de las ciudades donde Pintuco tiene operación. */
 const CIUDADES: Record<string, [number, number]> = {
   'medellín': [6.2442, -75.5812],
   'medellin': [6.2442, -75.5812],
@@ -41,7 +29,7 @@ const CIUDADES: Record<string, [number, number]> = {
   'villavicencio': [4.1420, -73.6266],
 };
 
-/** Centro de Colombia, para cuando la ciudad no esté en la lista. */
+/** Respaldo para ciudades que no están en la lista. */
 const CENTRO_COLOMBIA: [number, number] = [4.5709, -74.2973];
 
 function coordenadas(ciudad: string | null): [number, number] {
@@ -100,12 +88,10 @@ export const MapaSeguimiento: React.FC<{ pedido: PedidoCliente }> = ({ pedido })
     const entregado = pedido.estado === 'ENTREGADO';
     const p = Math.max(0.02, Math.min(1, pedido.progreso));
 
-    // Ruta completa, atenuada
     L.polyline([origen, destino], {
       color: '#94A3B8', weight: 3, opacity: 0.55, dashArray: '8 10',
     }).addTo(capas.current);
 
-    // Tramo recorrido
     const actual: [number, number] = [
       origen[0] + (destino[0] - origen[0]) * p,
       origen[1] + (destino[1] - origen[1]) * p,

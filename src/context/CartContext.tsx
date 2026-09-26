@@ -29,18 +29,13 @@ interface CartContextType {
   updateQuantity: (itemId: string, delta: number) => Promise<void>;
   removeFromCart: (itemId: string) => Promise<void>;
   clearCart: () => Promise<void>;
-  // Delivery & Pickup Options
   deliveryMethod: 'pickup' | 'delivery';
   setDeliveryMethod: (method: 'pickup' | 'delivery') => void;
   selectedStore: PintucoStore;
   setSelectedStore: (store: PintucoStore) => void;
   pickupDate: string;
   setPickupDate: (date: string) => void;
-  /**
-   * Destino del envío. Antes eran dos textos con una dirección de
-   * demostración escrita en el código; ahora es una elección explícita entre
-   * una dirección guardada, una sede de la empresa o una dirección nueva.
-   */
+  /** Destino del envío: dirección guardada, sede de la empresa o dirección nueva. */
   destino: DestinoEnvio;
   setDestino: (d: DestinoEnvio) => void;
   direccionesGuardadas: DireccionCliente[];
@@ -74,32 +69,14 @@ interface CartContextType {
 }
 
 /**
- * FASE 8 — El carrito vive en Supabase.
- *
- * Antes se guardaba en localStorage con los precios dentro, de modo que
- * cualquiera podía editarlos desde la consola del navegador. Ahora el
- * servidor guarda solo qué variante y qué cantidad; el precio se lee del
- * catálogo y se congela al confirmar el pedido (MÓDULO 52/60).
- *
- * Se eliminó también el carrito precargado con tres productos: sembrar la
- * compra de un usuario real no tiene sentido fuera de una demo.
- *
- * EL VISITANTE SIN CUENTA TAMBIÉN COMPRA. Añadir al carrito no exige sesión:
- * sin sesión las líneas se guardan en el navegador (services/carritoInvitado)
- * y al entrar se vuelcan al carrito real. La cuenta se pide recién al pedir la
- * cotización formal o al confirmar el pedido. Antes `addProduct` lanzaba
- * "Inicia sesión para agregar productos al carrito" y ese error moría en un
- * console.error: el visitante pulsaba "Agregar al Carrito", no pasaba nada y
- * se iba sin comprar. Por eso ahora TODO fallo del carrito se muestra en
- * pantalla.
+ * El carrito vive en Supabase y guarda solo variante y cantidad; el precio sale
+ * del catálogo y se congela al confirmar. Sin sesión las líneas quedan en el
+ * navegador (carritoInvitado) y se vuelcan al entrar; la cuenta se pide al
+ * cotizar o confirmar. Todo fallo del carrito se muestra en pantalla.
  */
 /**
- * Cómo se resuelve la dirección de entrega.
- *   'guardada' — una de las direcciones del cliente
- *   'sede'     — una sede de su empresa
- *   'nueva'    — escrita a mano; el caso de la obra, que no es una sede
- * En los dos primeros el servidor lee la dirección del registro elegido y
- * descarta lo que mande el navegador.
+ * Origen de la dirección de entrega. En 'guardada' y 'sede' el servidor lee el
+ * registro elegido e ignora lo que mande el navegador.
  */
 export type ModoDestino = 'guardada' | 'sede' | 'nueva';
 
@@ -123,9 +100,7 @@ const DESTINO_VACIO: DestinoEnvio = {
   modo: 'nueva',
   customerAddressId: null,
   companyBranchId: null,
-  // En blanco a propósito. Antes venía con 'Cra 43A # 18 Sur - 135, Edif.
-  // Horizonte', una dirección de demostración: quien no la cambiaba dejaba esa
-  // dirección falsa en un pedido real.
+  // En blanco a propósito: una dirección precargada acababa en pedidos reales.
   direccion: '',
   ubicacion: UBICACION_VACIA,
 };
@@ -169,7 +144,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   >(null);
   const [ultimoPedidoPagado, setUltimoPedidoPagado] = useState(false);
 
-  // Puntos de retiro reales (tabla pickup_locations).
+  // Puntos de retiro (pickup_locations).
   useEffect(() => {
     storeService
       .getStores()
@@ -180,7 +155,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       .catch((e) => console.error('[cart] no se pudieron cargar los puntos de retiro', e));
   }, []);
 
-  /** Mensaje de error visible. Un fallo del carrito no puede ser silencioso. */
+  /** Un fallo del carrito nunca debe ser silencioso. */
   const avisarError = useCallback(
     (contexto: string, e: unknown) => {
       console.error(`[cart] ${contexto}`, e);
@@ -193,12 +168,8 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   );
 
   /**
-   * Carga el carrito y, al entrar, se trae el que la persona armó de visitante.
-   *
-   * Sin sesión lee el carrito del navegador —antes lo dejaba vacío, así que el
-   * visitante no tenía carrito posible—. Con sesión, si hay líneas de visitante
-   * las vuelca a la cuenta y reabre el carrito, para que quien acaba de entrar
-   * vea exactamente lo que había armado antes de registrarse.
+   * Carga el carrito: sin sesión, el del navegador; al entrar, vuelca las líneas
+   * de visitante a la cuenta y reabre el carrito.
    */
   useEffect(() => {
     let activo = true;
@@ -230,8 +201,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (activo) setRecuperandoCarrito(true);
       try {
         const items = await cartService.absorberLineas(pendientes);
-        // Solo se borra el carrito local cuando el volcado salió bien: si
-        // falla, lo que la persona armó sigue ahí y puede reintentar.
+        // Solo se borra si el volcado salió bien, para poder reintentar.
         carritoInvitado.vaciar();
         carritoInvitado.guardarIntencion(null);
         if (!activo) return;
@@ -259,13 +229,8 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
 
   /**
-   * Direcciones del cliente y sedes de su empresa, al iniciar sesión.
-   *
-   * Y se precarga el destino: si tiene una dirección principal, el carrito la
-   * propone; si su empresa tiene sedes, propone la principal. Es lo que pedía
-   * "que se complete con la dirección registrada", y sigue siendo cambiable.
-   * Un invitado no tiene nada de esto, así que su dirección arranca EN BLANCO
-   * y el pedido no puede salir sin que la escriba.
+   * Carga direcciones y sedes al iniciar sesión y propone un destino por defecto
+   * (dirección o sede principal). Un invitado arranca con la dirección en blanco.
    */
   useEffect(() => {
     let activo = true;
@@ -285,8 +250,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
           avisarError('no se pudieron cargar tus direcciones', e);
           return [] as DireccionCliente[];
         }),
-        // Un cliente particular no tiene empresa: RLS devuelve vacío y no es
-        // un error.
+        // Un cliente particular no tiene empresa: RLS devuelve vacío, no es error.
         sedeService.listar().catch(() => [] as SedeEmpresa[]),
       ]);
       if (!activo) return;
@@ -294,7 +258,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setDireccionesGuardadas(dirs);
       setSedesEmpresa(sedes);
 
-      // Se propone un destino, sin pisar lo que la persona ya haya elegido.
+      // Propone un destino sin pisar el que ya se haya elegido.
       setDestino((actual) => {
         if (actual.customerAddressId || actual.companyBranchId || actual.direccion) {
           return actual;
@@ -397,7 +361,6 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         carritoInvitado.vaciar();
         setCartItems([]);
       }
-      // Vaciar el carrito deja sin sentido la sesión que se estaba pidiendo.
       setNecesitaSesionPara(null);
       carritoInvitado.guardarIntencion(null);
     } catch (e) {
@@ -406,11 +369,8 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [isAuthenticated, avisarError]);
 
   /**
-   * Pide la sesión sin tocar el carrito.
-   *
-   * La intención se guarda también en el navegador porque el acceso con Google
-   * recarga la página entera: al volver, el efecto de arranque la lee y reabre
-   * el carrito con todo dentro.
+   * Pide la sesión sin tocar el carrito. La intención se guarda en el navegador
+   * porque el acceso con Google recarga la página.
    */
   const pedirSesionPara = useCallback((intencion: Intencion) => {
     carritoInvitado.guardarIntencion(intencion);
@@ -428,25 +388,17 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const totalCOP = Math.max(0, subtotalCOP - discountCOP);
 
   /**
-   * FASE 9 — Checkout real.
-   *
-   * Antes generaba un número de pedido con Math.random(), vaciaba el carrito
-   * y no guardaba nada: no existía ningún pedido. Ahora llama a
-   * create_order_from_cart, que valida disponibilidad, calcula subtotal,
-   * descuento, envío y total en el servidor, crea el pago y el envío, emite
-   * la notificación y cierra el carrito, todo en una transacción.
+   * Llama a create_order_from_cart: el servidor valida disponibilidad, calcula
+   * totales, crea pago y envío y cierra el carrito en una transacción.
    */
   const completeCheckout = useCallback(async () => {
-    // Sin cuenta no hay pedido: el pedido se vincula a un usuario y a él van
-    // el seguimiento, la factura y los correos. Se pide la sesión AQUÍ y no al
-    // añadir al carrito, y el carrito armado se conserva.
+    // El pedido se vincula a un usuario; la sesión se pide aquí, no al añadir, y el carrito se conserva.
     if (!isAuthenticated) {
       pedirSesionPara('pedido');
       setIsCartOpen(true);
       return;
     }
-    // Validación antes de salir a la red, para que los campos que faltan se
-    // marquen en el formulario en lugar de volver como un error genérico.
+    // Validar antes de la red para marcar los campos en el formulario.
     const errs: Record<string, string> = {};
 
     if (!quienRecibe.nombre.trim()) errs.nombre = 'Indica quién recibe';
@@ -465,8 +417,6 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         errs.destino = 'Elige la sede a la que va el pedido';
       }
       if (destino.modo === 'nueva') {
-        // La dirección arranca en blanco y es obligatoria: es lo que impide
-        // que salga un pedido hacia la dirección de demostración de antes.
         if (destino.direccion.trim().length < 5) {
           errs.direccion = 'Escribe la dirección de entrega';
         }
@@ -482,7 +432,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     try {
-      // Si escribió un barrio que no estaba en la lista, se incorpora ahora.
+      // Un barrio que no estaba en la lista se crea ahora.
       let barrioId: string | null = null;
       if (deliveryMethod === 'delivery' && destino.modo === 'nueva') {
         barrioId = await resolverBarrio(destino.ubicacion);
@@ -513,9 +463,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setCartItems([]);
       setIsCartOpen(false);
       setErroresEntrega({});
-      // El pedido está creado pero todavía no es una venta: falta el cobro.
-      // Por eso se abre el pago y no la confirmación, que antes daba a
-      // entender que la compra ya estaba hecha.
+      // Creado no es vendido: falta el cobro, por eso se abre el pago y no la confirmación.
       setUltimoPedidoPagado(false);
       setPedidoPorPagar({
         id: pedido.id,
@@ -524,8 +472,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
     } catch (e) {
       setCheckoutError(e instanceof Error ? e.message : 'No fue posible crear el pedido.');
-      // `checkoutError` no lo pinta ninguna vista todavía: sin este aviso,
-      // pulsar "Confirmar Pedido" y fallar no le decía nada al cliente.
+      // Ninguna vista pinta checkoutError todavía; sin este aviso el fallo pasaba inadvertido.
       avisarError('completeCheckout', e);
     }
   }, [
@@ -573,9 +520,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         recuperandoCarrito,
         pedidoPorPagar,
         ultimoPedidoPagado,
-        // Cerrar la ventana de pago NO es haber pagado. Antes se mostraba
-        // "orden registrada con éxito" aunque el cliente hubiera salido sin
-        // pagar, y el pedido quedaba varado sin que nadie lo supiera.
+        // Cerrar la ventana de pago no implica haber pagado.
         cerrarPago: (pagado: boolean) => {
           setUltimoPedidoPagado(pagado);
           const pedido = pedidoPorPagar;
@@ -586,9 +531,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
             return;
           }
 
-          // Sin pago no hay venta: el pedido se cancela y sus productos
-          // vuelven al carrito. Dejarlo a medias le quitaba el carrito al
-          // cliente y dejaba un pedido fantasma en la bandeja de la tienda.
+          // Sin pago se cancela el pedido y sus productos vuelven al carrito, para no dejar pedidos fantasma.
           if (pedido) {
             void pagoService
               .devolverAlCarrito(pedido.id)

@@ -11,20 +11,8 @@ import { Button } from '../components/common/Button';
 import { Input } from '../components/common/Input';
 
 /**
- * Kits de solución, desde el catálogo.
- *
- * Hasta ahora los kits solo existían como datos sembrados: para cambiar un
- * paso, un precio o un descuento había que entrar a la base. Eso no lo puede
- * hacer quien administra el negocio, así que en la práctica no se hacía — y se
- * notaba: cinco de los once pasos cotizaban presentaciones que no existen.
- *
- * LA REGLA QUE EVITA QUE VUELVA A PASAR: un paso se arma eligiendo un PRODUCTO
- * y una PRESENTACIÓN del catálogo activo. No hay campo de precio ni de
- * etiqueta libre. El precio sale de la presentación, así que sube y baja con
- * el catálogo y no puede quedarse viejo.
- *
- * Y no hay copia intermedia: la tienda lee las mismas tablas. Lo que se
- * archive, edite o borre aquí, el cliente lo ve al recargar.
+ * Kits de solución. Cada paso referencia producto y presentación activos, sin precio libre,
+ * para que el precio siga al catálogo. La tienda lee las mismas tablas.
  */
 
 const pesos = (n: number) =>
@@ -73,8 +61,7 @@ export const KitsPanel: React.FC = () => {
     try {
       const [k, p] = await Promise.all([kitsService.listar(), catalogoService.productos()]);
       setKits(k);
-      // Solo productos ACTIVOS, y solo sus presentaciones activas: un kit no
-      // puede armarse con algo que no se vende.
+      // Solo productos y presentaciones activos.
       setProductos(p.filter((x) => x.estado === 'ACTIVO'));
     } catch (e) {
       setAviso({ tipo: 'error', texto: (e as Error).message });
@@ -158,8 +145,7 @@ export const KitsPanel: React.FC = () => {
     if (!otro) return;
     setGuardando(true);
     try {
-      // Se cruzan los números por un valor temporal alto: el índice único
-      // (solution_id, step_number) rechaza el intercambio directo.
+      // Intercambio vía valor temporal: el índice único (solution_id, step_number) rechaza el cruce directo.
       await kitsService.guardarPaso(editando.id, { ...paso, stepNumber: 9000 });
       await kitsService.guardarPaso(editando.id, { ...otro, stepNumber: paso.stepNumber });
       await kitsService.guardarPaso(editando.id, { ...paso, stepNumber: paso.stepNumber + delta });
@@ -293,8 +279,7 @@ export const KitsPanel: React.FC = () => {
             </div>
           </div>
 
-          {/* Imagen del kit. Es la que ve el cliente en la tarjeta de
-              «Soluciones»; sin ella la tarjeta sale con un hueco. */}
+          {/* Imagen de la tarjeta en «Soluciones». */}
           <div className="flex flex-wrap items-center gap-3 border-t border-slate-100 pt-4">
             <div className="w-20 h-20 rounded-lg border border-slate-200 bg-slate-50 overflow-hidden
                             flex items-center justify-center shrink-0">
@@ -392,7 +377,7 @@ const ImagenPaso: React.FC<{ paso: PasoKit; onSubida: (url: string) => void }> =
   );
 };
 
-/* ────────────────────────── Los pasos ────────────────────────── */
+// Pasos del kit
 
 const PasosDelKit: React.FC<{
   kit: KitCatalogo;
@@ -434,8 +419,7 @@ const PasosDelKit: React.FC<{
                              flex items-center justify-center shrink-0">
               {p.stepNumber}
             </span>
-            {/* La del paso si la subieron; si no, la del producto. Un paso sin
-                imagen propia no debe salir con el hueco roto. */}
+            {/* Imagen propia del paso o, si no hay, la del producto. */}
             <ImagenPaso paso={p} onSubida={(url) => onGuardar({ ...p, imagen: url })} />
             <div className="min-w-0 flex-1">
               <p className="text-sm font-bold text-slate-900 truncate">{p.productoNombre}</p>
@@ -475,8 +459,7 @@ const PasosDelKit: React.FC<{
         </div>
       )}
 
-      {/* Agregar paso. El producto y la presentación salen del catálogo activo:
-          no hay campo de precio, y por eso no puede volver a haber uno viejo. */}
+      {/* Agregar paso desde el catálogo activo; sin campo de precio. */}
       <div className="border border-dashed border-slate-300 rounded-lg p-3 space-y-3 bg-slate-50/50">
         <p className="text-xs font-bold text-slate-600">Agregar un paso</p>
         <div className="grid gap-2 sm:grid-cols-2">

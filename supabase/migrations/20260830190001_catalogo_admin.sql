@@ -1,20 +1,6 @@
--- ============================================================
--- Mantener el catálogo desde el portal interno
--- ============================================================
--- Hasta ahora el catálogo solo se podía tocar con SQL: no había pantalla.
---
--- La escritura pasa por funciones y no por UPDATE directo desde el navegador
--- por una razón concreta que apareció al cerrar el costo: `product_variants`
--- ya no tiene SELECT a nivel de tabla —la columna del costo es confidencial—
--- y PostgREST necesita ese SELECT para devolver la fila modificada. Con
--- funciones eso deja de importar, y de paso se valida en un solo sitio lo que
--- no puede quedar al criterio de la pantalla: que no haya códigos repetidos,
--- que un precio no sea negativo y que quede auditoría de quién cambió qué.
--- ============================================================
+-- Escritura del catálogo desde el portal por funciones: product_variants ya no
+-- tiene SELECT de tabla (PostgREST no devolvería la fila) y se valida y audita en un sitio.
 
--- ------------------------------------------------------------
--- 1. Producto
--- ------------------------------------------------------------
 create or replace function public.upsert_product(_datos jsonb)
 returns uuid
 language plpgsql
@@ -41,8 +27,7 @@ begin
       using errcode = '22023';
   end if;
 
-  -- El IVA en Colombia es 0, 5 o 19. Un valor distinto casi siempre es un
-  -- dedazo, y sale mal en la factura de todos los pedidos de ese producto.
+    -- IVA colombiano: 0, 5 o 19.
   if v_tasa is not null and v_tasa not in (0, 5, 19) then
     raise exception 'IVA_INVALIDO: el IVA debe ser 0, 5 o 19' using errcode = '22023';
   end if;
@@ -72,8 +57,7 @@ begin
       nullif(trim(_datos ->> 'coverage'), ''),
       nullif(_datos ->> 'spread_rate_m2_per_gal', '')::numeric,
       nullif(trim(_datos ->> 'drying_time'), ''),
-      -- `features` es NOT NULL con valor por defecto. Pasar NULL explícito
-      -- anula ese default y la inserción falla; se manda un arreglo vacío.
+        -- NULL explícito anula el default de la columna NOT NULL.
       coalesce(
         case when _datos ? 'features'
              then (select array_agg(value::text) from jsonb_array_elements_text(_datos -> 'features'))
@@ -127,9 +111,6 @@ begin
 end;
 $$;
 
--- ------------------------------------------------------------
--- 2. Presentación (variante)
--- ------------------------------------------------------------
 create or replace function public.upsert_variant(_datos jsonb)
 returns uuid
 language plpgsql
@@ -180,8 +161,7 @@ begin
       nullif(trim(_datos ->> 'barcode'), ''),
       v_precio,
       nullif(_datos ->> 'volume_liters', '')::numeric,
-      -- `unit` es NOT NULL con valor por defecto ('GALON'). Pasar NULL
-      -- explícito anula el default y la inserción falla.
+        -- NULL explícito anula el default de la columna NOT NULL.
       coalesce(nullif(trim(_datos ->> 'unit'), ''), 'GALON'),
       nullif(_datos ->> 'quantity', '')::numeric,
       coalesce((_datos ->> 'sort_order')::integer, 0),
@@ -193,8 +173,7 @@ begin
     values (auth.uid(), 'VARIANT_CREATED', 'product_variants', v_id,
             jsonb_build_object('label', v_label, 'precio', v_precio));
   else
-    -- El costo NO se toca aquí: sale de las recepciones. Para el costo
-    -- estándar de referencia está `set_standard_cost`, que es explícito.
+      -- El costo no se toca aquí: sale de las recepciones o de set_standard_cost.
     update public.product_variants
        set label = v_label,
            sku = v_sku,
@@ -221,9 +200,6 @@ begin
 end;
 $$;
 
--- ------------------------------------------------------------
--- 3. Color
--- ------------------------------------------------------------
 create or replace function public.upsert_color(_datos jsonb)
 returns uuid
 language plpgsql
@@ -256,9 +232,7 @@ begin
       using errcode = '23505';
   end if;
 
-  -- El RGB se deriva del hexadecimal en vez de pedirlo aparte: son el mismo
-  -- dato en dos formatos, y tenerlos separados garantiza que tarde o
-  -- temprano digan colores distintos. Ya pasó en la carta original.
+    -- El RGB se deriva del hex para que no diverjan.
   v_rgb := format('%s, %s, %s',
     ('x' || substr(v_hex, 2, 2))::bit(8)::int,
     ('x' || substr(v_hex, 4, 2))::bit(8)::int,
@@ -307,9 +281,6 @@ grant execute on function public.upsert_product(jsonb) to authenticated;
 grant execute on function public.upsert_variant(jsonb) to authenticated;
 grant execute on function public.upsert_color(jsonb)   to authenticated;
 
--- ------------------------------------------------------------
--- 4. Recepciones como aplicación del tablero
--- ------------------------------------------------------------
 insert into public.app_views (code, label, icon, route, area, sort_order, is_active, color, description)
 values (
   'bo.receipts', 'Recepciones', 'PackagePlus', '/recepciones', 'BACKOFFICE', 45, true,
@@ -327,8 +298,6 @@ values
   ('GERENCIA',      'bo.receipts', true)
 on conflict (role, view_code) do update set visible = excluded.visible;
 
--- El catálogo ya existía como vista del tablero; se le da color y descripción
--- para que la tarjeta no salga con el texto genérico.
 update public.app_views
    set color = '#EA580C', description = 'Productos, presentaciones y colores'
  where code = 'bo.catalog';

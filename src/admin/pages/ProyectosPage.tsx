@@ -21,12 +21,8 @@ import { IconoModulo } from '../IconosDeModulo';
 const fecha = formatearFecha;
 
 /**
- * Proyectos de obra en el back-office.
- *
- * Qué ve cada persona lo decide el servidor, no esta pantalla: administración
- * y quien tenga el permiso `projects.read` ven todos los proyectos; un técnico
- * ve solo los que le asignaron. Por eso la lista vacía de un técnico no es un
- * error: es que todavía no le han asignado obra.
+ * Proyectos de obra. RLS decide la visibilidad: admin y `projects.read` ven todos, un técnico
+ * solo los asignados, así que una lista vacía no es un error.
  */
 export const ProyectosPage: React.FC = () => {
   const { puede } = useAdminAuth();
@@ -141,7 +137,7 @@ export const ProyectosPage: React.FC = () => {
     }
   };
 
-  // ── Detalle ───────────────────────────────────────────────────────────────
+  // Detalle
   if (detalle) {
     return (
       <div className="space-y-5">
@@ -539,7 +535,7 @@ export const ProyectosPage: React.FC = () => {
     );
   }
 
-  // ── Listado ───────────────────────────────────────────────────────────────
+  // Listado
   return (
     <div className="space-y-5">
       <div>
@@ -580,8 +576,7 @@ export const ProyectosPage: React.FC = () => {
           ))}
         </select>
 
-        {/* La cartera de obras es lo que se lleva a un comité comercial: qué
-            hay abierto, en qué ciudad, con cuánta área y quién la atiende. */}
+        {/* Cartera de obras para comité comercial. */}
         <ExportarBoton<ProyectoLista>
           filas={filtrados}
           nombre={estado === 'TODOS' ? 'proyectos' : `proyectos-${estado.toLowerCase()}`}
@@ -600,8 +595,7 @@ export const ProyectosPage: React.FC = () => {
             { titulo: 'Área (m²)', valor: (p) => p.areaM2, numerica: true },
             { titulo: 'Estado', valor: (p) => ETIQUETA_PROYECTO[p.estado] ?? p.estado },
             { titulo: 'Progreso (%)', valor: (p) => p.progreso, numerica: true },
-            // Quién la atiende, con el rol: sin eso el listado no sirve para
-            // repartir trabajo, que es para lo que se saca.
+            // Responsables con su rol, para repartir trabajo.
             {
               titulo: 'Asignados',
               valor: (p) => p.asignados.map((a) => `${a.nombre} (${a.rol})`).join(', '),

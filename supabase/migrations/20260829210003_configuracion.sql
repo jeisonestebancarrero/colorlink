@@ -1,13 +1,8 @@
--- ============================================================
--- BACK-OFFICE · 03 — Configuración de la empresa y del correo
--- ============================================================
--- Todo lo que el administrador parametriza desde la interfaz, sin desplegar.
--- ============================================================
-
+-- Configuración global de la empresa y del correo saliente, editable desde la interfaz.
 create table public.app_settings (
   id smallint primary key default 1,
 
-  -- ---- Datos que salen impresos en la factura POS ----
+  -- Datos impresos en la factura POS.
   company_name       text not null default 'Pintuco',
   company_legal_name text,
   company_nit        text,
@@ -17,22 +12,18 @@ create table public.app_settings (
   company_email      text,
   company_website    text,
   logo_url           text,
-  -- Régimen y responsabilidades tributarias que deben figurar en el documento.
   tax_regime         text default 'Responsable de IVA',
   default_tax_rate   numeric(5,2) not null default 19.00,
   invoice_prefix     text not null default 'POS',
   invoice_footer     text default 'Gracias por su compra.',
 
-  -- ---- Correo saliente ----
-  -- Lo configura el administrador desde la interfaz. Para Gmail hace falta
-  -- una CONTRASEÑA DE APLICACIÓN, no la contraseña de la cuenta.
+  -- Correo saliente. Gmail exige contraseña de aplicación, no la de la cuenta.
   smtp_host      text,
   smtp_port      int default 587,
   smtp_secure    boolean not null default true,
   smtp_user      text,
-  -- ⚠️ Esta columna NUNCA se devuelve al navegador: más abajo se revoca el
-  -- SELECT sobre ella para todos los roles del cliente. Solo la lee la
-  -- función de envío, que corre en el servidor con service_role.
+  -- Nunca llega al navegador: queda fuera del grant de SELECT y solo la lee el
+  -- envío en el servidor con service_role.
   smtp_password  text,
   smtp_from_name  text,
   smtp_from_email text,
@@ -41,7 +32,6 @@ create table public.app_settings (
   updated_by uuid references auth.users (id) on delete set null,
   updated_at timestamptz not null default now(),
 
-  -- Fila única: es configuración global, no una lista.
   constraint app_settings_fila_unica check (id = 1),
   constraint app_settings_iva_valido check (default_tax_rate >= 0 and default_tax_rate <= 100),
   constraint app_settings_puerto_valido check (smtp_port is null or (smtp_port > 0 and smtp_port <= 65535))
@@ -53,8 +43,7 @@ create trigger app_settings_set_updated_at
   before update on public.app_settings
   for each row execute function public.set_updated_at();
 
--- Bitácora de correos enviados: sin ella es imposible saber por qué un
--- cliente dice que nunca le llegó la confirmación.
+-- Bitácora de envíos, para diagnosticar correos que no llegan.
 create table public.email_log (
   id         uuid primary key default gen_random_uuid(),
   to_email   text not null,
@@ -69,17 +58,13 @@ create table public.email_log (
 );
 create index email_log_created_at_idx on public.email_log (created_at desc);
 
--- ============================================================
--- RLS y protección de la contraseña
--- ============================================================
 alter table public.app_settings enable row level security;
 alter table public.email_log    enable row level security;
 
 revoke all on public.app_settings from anon, authenticated;
 revoke all on public.email_log    from anon, authenticated;
 
--- Los datos de la tienda son públicos: la factura los imprime y el pie de
--- página los muestra. La contraseña SMTP queda deliberadamente fuera.
+-- Datos públicos de la tienda; smtp_password queda fuera a propósito.
 grant select (
   id, company_name, company_legal_name, company_nit, company_address,
   company_city, company_phone, company_email, company_website, logo_url,
@@ -109,12 +94,7 @@ create policy "app_settings_escritura_admin" on public.app_settings
 create policy "email_log_admin" on public.email_log
   for select to authenticated using ( (select public.is_admin()) );
 
--- ============================================================
--- Guardar la configuración SMTP
--- ============================================================
--- Pasa por función para poder registrar la fecha de configuración y dejar
--- rastro en auditoría, y para que una contraseña vacía signifique
--- "no la cambies" en lugar de borrarla sin querer.
+-- Vía función para auditar y para que una contraseña vacía signifique "no cambiar".
 create or replace function public.save_smtp_settings(
   _host text, _port int, _secure boolean, _user text,
   _password text, _from_name text, _from_email text
@@ -135,8 +115,7 @@ begin
          smtp_port   = coalesce(_port, 587),
          smtp_secure = coalesce(_secure, true),
          smtp_user   = nullif(trim(_user), ''),
-         -- Una cadena vacía conserva la contraseña guardada: la interfaz
-         -- nunca puede leerla, así que no puede reenviarla al guardar.
+         -- Vacía conserva la guardada: la interfaz no puede leerla para reenviarla.
          smtp_password = case
            when coalesce(trim(_password), '') = '' then smtp_password
            else _password
@@ -153,7 +132,7 @@ begin
 end;
 $$;
 
-/** ¿Está el correo configurado? Sin revelar nada de la contraseña. */
+-- Estado del correo sin exponer la contraseña.
 create or replace function public.smtp_status()
 returns jsonb
 language sql

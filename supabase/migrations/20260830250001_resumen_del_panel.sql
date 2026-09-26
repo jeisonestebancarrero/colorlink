@@ -1,14 +1,4 @@
--- ============================================================
--- El panel deja de ser un contador y pasa a ser la bandeja del día
--- ============================================================
--- El panel mostraba cuántos pedidos, proyectos, usuarios y productos hay en
--- total. Ese número no le sirve a nadie: nadie abre el sistema para saber que
--- hay 163 pedidos, lo abre para saber qué tiene que hacer hoy.
---
--- Este resumen responde eso: qué está esperando una acción, qué se vendió hoy
--- y qué está a punto de agotarse. Cada bloque respeta el permiso que le
--- corresponde: quien no puede ver inventario no recibe las alertas de stock, y
--- las cifras de venta solo van a quien puede ver analítica.
+-- Resumen del panel orientado a lo pendiente del día; cada bloque respeta su permiso.
 create or replace function public.resumen_panel()
 returns jsonb
 language plpgsql
@@ -30,7 +20,6 @@ begin
   end if;
 
   select jsonb_build_object(
-    -- ── Lo que espera una acción ───────────────────────────────────────
     'por_confirmar', case when v_pedidos then (
       select count(*) from public.orders where status = 'PENDIENTE') end,
     'por_alistar', case when v_pedidos then (
@@ -40,7 +29,6 @@ begin
     'en_transito', case when v_pedidos then (
       select count(*) from public.orders where status = 'ENVIADO') end,
 
-    -- ── Cómo va el día ─────────────────────────────────────────────────
     'ventas_hoy', case when v_ventas then coalesce((
       select sum(total_cop) from public.orders
        where status <> 'CANCELADO' and created_at::date = current_date), 0) end,
@@ -51,19 +39,16 @@ begin
       select sum(total_cop) from public.orders
        where status <> 'CANCELADO'
          and created_at >= date_trunc('month', current_date)), 0) end,
-    -- El mismo tramo del mes pasado, no el mes pasado completo: comparar los
-    -- primeros 5 días contra 30 diría siempre que vamos peor.
+      -- Mismo tramo del mes pasado, no el mes completo.
     'ventas_mes_anterior', case when v_ventas then coalesce((
       select sum(total_cop) from public.orders
        where status <> 'CANCELADO'
          and created_at >= date_trunc('month', current_date - interval '1 month')
-         -- Días transcurridos del mes actual, contados como intervalo: sumar
-         -- un entero a un timestamp no está definido en PostgreSQL.
+           -- Intervalo porque timestamp + entero no está definido en PostgreSQL.
          and created_at <  date_trunc('month', current_date - interval '1 month')
                            + ((current_date - date_trunc('month', current_date)::date) + 1)
                              * interval '1 day'), 0) end,
 
-    -- ── Alertas de inventario ──────────────────────────────────────────
     'bajo_minimo', case when v_inventario then (
       select count(*) from public.inventory
        where min_qty is not null and min_qty > 0 and qty_available <= min_qty) end,
@@ -83,7 +68,6 @@ begin
          order by (i.min_qty - i.qty_available) desc
          limit 6) x), '[]'::jsonb) end,
 
-    -- ── Agenda ─────────────────────────────────────────────────────────
     'visitas_hoy', case when v_visitas then (
       select count(*) from public.technical_visits
        where scheduled_date = current_date and status = 'PROGRAMADA') end,
@@ -106,7 +90,6 @@ begin
          where tv.status = 'PROGRAMADA' and tv.scheduled_date >= current_date
          order by tv.scheduled_date limit 5) x), '[]'::jsonb) end,
 
-    -- ── Trabajo sin dueño ──────────────────────────────────────────────
     'proyectos_sin_asesor', case when v_proyectos then (
       select count(*) from public.projects pr
        where not exists (
@@ -115,9 +98,7 @@ begin
       select count(*) from public.projects
        where status not in ('COMPLETADO', 'CANCELADO')) end,
 
-    -- Un hilo queda "sin responder" cuando lo último que se escribió lo
-    -- escribió el cliente. Es la definición que usaría cualquiera que abra la
-    -- bandeja.
+      -- Sin responder: el último mensaje del hilo es del cliente.
     'sin_responder', case when v_chat then (
       select count(*) from (
         select distinct on (coalesce(cm.order_id, cm.project_id))

@@ -1,22 +1,9 @@
--- ============================================================
--- Los correos salen solos desde la base
--- ============================================================
--- Antes cualquier aviso dependía de que el navegador lo disparara: si el
--- cliente cerraba la pestaña o el asesor cambiaba el estado desde el celular,
--- el correo no salía. La notificación tiene que nacer donde nace el hecho.
---
--- `pg_net` publica la petición HTTP de forma asíncrona: el disparador NO
--- espera al servidor de correo. Es deliberado —si Gmail está lento, no puede
--- quedarse trabada la confirmación de un pedido.
+-- Correos disparados desde la base con pg_net, asíncrono para que un SMTP lento
+-- no bloquee la operación que los origina.
 create extension if not exists pg_net;
 
--- ------------------------------------------------------------
--- Dónde llamar, y con qué llave
--- ------------------------------------------------------------
--- La llave de servicio no puede estar en una tabla que alguien pueda leer:
--- quien la tenga puede hacer cualquier cosa en el sistema. Vive en una tabla
--- sin ninguna política de RLS, así que solo la ven las funciones SECURITY
--- DEFINER y el propio `service_role`.
+-- La llave de servicio vive en una tabla sin políticas RLS: solo la leen
+-- funciones SECURITY DEFINER y service_role.
 create table if not exists public.internal_config (
   id           smallint primary key default 1 check (id = 1),
   functions_url text,
@@ -34,9 +21,6 @@ comment on table public.internal_config is
 
 insert into public.internal_config (id) values (1) on conflict (id) do nothing;
 
--- ------------------------------------------------------------
--- Encolar un correo
--- ------------------------------------------------------------
 create or replace function public.enviar_correo(
   _destino    text,
   _plantilla  text,
@@ -52,14 +36,13 @@ declare v_c public.internal_config%rowtype;
 begin
   select * into v_c from public.internal_config where id = 1;
 
-  -- Sin configuración no se falla: se omite. Un pedido no puede quedar sin
-  -- crear porque el correo no esté configurado todavía.
+    -- Sin configuración se omite, sin hacer fallar la operación.
   if v_c.functions_url is null or v_c.service_key is null
      or not coalesce(v_c.emails_enabled, true) or _destino is null then
     return;
   end if;
 
-  -- pg_net expone sus funciones en el esquema `net`, no en `extensions`.
+    -- pg_net expone sus funciones en el esquema net, no en extensions.
   perform net.http_post(
     url := v_c.functions_url || '/send-email',
     headers := jsonb_build_object(
@@ -75,9 +58,7 @@ begin
     timeout_milliseconds := 8000
   );
 exception when others then
-  -- Que falle el aviso no puede tumbar la operación que lo originó, pero sí
-  -- tiene que quedar registrado: durante un buen rato este bloque se tragó en
-  -- silencio una llamada a un esquema equivocado y ningún correo salía.
+    -- El fallo del aviso no tumba la operación, pero queda registrado.
   raise warning 'enviar_correo(% -> %): %', _plantilla, _destino, sqlerrm;
   insert into public.email_log (to_email, subject, template, order_id, status, error)
   values (_destino, 'No se pudo encolar', _plantilla, _order_id, 'FALLIDO', sqlerrm);
@@ -86,9 +67,6 @@ $$;
 
 revoke all on function public.enviar_correo(text, text, uuid, uuid) from public;
 
--- ------------------------------------------------------------
--- 1. Bienvenida al registrarse
--- ------------------------------------------------------------
 create or replace function public.correo_bienvenida()
 returns trigger
 language plpgsql
@@ -106,11 +84,7 @@ create trigger profiles_correo_bienvenida
   after insert on public.profiles
   for each row execute function public.correo_bienvenida();
 
--- ------------------------------------------------------------
--- 2. Pedido creado
--- ------------------------------------------------------------
--- Va en el UPDATE que fija el total, no en el INSERT: al insertarse el pedido
--- todavía vale cero y el correo saldría con un total de $0.
+-- En el UPDATE que fija el total: al insertarse el pedido vale cero.
 create or replace function public.correo_pedido_creado()
 returns trigger
 language plpgsql
@@ -134,9 +108,6 @@ create trigger orders_correo_creado
   when (old.total_cop = 0 and new.total_cop > 0)
   execute function public.correo_pedido_creado();
 
--- ------------------------------------------------------------
--- 3. Pago recibido
--- ------------------------------------------------------------
 create or replace function public.correo_pago_recibido()
 returns trigger
 language plpgsql
@@ -163,11 +134,7 @@ create trigger payments_correo_pago
   after update on public.payments
   for each row execute function public.correo_pago_recibido();
 
--- ------------------------------------------------------------
--- 4. Trazabilidad: cada cambio de estado
--- ------------------------------------------------------------
--- Se omite CONFIRMADO porque ese momento ya lo cubre el correo del pago: dos
--- avisos seguidos diciendo lo mismo se leen como spam.
+-- Se omite CONFIRMADO: ya lo cubre el correo de pago.
 create or replace function public.correo_estado_pedido()
 returns trigger
 language plpgsql

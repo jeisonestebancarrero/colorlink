@@ -1,29 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 
 /**
- * La página de la tienda vive en la URL, no en un `useState`.
- *
- * Mismo problema que tenía el portal interno: la barra de direcciones se
- * quedaba en `/`, así que recargar devolvía a la landing y no se podía
- * compartir el enlace de un pedido ni usar el botón «atrás». En una tienda eso
- * pesa más todavía: un cliente que recarga mientras mira su pedido pierde el
- * hilo, y no hay forma de mandarle a alguien el enlace del catálogo.
- *
- * Se usa la History API en lugar de una librería de rutas porque `App.tsx` ya
- * decide la pantalla con un `switch`: solo faltaba mantener la URL al día.
- *
- * `nginx.conf` sirve `index.html` para cualquier ruta
- * (`try_files $uri $uri/ /index.html`), así que recargar en
- * `/pedidos/ORD-PNT-000045` funciona.
+ * Sincroniza la página de la tienda con la URL (History API) para que recargar,
+ * compartir enlaces y «atrás» funcionen. nginx sirve index.html en cualquier ruta.
  */
 
-/**
- * Nombre interno de pantalla ↔ segmento de la URL.
- *
- * Se declara explícito y no se derivan uno del otro: así se puede cambiar la
- * URL que ve el cliente —que es parte de la marca— sin renombrar el estado
- * interno de la aplicación.
- */
+/** Pantalla interna ↔ segmento de URL; explícito para cambiar la URL pública sin renombrar estado. */
 const A_URL: Record<string, string> = {
   landing: '',
   login: 'ingresar',
@@ -48,7 +30,7 @@ const A_PAGINA: Record<string, string> = Object.fromEntries(
 
 export interface RutaTienda {
   pagina: string;
-  /** Segundo segmento: el id o código que la pantalla necesite. */
+  /** Segundo segmento: el id o código que necesite la pantalla. */
   param: string | undefined;
 }
 
@@ -56,8 +38,7 @@ function leerUrl(): RutaTienda {
   const partes = window.location.pathname.split('/').filter(Boolean);
   if (partes.length === 0) return { pagina: 'landing', param: undefined };
 
-  // Las rutas de dos segmentos se resuelven primero: `proyectos/nuevo` es una
-  // pantalla propia y no el proyecto con id "nuevo".
+  // Primero las rutas de dos segmentos: `proyectos/nuevo` no es el proyecto "nuevo".
   const dos = `${partes[0]}/${partes[1] ?? ''}`;
   if (A_PAGINA[dos]) return { pagina: A_PAGINA[dos], param: undefined };
 
@@ -79,9 +60,9 @@ function aRuta(pagina: string, param?: string): string {
 export interface NavegacionTienda {
   pagina: string;
   param: string | undefined;
-  /** Navega dejando rastro en el historial, para que «atrás» funcione. */
+  /** Navega dejando rastro en el historial. */
   navegar: (pagina: string, param?: string) => void;
-  /** Cambia la URL sin ensuciar el historial (redirecciones automáticas). */
+  /** Cambia la URL sin añadir entrada al historial (redirecciones). */
   reemplazar: (pagina: string, param?: string) => void;
 }
 
@@ -101,8 +82,7 @@ export function useRutaTienda(): NavegacionTienda {
         if (reemplazando) window.history.replaceState(null, '', destino);
         else window.history.pushState(null, '', destino);
       } catch (e) {
-        // Si el navegador niega la History API se pierde la URL, no la
-        // navegación: la tienda tiene que seguir funcionando.
+        // Sin History API se pierde la URL, no la navegación.
         console.warn('[ruta] no se pudo actualizar la URL', e);
       }
     }

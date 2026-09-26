@@ -11,27 +11,16 @@ import { IconoModulo } from '../IconosDeModulo';
 import { fechaLocal } from '../../utils/fechaLocal';
 
 /**
- * Panel: la bandeja del día.
- *
- * Antes mostraba cuántos pedidos, proyectos, usuarios y productos hay en total.
- * Nadie abre el sistema para saber que hay 163 pedidos; lo abre para saber qué
- * tiene que hacer hoy. Así que lo primero es lo que espera una acción, y cada
- * tarjeta lleva al módulo donde se resuelve.
- *
- * Los bloques que el rol no puede consultar llegan en `null` desde la base y no
- * se dibujan: un técnico de campo no debe ver un cero en "ventas de hoy", debe
- * no ver la tarjeta.
+ * Bandeja del día: primero lo pendiente de acción, cada tarjeta enlazada a su módulo.
+ * Los bloques que el rol no puede ver llegan en `null` y no se dibujan.
  */
-/* Las dos listas que trae el resumen. Se nombran para poder tiparlas en el
-   botón de exportar sin volver a escribir su forma. */
+/* Tipos de las listas del resumen, reutilizados al exportar. */
 type FilaCritica = NonNullable<ResumenPanel['criticos']>[number];
 type FilaAgenda = NonNullable<ResumenPanel['agenda']>[number];
 
 export const PanelPage: React.FC<{ onIr?: (ruta: string) => void }> = ({ onIr }) => {
   const { nombre } = useAdminAuth();
-  // El Panel se acota a las sedes activas del selector. El cruce con las
-  // PERMITIDAS lo hace el servidor: `resumen_panel` es SECURITY DEFINER, así
-  // que RLS no aplica dentro y no puede confiar en lo que le manden.
+  // Sedes activas del selector; `resumen_panel` es SECURITY DEFINER y cruza con las permitidas en el servidor.
   const { filtroSedes } = useSedes();
   const [r, setR] = useState<ResumenPanel | null>(null);
   const [cargando, setCargando] = useState(true);
@@ -51,8 +40,7 @@ export const PanelPage: React.FC<{ onIr?: (ruta: string) => void }> = ({ onIr })
       }
     })();
     return () => { activo = false; };
-    // Cambiar de sede recarga el panel: sin esta dependencia se quedaría con
-    // las cifras de la selección anterior.
+    // Recarga al cambiar la selección de sedes.
   }, [filtroSedes]);
 
   const saludo = (() => {
@@ -77,8 +65,7 @@ export const PanelPage: React.FC<{ onIr?: (ruta: string) => void }> = ({ onIr })
     );
   }
 
-  // Lo que espera una acción. Solo se listan las que tienen algo pendiente:
-  // una fila de ceros solo obliga a leer para descubrir que no hay nada.
+  // Solo se listan las acciones con pendientes.
   const pendientes = [
     {
       clave: 'confirmar', valor: r.porConfirmar, ruta: '/pedidos',
@@ -140,7 +127,7 @@ export const PanelPage: React.FC<{ onIr?: (ruta: string) => void }> = ({ onIr })
         </p>
       </div>
 
-      {/* ── Lo que espera una acción ────────────────────────────────────── */}
+      {/* Lo que espera una acción */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-2xs overflow-hidden">
         <h2 className="px-5 py-3.5 text-sm font-extrabold text-slate-900 border-b border-slate-100">
           Pendiente de atender
@@ -183,7 +170,7 @@ export const PanelPage: React.FC<{ onIr?: (ruta: string) => void }> = ({ onIr })
         )}
       </div>
 
-      {/* ── Cómo va la venta ────────────────────────────────────────────── */}
+      {/* Cómo va la venta */}
       {r.ventasMes !== null && (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div className="bg-white rounded-xl border border-slate-200 shadow-2xs p-5">
@@ -241,7 +228,7 @@ export const PanelPage: React.FC<{ onIr?: (ruta: string) => void }> = ({ onIr })
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-        {/* ── Inventario ────────────────────────────────────────────────── */}
+        {/* Inventario */}
         {r.bajoMinimo !== null && (
           <div className="bg-white rounded-xl border border-slate-200 shadow-2xs overflow-hidden">
             <div className="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between gap-3">
@@ -255,9 +242,7 @@ export const PanelPage: React.FC<{ onIr?: (ruta: string) => void }> = ({ onIr })
                 )}
               </div>
 
-              {/* El faltante es la lista que se lleva a compras. Salir a
-                  pedirlo con las cifras en la pantalla es cómo se pide de
-                  menos. */}
+              {/* Exporta el faltante para compras. */}
               <ExportarBoton<FilaCritica>
                 filas={r.criticos ?? []}
                 nombre="inventario-en-alerta"
@@ -312,7 +297,7 @@ export const PanelPage: React.FC<{ onIr?: (ruta: string) => void }> = ({ onIr })
           </div>
         )}
 
-        {/* ── Agenda ────────────────────────────────────────────────────── */}
+        {/* Agenda */}
         {r.visitasSemana !== null && (
           <div className="bg-white rounded-xl border border-slate-200 shadow-2xs overflow-hidden">
             <div className="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between gap-3">

@@ -1,16 +1,5 @@
--- ============================================================
--- Una categoría creada desde el portal tiene que verse en la tienda
--- ============================================================
--- El catálogo es un árbol: hay una categoría raíz por tipo ('Catálogo Pintuco'
--- para PRODUCT, 'Sistemas Pintuco' para SOLUTION) y de ella cuelgan las que el
--- cliente ve. La tienda lista solo las hijas (`parent_id is not null`), porque
--- la raíz no es una sección sino el contenedor de todas.
---
--- `upsert_category` insertaba con parent_id nulo, así que una categoría creada
--- desde el portal quedaba al mismo nivel de la raíz y la tienda no la mostraba
--- nunca: el usuario la creaba, le asignaba productos y esos productos
--- desaparecían de los filtros sin ninguna señal de por qué. Aquí la colgamos
--- de la raíz de su tipo.
+-- upsert_category cuelga las categorías nuevas de la raíz de su tipo: la tienda
+-- solo lista hijas (parent_id not null) y una categoría huérfana no se ve.
 create or replace function public.upsert_category(_datos jsonb)
 returns uuid
 language plpgsql
@@ -54,8 +43,7 @@ begin
       using errcode = '23505';
   end if;
 
-  -- La raíz de este tipo. Si alguna vez no existiera, la creamos: es preferible
-  -- a dejar la categoría huérfana e invisible.
+    -- Si la raíz no existe se crea, antes que dejar la categoría huérfana.
   select id into v_raiz
     from public.categories
    where kind = v_kind::public.category_kind
@@ -89,8 +77,7 @@ begin
            description = nullif(trim(_datos ->> 'description'), ''),
            sort_order = coalesce((_datos ->> 'sort_order')::integer, sort_order),
            status = coalesce((_datos ->> 'status')::public.catalog_status, status),
-           -- Solo si estaba huérfana. Nunca movemos la raíz ni recolgamos algo
-           -- que ya tiene su lugar en el árbol.
+             -- Solo si estaba huérfana; no se mueve nada que ya tenga lugar en el árbol.
            parent_id = case
                          when parent_id is null and name <> (
                            select c.name from public.categories c where c.id = v_raiz

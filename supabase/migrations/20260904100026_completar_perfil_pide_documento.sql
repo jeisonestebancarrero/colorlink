@@ -1,17 +1,6 @@
--- El documento se pide en CUALQUIER registro, también en el de Google.
---
--- El registro por correo lo exigía; el de Google no lo pedía nunca, porque
--- Google no lo entrega. Resultado: todas las cuentas creadas con Google
--- quedaban sin documento, y el documento no es un dato de contacto — es con lo
--- que se identifica a la persona en la factura y por lo que responde la
--- empresa ante la DIAN. Facturar sin él obliga a pedirlo por teléfono en el
--- mostrador, que es donde se escriben mal.
---
--- Entra por aquí y solo por aquí: `authenticated` NO tiene permiso de UPDATE
--- sobre esas dos columnas, así que nadie puede escribirlas desde la aplicación
--- ni desde la API. Esta función lo hace con permisos de dueño, y solo cuando
--- el perfil todavía no tiene documento. Corregir uno ya puesto sigue siendo
--- cosa de quien administra clientes, que deja rastro y avisa.
+-- complete_profile pide el documento también en el registro con Google. Es la única
+-- vía para escribirlo (authenticated no tiene UPDATE sobre esas columnas) y solo
+-- rellena si está vacío; corregirlo es tarea de quien administra clientes.
 drop function if exists public.complete_profile(text, text, text, text, text, text, text, text);
 
 create or replace function public.complete_profile(
@@ -73,7 +62,6 @@ begin
     v_city := nullif(trim(coalesce(_city, '')), '');
   end if;
 
-  -- ── Documento ──────────────────────────────────────────────────────
   select document_number is not null into v_tiene_doc
     from public.profiles where id = v_user_id;
 
@@ -95,8 +83,7 @@ begin
       raise exception 'DOCUMENTO_CORTO: el número de documento no parece válido'
         using errcode = '22023';
     end if;
-    -- El índice único lo impediría igual, pero reventaría con un error de base
-    -- de datos que no le dice nada a quien está llenando el formulario.
+    -- Validación previa para dar un mensaje legible en vez del error del índice único.
     if exists (
       select 1 from public.profiles p
        where p.document_number = v_doc_num
@@ -116,8 +103,7 @@ begin
          country_code      = coalesce(v_country, p.country_code),
          municipality_code = coalesce(v_mun_code, p.municipality_code),
          client_type       = coalesce(v_client_type, p.client_type),
-         -- Solo se RELLENA. Cambiar uno ya puesto es cosa de quien administra
-         -- clientes, con su rastro y su aviso.
+         -- Solo rellena; no sobrescribe un documento existente.
          document_type     = case when v_tiene_doc then p.document_type
                                   else coalesce(v_doc_tipo, p.document_type) end,
          document_number   = case when v_tiene_doc then p.document_number
@@ -148,6 +134,5 @@ $$;
 revoke all on function public.complete_profile(text, text, text, text, text, text, text, text, text, text) from public, anon;
 grant execute on function public.complete_profile(text, text, text, text, text, text, text, text, text, text) to authenticated, service_role;
 
--- Sin documento, el perfil se considera incompleto: así el modal vuelve a
--- pedirlo a quien ya entró con Google y todavía no lo tiene.
+-- Sin documento el perfil cuenta como incompleto y el modal vuelve a pedirlo.
 notify pgrst, 'reload schema';

@@ -4,20 +4,8 @@ import { despachoService } from '../services/backoffice';
 import { Button } from '../components/common/Button';
 
 /**
- * Entregar un pedido de retiro en tienda verificando su código.
- *
- * El código se le daba al cliente, viajaba en el correo y se imprimía en la
- * ficha… y no se comprobaba en ninguna parte: el pedido se daba por entregado
- * pulsando un botón. Es decir, el código era decorativo y cualquiera podía
- * llevarse la mercancía diciendo un número de pedido.
- *
- * Aquí se invierte el orden: se escribe lo que trae el cliente y el sistema
- * decide. Quien atiende no elige el pedido, y por eso no puede equivocarse de
- * pedido.
- *
- * Va en Despacho porque es donde está quien entrega, no en la ficha del pedido:
- * en el mostrador nadie busca primero el pedido en una lista, tiene al cliente
- * enfrente con un código en la mano.
+ * Entrega de retiros en tienda a partir del código que trae el cliente: el sistema
+ * resuelve el pedido, así quien atiende no puede elegir uno equivocado.
  */
 export const EntregaPorCodigo: React.FC<{ onEntregado?: () => void }> = ({ onEntregado }) => {
   const [codigo, setCodigo] = useState('');

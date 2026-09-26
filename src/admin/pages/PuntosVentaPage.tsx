@@ -11,13 +11,8 @@ import { FotoPunto } from '../../components/common/FotoPunto';
 import { IconoModulo } from '../IconosDeModulo';
 
 /**
- * El formulario guarda los campos numéricos como TEXTO.
- *
- * No es un capricho: si se convierte a número en cada pulsación, escribir
- * «4.6626» es imposible. Al teclear «4.» sale `Number('4.') === 4`, se
- * vuelve a pintar «4» y el punto desaparece; el resultado era una latitud de
- * 46626. Y al empezar una longitud negativa, `Number('-')` da `NaN` y el
- * campo se queda en «NaN». Se convierte una sola vez, al guardar.
+ * Campos numéricos como texto: convertir en cada pulsación borra el «.» y el «-» iniciales.
+ * Se convierten al guardar.
  */
 interface Formulario extends Omit<PuntoVenta, 'latitud' | 'longitud' | 'horasAlistamiento'> {
   latitud: string;
@@ -57,15 +52,7 @@ const VACIO = (): Formulario => aFormulario({
   activo: true,
 });
 
-/**
- * Puntos de venta.
- *
- * Es la misma tabla que lee la tienda del cliente, así que lo que se guarde
- * aquí aparece allá: no hay una segunda copia que mantener al día. Lo único
- * que se interpone es el cache del catálogo en el navegador del cliente, que
- * dura cinco minutos; por eso la pantalla lo dice en vez de dejar a alguien
- * recargando sin entender por qué no ve el cambio.
- */
+/** Puntos de venta: misma tabla que la tienda, con hasta cinco minutos de caché en el cliente. */
 export const PuntosVentaPage: React.FC = () => {
   const { acceso } = useAdminAuth();
   const [puntos, setPuntos] = useState<PuntoVenta[]>([]);
@@ -78,9 +65,7 @@ export const PuntosVentaPage: React.FC = () => {
   const [subiendo, setSubiendo] = useState(false);
   const archivo = useRef<HTMLInputElement>(null);
 
-  // La base solo deja crear o editar tiendas al administrador
-  // (`upsert_pickup_location`). Ofrecerlo con `settings.manage` prometía algo
-  // que al guardar se rechazaba.
+  // `upsert_pickup_location` exige admin; `settings.manage` no basta.
   const administra = acceso.isAdmin;
 
   const cargar = async () => {
@@ -153,7 +138,7 @@ export const PuntosVentaPage: React.FC = () => {
     }
   };
 
-  // ── Formulario ────────────────────────────────────────────────────────────
+  // Formulario
   if (editando) {
     const nuevo = !editando.id;
     return (
@@ -396,7 +381,7 @@ export const PuntosVentaPage: React.FC = () => {
     );
   }
 
-  // ── Listado ───────────────────────────────────────────────────────────────
+  // Listado
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -447,9 +432,7 @@ export const PuntosVentaPage: React.FC = () => {
           />
         </div>
 
-        {/* El directorio de tiendas se pide fuera del sistema: para el sitio
-            web, para un volante, para el call center. Sale con coordenadas y
-            horario, que es lo que nadie tiene a mano. */}
+        {/* Directorio de tiendas con coordenadas y horario. */}
         <ExportarBoton<PuntoVenta>
           filas={filtrados}
           nombre="puntos-de-venta"

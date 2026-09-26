@@ -1,7 +1,4 @@
-# ---- Portal INTERNO (back-office Pintuco) ----
-# Bundle e imagen separados del portal del cliente a propósito: el cliente
-# no debe recibir ni una línea del back-office, ni siquiera su pantalla de
-# acceso. Son dos despliegues independientes.
+# Portal interno en imagen aparte: el cliente no debe recibir código del back-office.
 FROM node:22-alpine AS build
 
 WORKDIR /app

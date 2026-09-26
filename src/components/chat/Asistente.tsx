@@ -17,58 +17,33 @@ import { useCart } from '../../context/CartContext';
 import { LlamadaPintu } from './LlamadaPintu';
 
 /**
- * Asistente de la tienda: burbuja flotante.
- *
- * SE DICE DESDE EL PRINCIPIO QUE NO ES UNA PERSONA, y el saludo explica qué
- * puede hacer. Un asistente que finge ser humano hace que el cliente le cuente
- * un problema largo para acabar descubriendo que no lo entendió; decirlo de
- * entrada ahorra esa frustración.
- *
- * Tampoco hay un modelo de lenguaje detrás: responde consultando el sistema.
- * Cuando no sabe, lo dice y pasa la conversación a una persona escribiendo en
- * el hilo del pedido, que es donde el equipo ya mira.
- *
- * Va en un PORTAL por la misma razón que el carrito: colgado del contenido
- * quedaría por debajo de la cabecera.
+ * Burbuja del asistente: se presenta como automático y responde con datos del sistema.
+ * Si no sabe, escala al hilo del pedido. Portal para no quedar bajo la cabecera.
  */
 export const Asistente: React.FC<{
   onNavigate: (pagina: string, param?: string) => void;
 }> = ({ onNavigate }) => {
   const { user, isAuthenticated } = useAuth();
   const [abierto, setAbierto] = useState(false);
-  // Con el carrito abierto el botón flotante tapaba «Confirmar Pedido», que
-  // queda justo en esa esquina.
+  // Se oculta con el carrito abierto: taparía «Confirmar Pedido».
   const { isCartOpen } = useCart();
-  /** La llamada de voz vive aparte del hilo escrito: es otra forma de hablar. */
   const [enLlamada, setEnLlamada] = useState(false);
   const [mensajes, setMensajes] = useState<MensajeAsistente[]>([]);
   const [texto, setTexto] = useState('');
   const [pensando, setPensando] = useState(false);
   const [escalado, setEscalado] = useState<string | null>(null);
-  /** Si redacta con IA, para decirlo en la cabecera y no aparentar de más. */
+  /** Si redacta con IA, se indica en la cabecera. */
   const [conIA, setConIA] = useState(false);
-  /** La invitación que sale una vez, para que la burbuja no pase inadvertida. */
+  /** Invitación de una sola vez para que la burbuja no pase inadvertida. */
   const [invita, setInvita] = useState(false);
-  /** Puntero encima, para levantar la sombra. */
   const [sobre, setSobre] = useState(false);
-  /**
-   * Filtro del desplegable de pedidos.
-   *
-   * Vive aqui y no en el mensaje porque es una preferencia de quien mira, no
-   * parte de la respuesta: cambiar el filtro no deberia reescribir lo que el
-   * asistente ya dijo.
-   */
+  /** Preferencia de quien mira: cambiarla no reescribe mensajes ya enviados. */
   const [filtroPedidos, setFiltroPedidos] =
     useState<'CURSO' | 'CERRADOS' | 'TODOS'>('CURSO');
 
   /**
-   * Conversación con una PERSONA, cuando la hay.
-   *
-   * Al escalar, la burbuja deja de ser el asistente y pasa a ser el mismo hilo
-   * del pedido visto desde aquí: lo que escribe el equipo aparece en los dos
-   * sitios y lo que escribe el cliente también. Antes la respuesta del asesor
-   * llegaba solo al detalle del pedido y el cliente se quedaba esperando en la
-   * burbuja sin saber que ya le habían contestado.
+   * Hilo con una persona tras escalar: es el mismo hilo del pedido, así que las
+   * respuestas del equipo aparecen aquí y en el detalle del pedido.
    */
   const [hilo, setHilo] = useState<{ orderId: string; numero: string } | null>(null);
   const [delHilo, setDelHilo] = useState<MensajePedido[]>([]);
@@ -77,13 +52,7 @@ export const Asistente: React.FC<{
 
   useEffect(() => { void hayIA().then(setConIA); }, []);
 
-  /**
-   * La invitación aparece a los 6 segundos y se retira a los 14.
-   *
-   * Ni de inmediato —quien acaba de entrar está mirando otra cosa— ni para
-   * siempre: un cartel fijo en la esquina se vuelve ruido y deja de verse.
-   * Se muestra una sola vez por sesión.
-   */
+  /** La invitación aparece a los 6 s y se retira a los 14, una vez por sesión. */
   useEffect(() => {
     if (abierto || mensajes.length > 0) return;
     const aparece = setTimeout(() => setInvita(true), 6000);
@@ -92,12 +61,10 @@ export const Asistente: React.FC<{
   }, [abierto, mensajes.length]);
   const finRef = useRef<HTMLDivElement | null>(null);
 
-  // El saludo se arma al abrir, no al montar: así lleva el nombre de quien
-  // entró aunque la sesión se resuelva después.
+  // El saludo se arma al abrir para usar el nombre aunque la sesión se resuelva tarde.
   useEffect(() => {
     if (abierto && mensajes.length === 0) {
-      // El saludo cambia si no hay sesión: se ofrece solo lo que sí puede
-      // hacer, en vez de un botón que acabará pidiendo la cuenta.
+      // Sin sesión solo se ofrece lo que se puede hacer sin cuenta.
       setMensajes([saludo(user?.firstName ?? null, isAuthenticated)]);
     }
   }, [abierto, mensajes.length, user, isAuthenticated]);
@@ -106,7 +73,7 @@ export const Asistente: React.FC<{
     finRef.current?.scrollIntoView({ block: 'nearest' });
   }, [mensajes.length, delHilo.length, pensando]);
 
-  /** El hilo con el equipo: se carga, se escucha en vivo y se marca leído. */
+  /** Hilo con el equipo: carga, suscripción en vivo y marcado como leído. */
   useEffect(() => {
     if (!hilo) return;
     let vigente = true;
@@ -118,14 +85,12 @@ export const Asistente: React.FC<{
       ]);
       if (!vigente) return;
       setDelHilo(msgs);
-      // Lo que decide si se puede escribir es el estado del PEDIDO. «Dar por
-      // atendida» cierra la atención del momento, no le quita la voz a alguien
-      // que sigue esperando su mercancía.
+      // Escribir depende del estado del pedido; «dar por atendida» no bloquea al cliente.
       setHiloAbierto(est?.sePuedeEscribir !== false);
     };
 
     void cargar();
-    // Estando la conversación a la vista, lo que llegue ya se está leyendo.
+    // Con la conversación a la vista, lo que llega se da por leído.
     void marcarLeida(hilo.orderId);
 
     const cancelar = conversacionPedidoService.suscribir(hilo.orderId, () => {
@@ -140,9 +105,7 @@ export const Asistente: React.FC<{
     const limpia = pregunta.trim();
     if (!limpia || pensando) return;
 
-    // Dentro del hilo con el equipo, lo que se escribe va AL EQUIPO. Pasarlo
-    // por el asistente aquí sería contestarle a alguien que está esperando a
-    // una persona.
+    // Dentro del hilo, el mensaje va al equipo, no al asistente.
     if (hilo) {
       setTexto('');
       setPensando(true);
@@ -164,10 +127,7 @@ export const Asistente: React.FC<{
     setTexto('');
     setPensando(true);
     try {
-      // Se espera la respuesta ANTES de tocar el estado: el `await` no puede
-      // ir dentro del callback de `setMensajes`, que no es asíncrono.
-      // Se le pasa la conversación para que, con IA encendida, entienda un
-      // «¿y de ese cuánto queda?» sin obligar a repetir de qué se hablaba.
+      // Se pasa el historial para que la IA resuelva referencias como «¿y de ese cuánto queda?».
       const respuesta = await responder(
         limpia,
         mensajes.map((m) => ({ autor: m.autor, texto: m.texto })),
@@ -189,13 +149,11 @@ export const Asistente: React.FC<{
     if (a.escalarA) {
       setPensando(true);
       try {
-        // Se manda lo ÚLTIMO que preguntó la persona, no toda la charla: el
-        // equipo necesita el problema, no el historial de botones.
+        // Al equipo solo le llega la última pregunta, no el historial de botones.
         const ultima = [...mensajes].reverse().find((m) => m.autor === 'CLIENTE');
         await escalar(a.escalarA, ultima?.texto ?? 'El cliente pidió hablar con una persona.');
         setEscalado(a.escalarA);
-        // Se entra al hilo en la misma burbuja: la respuesta del equipo llega
-        // aquí, no hay que irse a otra pantalla a esperarla.
+        // Se entra al hilo en la misma burbuja para recibir ahí la respuesta.
         const est = await conversacionPedidoService.estado(a.escalarA);
         setHilo({ orderId: a.escalarA, numero: est?.numero ?? '' });
       } catch {
@@ -212,9 +170,7 @@ export const Asistente: React.FC<{
 
   return createPortal(
     <>
-      {/* La llamada. Cuando cuelga, lo hablado se queda en el hilo escrito: si
-          no, el cliente cuelga y pierde el número de pedido que le acaban de
-          decir en voz. */}
+      {/* Al colgar, la transcripción se añade al hilo escrito para no perder datos dichos por voz. */}
       {enLlamada && (
         <LlamadaPintu
           onCerrar={() => setEnLlamada(false)}
@@ -240,10 +196,7 @@ export const Asistente: React.FC<{
 
       {!abierto && !isCartOpen && (
         <div className="fixed bottom-6 right-6 z-[60] flex items-center gap-2.5">
-          {/* Invitación, y solo UNA vez.
-              Aparece a los pocos segundos y se va sola: un cartel permanente
-              tapando la esquina se vuelve parte del ruido y la gente aprende a
-              no mirarlo. Si ya se abrió el chat, no vuelve a salir. */}
+          {/* Invitación de una sola vez; se retira sola para no volverse ruido. */}
           {invita && (
             <span className="hidden sm:flex items-center gap-2 bg-white text-slate-800 text-xs
                              font-bold pl-3.5 pr-2 py-2 rounded-full shadow-lg border
@@ -261,8 +214,7 @@ export const Asistente: React.FC<{
           )}
 
           <div className="relative asistente-flota">
-            {/* Onda que sale del botón. `pointer-events-none` para que no robe
-                el clic: es decoración, no un objetivo. */}
+            {/* Decorativa: `pointer-events-none` para no robar el clic. */}
             <span
               aria-hidden
               className="asistente-onda pointer-events-none absolute inset-0 rounded-full
@@ -278,10 +230,7 @@ export const Asistente: React.FC<{
                          ring-2 ring-white/25
                          hover:scale-110 active:scale-95
                          transition-[transform,box-shadow] duration-200"
-              /* La sombra va en línea y no como clase: Tailwind no interpreta
-                 un valor arbitrario con dos sombras y comas dentro de rgba(),
-                 y la clase se quedaba sin generar. Comprobado en el navegador:
-                 salía `rgba(0,0,0,0)`. */
+              /* Sombra en línea: Tailwind no genera valores arbitrarios con varias sombras y comas en rgba(). */
               style={{
                 boxShadow: sobre
                   ? '0 16px 35px -5px rgba(0,79,159,0.75), 0 10px 12px -6px rgba(0,0,0,0.35)'
@@ -290,7 +239,7 @@ export const Asistente: React.FC<{
               onMouseEnter={() => setSobre(true)}
               onMouseLeave={() => setSobre(false)}
             >
-              {/* Reflejo que cruza cada varios segundos. */}
+              {/* Reflejo periódico. */}
               <span
                 aria-hidden
                 className="asistente-brillo pointer-events-none absolute top-0 -left-1/2
@@ -298,8 +247,7 @@ export const Asistente: React.FC<{
               />
               <Bot className="w-6 h-6 relative" />
 
-              {/* Punto amarillo de marca: da el toque Pintuco y hace que el
-                  ojo lo encuentre sobre cualquier fondo. */}
+              {/* Punto de marca. */}
               <span
                 aria-hidden
                 className="absolute top-1 right-1 w-2.5 h-2.5 rounded-full bg-yellow-400
@@ -333,7 +281,7 @@ export const Asistente: React.FC<{
                 <p className="text-sm font-bold leading-tight truncate">
                   {hilo ? 'Equipo Pintuco' : `${NOMBRE} · Asistente Pintuco`}
                 </p>
-                {/* Sin ambigüedad: se dice siempre si hay una persona detrás. */}
+                {/* Siempre se indica si hay una persona detrás. */}
                 <p className="text-[10px] text-blue-200 truncate">
                   {hilo
                     ? (hiloAbierto
@@ -347,8 +295,7 @@ export const Asistente: React.FC<{
             </div>
 
             <div className="flex items-center gap-0.5 shrink-0">
-              {/* Llamar por voz. Solo con sesión: la llamada cuesta dinero real
-                  desde el primer segundo y no se le abre a un visitante. */}
+              {/* Voz solo con sesión: cada segundo de llamada tiene costo. */}
               {!hilo && isAuthenticated && conIA && (
                 <button
                   onClick={() => setEnLlamada(true)}
@@ -362,10 +309,7 @@ export const Asistente: React.FC<{
               {hilo && hiloAbierto && (
                 <button
                   onClick={async () => {
-                    // Da la charla por atendida y vuelve al asistente. NO deja
-                    // mudo al cliente: mientras el pedido siga en curso puede
-                    // seguir escribiendo desde el pedido, y volver aquí
-                    // pidiendo otra vez una persona.
+                    // Cierra la atención y vuelve al asistente; el cliente puede seguir escribiendo desde el pedido.
                     await conversacionPedidoService.cerrar(hilo.orderId);
                     setHilo(null);
                     setDelHilo([]);
@@ -443,8 +387,7 @@ export const Asistente: React.FC<{
                     : 'bg-slate-100 text-slate-800 rounded-bl-sm'
                 }`}>
                   <p className="text-sm whitespace-pre-wrap leading-relaxed">{m.texto}</p>
-                  {/* De dónde salió el dato. Sin esto, una cifra correcta y una
-                      inventada se leen igual. */}
+                  {/* Fuente del dato, para distinguir cifras del sistema. */}
                   {m.fuente && (
                     <p className="text-[10px] text-slate-500 mt-1.5 flex items-center gap-1">
                       <CheckCircle2 className="w-3 h-3" /> {m.fuente}
@@ -454,9 +397,7 @@ export const Asistente: React.FC<{
               </div>
             ))}
 
-            {/* Desplegable, cuando la respuesta lo trae.
-                Con treinta pedidos, treinta botones no caben en una burbuja de
-                24 rem ni se leen. Una lista con filtro por estado si. */}
+            {/* Con muchos pedidos, un desplegable con filtro en vez de un botón por pedido. */}
             {!hilo && !pensando && mensajes[mensajes.length - 1]?.selector && (
               <SelectorDePedidos
                 selector={mensajes[mensajes.length - 1].selector as SelectorPedidos}
@@ -500,9 +441,7 @@ export const Asistente: React.FC<{
           </div>
 
           {hilo && !hiloAbierto ? (
-            /* Terminada: no se escribe. El botón para retomarla es explícito,
-               porque si un mensaje cualquiera la reabriera, «terminar» no
-               significaría nada. */
+            /* Pedido terminado: retomar exige un botón explícito para que «terminar» tenga efecto. */
             <div className="p-3 border-t border-slate-100 space-y-2">
               <p className="text-xs text-slate-500 flex items-center gap-1.5 justify-center">
                 <Lock className="w-3.5 h-3.5" /> Este pedido ya terminó.
@@ -547,16 +486,8 @@ export const Asistente: React.FC<{
 };
 
 /**
- * Desplegable de pedidos con filtro por estado.
- *
- * Por qué un desplegable y no más botones: quien tiene treinta pedidos vería
- * treinta botones en una burbuja de 24 rem. No caben, no se leen y hay que
- * desplazarse para encontrar el que interesa.
- *
- * El filtro arranca en «en curso» porque es de lo que la gente pregunta: nadie
- * escribe para saber por un pedido que recibió hace tres meses. Los demás
- * siguen a un clic, con la cuenta a la vista para que no parezca que se
- * perdieron.
+ * Desplegable de pedidos con filtro por estado; arranca en «en curso», que es lo
+ * que se suele consultar.
  */
 const SelectorDePedidos: React.FC<{
   selector: SelectorPedidos;
@@ -585,8 +516,7 @@ const SelectorDePedidos: React.FC<{
             key={clave}
             type="button"
             onClick={() => onFiltro(clave)}
-            // Un filtro sin resultados no se ofrece: pulsarlo solo daría una
-            // lista vacía y la sensación de que algo falló.
+            // Un filtro sin resultados se deshabilita.
             disabled={cuantos === 0}
             className={`flex-1 px-2 py-1.5 rounded-lg text-[11px] font-bold transition-colors
                         cursor-pointer disabled:opacity-35 disabled:cursor-not-allowed ${
@@ -604,8 +534,7 @@ const SelectorDePedidos: React.FC<{
         <p className="text-[11px] text-slate-400 text-center py-1">Nada por aquí.</p>
       ) : (
         <select
-          // Sin valor fijado: el desplegable es para ELEGIR, no para mostrar
-          // una selección. Vuelve al texto de invitación tras cada elección.
+          // Sin valor fijado: vuelve al texto de invitación tras cada elección.
           value=""
           onChange={(e) => {
             if (e.target.value) onElegir(e.target.value, selector.plantilla);

@@ -4,17 +4,8 @@ import {
 } from './impuestos';
 
 /**
- * Desglose del IVA.
- *
- * Lo que se vigila:
- *   1. Que el desglose NO cambie el total. Los precios del catálogo ya
- *      incluyen IVA; si el carrito lo sumara, el cliente vería un precio en la
- *      tienda y otro al pagar.
- *   2. Que dé exactamente lo mismo que `emitir_factura_pos`, que despeja la
- *      base con `subtotal / (1 + tarifa/100)` redondeado a dos decimales. Un
- *      desglose que no cuadre con la factura es peor que no mostrarlo.
- *   3. Que una tarifa de 0 (producto excluido de IVA) sea válida y no se
- *      confunda con "falta el dato".
+ * Desglose de IVA: no altera el total (los precios ya incluyen IVA), coincide con
+ * `emitir_factura_pos` y admite tarifa 0 como válida.
  */
 describe('Desglose de IVA incluido', () => {
   it('base + IVA da siempre el total: el precio no cambia', () => {
@@ -26,9 +17,7 @@ describe('Desglose de IVA incluido', () => {
   });
 
   it('coincide al peso con lo que guardó la factura POS-000001', () => {
-    // Fila real de invoice_items: unit_price_cop 142900, base 120084.03,
-    // IVA 22815.97, total 142900. Si este cálculo se desviara, el carrito
-    // mostraría un IVA distinto al de la factura del mismo pedido.
+    // Fila real de invoice_items: base 120084.03, IVA 22815.97, total 142900.
     const d = desglosarIvaIncluido(142900, 19);
     expect(d.base).toBe(120084.03);
     expect(d.iva).toBe(22815.97);
@@ -70,8 +59,7 @@ describe('Desglose de IVA incluido', () => {
   });
 
   it('cae en la tarifa por defecto ante un valor inservible, nunca en cero', () => {
-    // Devolver 0 haría que el carrito imprimiera "IVA 0" sobre una venta
-    // gravada: una cifra falsa en pantalla.
+    // Devolver 0 mostraría "IVA 0" sobre una venta gravada.
     for (const mala of [NaN, -5, Number.POSITIVE_INFINITY]) {
       expect(desglosarIvaIncluido(142900, mala).tarifa).toBe(TARIFA_IVA_POR_DEFECTO);
     }
@@ -90,14 +78,7 @@ describe('Desglose de IVA incluido', () => {
   });
 });
 
-/**
- * El desglose que se IMPRIME debe sumar el total impreso.
- *
- * Es el defecto que se estaba a punto de publicar: con pesos enteros, un
- * total de $999 se desglosaba como $840 + $160 = $1.000. Un desglose que no
- * cuadra hace desconfiar del precio, que es justo lo contrario de para lo que
- * se puso.
- */
+/** Lo impreso debe sumar el total: con pesos enteros $999 salía como $840 + $160. */
 describe('Desglose impreso', () => {
   const aNumero = (texto: string): number =>
     Number(texto.replace(/[^\d,-]/g, '').replace(/\./g, '').replace(',', '.'));

@@ -1,14 +1,9 @@
 import { supabase } from '../lib/supabase';
 
 /**
- * Catálogo y recepción de mercancía — administración.
- *
- * Toda la escritura pasa por funciones del servidor y no por PATCH directo.
- * No es preferencia de estilo: desde que el costo dejó de ser una columna
- * pública, nadie tiene SELECT sobre `product_variants` completa, y PostgREST
- * necesita ese SELECT para devolver la fila que acaba de modificar. Con
- * funciones eso deja de importar y, de paso, las validaciones viven en un
- * solo sitio.
+ * Catálogo y recepción de mercancía. La escritura va por funciones del servidor:
+ * sin SELECT completo sobre `product_variants` (costo confidencial) PostgREST no
+ * puede devolver la fila tras un PATCH.
  */
 
 function errorLegible(contexto: string, error: { message: string }): Error {
@@ -54,9 +49,7 @@ export const formatearCOP = (n: number): string =>
   new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 })
     .format(n);
 
-// ============================================================
-// CATÁLOGO
-// ============================================================
+// Catálogo
 export const ESTADOS_CATALOGO = ['ACTIVO', 'INACTIVO', 'DESCONTINUADO'] as const;
 export type EstadoCatalogo = (typeof ESTADOS_CATALOGO)[number];
 
@@ -83,7 +76,7 @@ export interface Presentacion {
   unidad: string | null;
   orden: number;
   estado: EstadoCatalogo;
-  /** Solo llega si la persona tiene el permiso costs.read. */
+  /** Solo con el permiso costs.read. */
   costoEstandar: number | null;
   costoPromedio: number | null;
   margenPct: number | null;
@@ -128,9 +121,7 @@ export const catalogoService = {
       .order('name');
     if (error) throw errorLegible('productos', error);
 
-    // Los costos llegan por una vista aparte: la columna es confidencial y
-    // solo la ve quien tiene el permiso. Si no lo tiene, la consulta
-    // devuelve vacío y la pantalla simplemente no muestra esa columna.
+    // Los costos vienen de una vista aparte: sin permiso devuelve vacío y no se muestra la columna.
     const costos = new Map<string, { estandar: number | null; promedio: number | null; margen: number | null }>();
     const { data: filasCosto } = await supabase
       .from('v_costos_catalogo')
@@ -186,7 +177,7 @@ export const catalogoService = {
     }));
   },
 
-  /** ¿Esta persona puede ver costos? Se deduce de si la vista devuelve algo. */
+  /** Se deduce de si la vista de costos devuelve algo. */
   async puedeVerCostos(): Promise<boolean> {
     const { data, error } = await supabase
       .from('v_costos_catalogo')
@@ -216,12 +207,7 @@ export const catalogoService = {
     if (error) throw errorLegible('fijarCostoEstandar', error);
   },
 
-  /**
-   * Sube la imagen de un producto y devuelve su URL pública.
-   *
-   * El nombre lleva marca de tiempo: reutilizarlo haría que navegadores y CDN
-   * siguieran mostrando la imagen vieja y pareciera que no se guardó.
-   */
+  /** Sube la imagen y devuelve su URL pública; la marca de tiempo evita servir la anterior desde caché. */
   async subirImagen(archivo: File, codigo: string): Promise<string> {
     const extension = (archivo.name.split('.').pop() ?? 'jpg').toLowerCase();
     const limpio = (codigo || 'producto').toLowerCase().replace(/[^a-z0-9-]+/g, '-').slice(0, 40);
@@ -242,12 +228,8 @@ export const catalogoService = {
   }> {
     const [marcas, categorias] = await Promise.all([
       supabase.from('brands').select('id, name').order('name'),
-      // Solo las categorías de PRODUCTO. Las de SOLUTION agrupan los kits, y
-      // clasificar un producto en una de ellas lo saca de su sección en la
-      // tienda sin que nadie entienda por qué.
-      // …y solo las hijas: la raíz del árbol ('Catálogo Pintuco') no es una
-      // sección de la tienda, así que un producto colgado ahí no aparecería
-      // bajo ningún filtro.
+      // Solo categorías hijas de PRODUCTO: las de SOLUTION agrupan kits y la raíz no es
+      // una sección de la tienda.
       supabase
         .from('categories')
         .select('id, name')
@@ -270,9 +252,7 @@ export const catalogoService = {
   },
 };
 
-// ============================================================
-// CATEGORÍAS
-// ============================================================
+// Categorías
 export interface CategoriaCatalogo {
   id: string;
   nombre: string;
@@ -284,7 +264,7 @@ export interface CategoriaCatalogo {
 }
 
 export const categoriaService = {
-  /** Categorías de producto, con cuántos productos tiene cada una. */
+  /** Categorías de producto con su número de productos. */
   async listar(): Promise<CategoriaCatalogo[]> {
     const { data, error } = await supabase
       .from('categories')
@@ -328,9 +308,7 @@ export const categoriaService = {
   },
 };
 
-// ============================================================
-// COLORES
-// ============================================================
+// Colores
 export const FAMILIAS_COLOR = [
   'Blancos & Neutros', 'Cálidos & Tierras', 'Azules & Frescos',
   'Verdes & Naturales', 'Vibrantes & Acentos', 'Tendencias 2025',
@@ -378,9 +356,7 @@ export const colorService = {
   },
 };
 
-// ============================================================
-// RECEPCIÓN DE MERCANCÍA
-// ============================================================
+// Recepción de mercancía
 export type EstadoRecepcion = 'BORRADOR' | 'CONFIRMADA' | 'ANULADA';
 
 export const ETIQUETA_RECEPCION: Record<EstadoRecepcion, string> = {
@@ -602,22 +578,10 @@ export const proveedorService = {
   },
 };
 
-/* ══════════════════════════════════════════════════════════════════
-   KITS DE SOLUCIÓN
-   ══════════════════════════════════════════════════════════════════
-   Un kit es catálogo, no una entidad aparte: se arma con los productos y
-   presentaciones que YA existen y están activos.
-
-   Por qué el paso guarda `variant_id` y no una etiqueta escrita a mano: cinco
-   de los once pasos sembrados llevaban etiquetas y precios inventados
-   —«Pack Completo Obra» a $64.700, «2 Cuñetes» cotizados como uno— y la
-   tienda los mostraba tal cual. Con la presentación enlazada, el precio sale
-   del catálogo y no puede volver a separarse.
-
-   Y no hay copia intermedia: la tienda lee las MISMAS tablas, así que lo que
-   se cambie aquí lo ve el cliente en cuanto recarga. Si se archiva un kit,
-   desaparece; si sube el precio de una presentación, el kit lo refleja solo.
-   ══════════════════════════════════════════════════════════════════ */
+/*
+ * Kits de solución: se arman con productos y presentaciones activos. El paso guarda
+ * `variant_id` para que el precio salga del catálogo, y la tienda lee las mismas tablas.
+ */
 
 export interface PasoKit {
   id?: string;
@@ -625,18 +589,15 @@ export interface PasoKit {
   fase: string;
   productId: string;
   variantId: string | null;
-  /** Solo lectura: se muestran para armar el paso. */
+  /** Solo lectura. */
   productoNombre?: string;
   presentacion?: string;
   precioCop?: number;
   cantidad85m2: number;
   descripcionRol: string;
-  /**
-   * Imagen propia del paso. Si va vacía, la tienda cae a la del producto: un
-   * paso sin foto propia no debe salir con el hueco roto.
-   */
+  /** Imagen propia del paso; si falta, la tienda usa la del producto. */
   imagen?: string | null;
-  /** Solo lectura: la del producto, para saber qué se ve si no se sube nada. */
+  /** Solo lectura: imagen del producto usada por defecto. */
   imagenProducto?: string | null;
 }
 
@@ -652,11 +613,11 @@ export interface KitCatalogo {
   categoriaId: string | null;
   estado: 'ACTIVO' | 'INACTIVO';
   pasos: PasoKit[];
-  /** Suma de los pasos con el precio real del catálogo, antes del descuento. */
+  /** Suma de los pasos a precio de catálogo, antes del descuento. */
   totalSinDescuento: number;
 }
 
-/** Las fases válidas salen del enum `solution_phase` de la base. */
+/** Coincide con el enum `solution_phase`. */
 export const FASES_KIT = ['Preparación', 'Sellado', 'Acabado', 'Aplicación', 'Herramienta'] as const;
 
 interface FilaKit {
@@ -675,12 +636,7 @@ interface FilaKit {
 }
 
 export const kitsService = {
-  /**
-   * Sube la imagen de un kit o de uno de sus pasos.
-   *
-   * Va al mismo bucket `productos` que usa el catálogo: es imagen de catálogo
-   * y no tiene sentido repartir permisos y políticas entre dos sitios.
-   */
+  /** Usa el bucket `productos` del catálogo para no duplicar políticas. */
   async subirImagen(archivo: File, nombre: string): Promise<string> {
     return catalogoService.subirImagen(archivo, `kit-${nombre}`);
   },
@@ -736,7 +692,7 @@ export const kitsService = {
     });
   },
 
-  /** Crea o actualiza la cabecera del kit. Devuelve su id. */
+  /** Crea o actualiza la cabecera del kit y devuelve su id. */
   async guardar(datos: {
     id?: string; nombre: string; subtitulo?: string; descripcion?: string;
     problema?: string; garantia?: string; descuento: number;
@@ -766,13 +722,7 @@ export const kitsService = {
     return (data as { id: string }).id;
   },
 
-  /**
-   * Guarda un paso.
-   *
-   * `variant_id` es OBLIGATORIO aquí, aunque la columna lo permita nulo: un
-   * paso sin presentación real es exactamente el que acaba mostrando un precio
-   * escrito a mano.
-   */
+  /** `variant_id` obligatorio aunque la columna admita nulo: sin él el precio sería manual. */
   async guardarPaso(kitId: string, paso: PasoKit): Promise<void> {
     if (!paso.variantId) {
       throw new Error('Elige la presentación del producto: sin ella el kit no puede calcular el precio.');
@@ -798,13 +748,7 @@ export const kitsService = {
     if (error) throw errorLegible('quitarPasoKit', error);
   },
 
-  /**
-   * Renumera los pasos de 1 en adelante.
-   *
-   * Borrar el paso 1 deja el kit empezando en «2», y en pantalla eso se lee
-   * como un error del sistema y no como un kit de dos pasos. Ya pasó con los
-   * datos sembrados.
-   */
+  /** Renumera los pasos desde 1 para no dejar huecos tras un borrado. */
   async renumerar(kitId: string): Promise<void> {
     const { data } = await supabase
       .from('solution_products').select('id, step_number')

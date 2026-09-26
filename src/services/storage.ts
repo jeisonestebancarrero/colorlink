@@ -102,22 +102,4 @@ export const setStoredNotifications = (notifications: NotificationItem[]): void 
   }
 };
 
-/**
- * AQUÍ VIVÍA EL MOTOR DE DIAGNÓSTICO.
- *
- * `generatePreliminaryAnalysis` decidía en el navegador la categoría de
- * solución, el nivel de atención, los productos, el presupuesto y el
- * cronograma de cada proyecto. Se retiró el 4 de septiembre de 2026 y ahora lo
- * calcula `public.diagnosticar_proyecto` en la base
- * (migración 20260904100004), que además:
- *
- *   · recomienda SOLO productos que existen en el catálogo activo —los 8
- *     códigos de aquí (`PNT-10520`, `PNT-20100`…) estaban escritos a mano y
- *     ninguno existía en `products`—;
- *   · calcula cantidades con el rendimiento real de cada ficha en vez de
- *     divisiones fijas, que es lo que hacía que la calculadora y el
- *     diagnóstico dieran dos respuestas para la misma obra;
- *   · no se puede alterar desde la consola del navegador.
- *
- * Si hace falta cambiar el criterio técnico, se cambia allá.
- */
+/** El motor de diagnóstico vive en `public.diagnosticar_proyecto`; el criterio técnico se cambia allí. */

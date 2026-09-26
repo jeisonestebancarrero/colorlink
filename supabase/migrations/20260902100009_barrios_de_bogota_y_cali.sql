@@ -1,35 +1,5 @@
--- ============================================================
--- Barrios oficiales de Bogotá y Cali
--- ============================================================
--- Ampliación del diccionario de barrios (ver 20260902100004). Antes solo
--- Barranquilla tenía lista, así que en Bogotá y Cali el cliente escribía su
--- barrio a mano. Ahora lo elige.
---
--- FUENTES, las dos de la autoridad que define los barrios:
---   Bogotá D.C. (11001) — Sector Catastral, Unidad Administrativa Especial de
---     Catastro Distrital (UAECD):
---     https://serviciosgis.catastrobogota.gov.co/arcgis/rest/services/catastro/sectorcatastral/MapServer/0
---     1.150 nombres. Se incluyen los tres tipos de sector que publica la
---     UAECD, urbanos y rurales: una dirección de Bogotá referencia el sector
---     catastral, sea del tipo que sea.
---   Santiago de Cali (76001) — capa `dapm:pdt_dpa_barrios_sectores` de la
---     Infraestructura de Datos Espaciales de Cali (IDESC), Departamento
---     Administrativo de Planeación Municipal:
---     https://ws-idesc.cali.gov.co/geoserver/dapm/ows
---     342 registros: 324 barrios y 18 sectores, según el Acuerdo de DIVIPOLA
---     municipal que la propia capa referencia.
---
--- MEDELLÍN SIGUE SIN LISTA, y no es un olvido. La Alcaldía publica su capa de
--- barrio-vereda catastral en un ArcGIS Enterprise propio que responde 403 a
--- peticiones externas, y lo único accesible por API es una capa del Centro
--- Nacional de Memoria Histórica del informe "Medellín: memorias de una guerra
--- urbana" (1980-2014). Esa capa es investigación histórica, no el catastro
--- vigente, y cargarla como 'ALCALDIA' sería presentar como oficial algo que no
--- lo es. Hasta conseguir el archivo de la Alcaldía, en Medellín el barrio lo
--- aporta el primer cliente vía `registrar_barrio`, sin duplicados.
---
--- `name_source` guarda el nombre exacto de la fuente; `name` es el mismo con la
--- caja normalizada para leerse en un desplegable.
+-- Barrios oficiales de Bogotá (sector catastral UAECD) y Cali (IDESC, capa
+-- dapm:pdt_dpa_barrios_sectores). Medellín no tiene fuente oficial accesible.
 
 insert into public.neighborhoods (municipality_code, name, name_source, kind, source, dane_code) values
   ('11001', 'Brasil', 'BRASIL', 'BARRIO', 'ALCALDIA', '004622'),

@@ -1,13 +1,6 @@
 import { supabase } from '../lib/supabase';
 
-/**
- * Configuración de la empresa (MÓDULO 41 / back-office).
- *
- * Los datos de la tienda son públicos: la factura POS los imprime y el pie
- * de página los muestra. La contraseña SMTP NO forma parte de este tipo:
- * la base revoca el SELECT sobre esa columna, así que nunca llega al
- * navegador ni por error.
- */
+/** Datos públicos de la empresa; la contraseña SMTP no está aquí (SELECT revocado en la base). */
 export interface AppSettings {
   companyName: string;
   companyLegalName: string | null;
@@ -32,7 +25,7 @@ const CAMPOS =
 let cache: Promise<AppSettings | null> | null = null;
 
 export const settingsService = {
-  /** Se cachea: la configuración cambia poquísimo y la piden varios componentes. */
+  /** Cacheado: cambia poco y lo piden varios componentes. */
   get(): Promise<AppSettings | null> {
     if (cache) return cache;
     cache = (async () => {

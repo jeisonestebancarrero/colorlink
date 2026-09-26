@@ -3,19 +3,8 @@ import { supabase } from '../lib/supabase';
 import { accesoService, type MiAcceso } from '../services/admin';
 import { mfaService } from '../services/mfa';
 
-/**
- * Sesión del personal interno.
- *
- * Separada del AuthContext del portal: aquí lo que importa no es el perfil
- * comercial del cliente sino los permisos y las vistas que el administrador
- * haya configurado para el rol.
- */
-/**
- * Qué falta del segundo factor antes de dejar trabajar a esta persona.
- *  - 'codigo':   ya tiene aplicación registrada y debe escribir el código.
- *  - 'registro': su rol lo obliga y todavía no la ha registrado.
- *  - null:       no hay nada pendiente.
- */
+/** Sesión del personal, separada del AuthContext del cliente: permisos y vistas por rol. */
+/** Segundo factor pendiente: 'codigo' debe verificarlo, 'registro' debe inscribirlo, null nada. */
 export type PendienteMFA = 'codigo' | 'registro' | null;
 
 interface AdminAuthType {
@@ -55,12 +44,8 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       return;
     }
 
-    // El estado del segundo factor se consulta ANTES que los permisos, y no
-    // es un detalle de orden: en el servidor `is_staff` devuelve false cuando
-    // la cuenta tiene factor y la sesión no lo superó. Si se preguntara al
-    // revés, a un jefe de bodega con doble factor se le diría "esta cuenta no
-    // tiene acceso al portal interno" y se le cerraría la sesión, cuando lo
-    // único que falta es que escriba su código.
+    // El MFA va antes que los permisos: sin AAL2 `is_staff` da false y se cerraría la sesión
+    // de alguien a quien solo le falta el código.
     const mfa = await mfaService.estado();
     setEmail(usuario.email ?? null);
 
@@ -73,9 +58,7 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
     const a = await accesoService.miAcceso();
 
-    // Un cliente puede tener credenciales válidas y aun así no pintar nada
-    // aquí: sin rol interno no hay back-office. Se cierra la sesión para no
-    // dejarlo en una pantalla vacía sin saber por qué.
+    // Sin rol interno se cierra la sesión.
     if (!a.isStaff) {
       await supabase.auth.signOut();
       setAutenticado(false);
@@ -84,8 +67,7 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       throw new Error('Esta cuenta no tiene acceso al portal interno.');
     }
 
-    // Personal interno sin doble factor: entra, pero el portal no lo deja
-    // trabajar hasta que registre su aplicación de códigos.
+    // Sin factor registrado entra, pero queda bloqueado hasta inscribirlo.
     setPendienteMFA(mfa.obligatorio && !mfa.configurado ? 'registro' : null);
 
     const { data: perfil } = await supabase
@@ -105,14 +87,8 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       .catch(() => undefined)
       .finally(() => setCargando(false));
 
-    // Reevaluar cuando la sesión cambie de nivel o se renueve el token.
-    //
-    // Sin esto, una pestaña abierta desde antes de que la cuenta activara el
-    // segundo factor se queda con permisos revocados en el servidor y todas
-    // las pantallas empiezan a fallar con errores genéricos, sin decir en
-    // ningún momento que lo que falta es el código. Al renovarse el token
-    // —cada hora, y de inmediato tras cualquier cambio de factores— se vuelve
-    // a mirar y aparece la pantalla que corresponde.
+    // Reevalúa al renovar el token o cambiar el nivel: una pestaña vieja perdería permisos
+    // en el servidor sin mostrar que falta el código.
     const { data: sub } = supabase.auth.onAuthStateChange((evento) => {
       if (evento === 'TOKEN_REFRESHED' || evento === 'MFA_CHALLENGE_VERIFIED') {
         cargar().catch(() => undefined);

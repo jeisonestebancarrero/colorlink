@@ -1,15 +1,7 @@
--- ============================================================
--- Proyectos y visitas técnicas — back-office
--- ============================================================
+-- Back-office de proyectos y visitas técnicas.
 
--- ------------------------------------------------------------
--- 1. El permiso "Proyectos" tenía que servir para algo
--- ------------------------------------------------------------
--- `can_access_project` reconocía al dueño, a su empresa, al asesor, al
--- administrador y al técnico asignado — pero ignoraba por completo el permiso
--- `projects.read`. Resultado: el administrador podía conceder la aplicación
--- Proyectos a Gerencia desde la pantalla de permisos, el módulo le aparecía
--- en el tablero, y al entrar no veía ni un proyecto. El botón mentía.
+-- can_access_project reconoce ahora el permiso projects.read; antes concederlo
+-- mostraba el módulo sin ningún proyecto.
 create or replace function public.can_access_project(_project_id uuid)
 returns boolean
 language sql
@@ -33,11 +25,7 @@ as $$
   );
 $$;
 
--- ------------------------------------------------------------
--- 2. Rastro de quién asignó y quién diagnosticó
--- ------------------------------------------------------------
--- Sin clave foránea hacia `profiles`, PostgREST no puede traer el nombre de
--- la persona junto con la fila y la pantalla solo podría mostrar un UUID.
+-- FK hacia profiles para que PostgREST traiga el nombre y no solo el UUID.
 alter table public.project_assignments
   add constraint project_assignments_assigned_by_profile
   foreign key (assigned_by) references public.profiles (id) on delete set null;
@@ -46,9 +34,6 @@ alter table public.project_diagnoses
   add constraint project_diagnoses_responsable_profile
   foreign key (responsible_user_id) references public.profiles (id) on delete set null;
 
--- ------------------------------------------------------------
--- 3. Asignar un técnico o asesor a un proyecto
--- ------------------------------------------------------------
 create or replace function public.assign_to_project(
   _project_id uuid,
   _user_id    uuid,
@@ -73,8 +58,7 @@ begin
   end if;
   v_rol := _rol::public.assignment_role;
 
-  -- Solo se asigna a personal interno: un cliente no atiende obras ajenas, y
-  -- asignarlo le abriría el proyecto de otro.
+  -- Solo personal interno: asignar a un cliente le abriría un proyecto ajeno.
   if not exists (
     select 1 from public.user_roles ur
     where ur.user_id = _user_id
@@ -133,9 +117,6 @@ revoke all on function public.unassign_from_project(uuid, uuid) from public, ano
 grant execute on function public.assign_to_project(uuid, uuid, text) to authenticated;
 grant execute on function public.unassign_from_project(uuid, uuid) to authenticated;
 
--- ------------------------------------------------------------
--- 4. Cambiar el estado de un proyecto
--- ------------------------------------------------------------
 create or replace function public.set_project_status(
   _project_id uuid,
   _estado     text,
@@ -171,7 +152,6 @@ begin
     raise exception 'NOT_FOUND: proyecto no encontrado' using errcode = 'P0002';
   end if;
 
-  -- El cliente se entera del cambio sin tener que preguntar.
   insert into public.notifications (user_id, project_id, title, message, type)
   values (
     v_dueno, _project_id, 'Tu proyecto cambió de estado',
@@ -189,14 +169,8 @@ $$;
 revoke all on function public.set_project_status(uuid, text, text) from public, anon;
 grant execute on function public.set_project_status(uuid, text, text) to authenticated;
 
--- ------------------------------------------------------------
--- 5. Visitas técnicas: programar, reprogramar y cerrar
--- ------------------------------------------------------------
--- Se hace por función y no con UPDATE directo porque cada movimiento tiene
--- efectos que no pueden quedar al criterio de la pantalla: avisar al cliente,
--- mover el estado de la solicitud de acompañamiento y dejar auditoría. Si eso
--- viviera en el navegador, bastaría con no llamarlo para que el cliente nunca
--- se entere de que le programaron una visita a su obra.
+-- Visitas vía función: avisar al cliente, mover la solicitud de asesoría y auditar
+-- no puede depender de que la pantalla lo haga.
 create or replace function public.schedule_technical_visit(
   _project_id    uuid,
   _fecha         date,
@@ -248,7 +222,7 @@ begin
   )
   returning id into v_visita;
 
-  -- Quien va a la obra queda asignado al proyecto: si no, no podría abrirlo.
+  -- El técnico queda asignado al proyecto; si no, no podría abrirlo.
   if _technician_id is not null then
     insert into public.project_assignments (project_id, user_id, assignment_role, assigned_by)
     values (_project_id, _technician_id, 'TECNICO', (select auth.uid()))
@@ -314,8 +288,7 @@ begin
     raise exception 'NOT_FOUND: visita no encontrada' using errcode = 'P0002';
   end if;
 
-  -- Una visita realizada sin informe no sirve de nada: es la única prueba de
-  -- qué se encontró en la obra.
+  -- Cerrar exige resultado: es la única prueba de lo encontrado en obra.
   if v_estado = 'REALIZADA' and coalesce(trim(_resultado), '') = '' then
     raise exception 'RESULT_REQUIRED: para cerrar la visita hay que registrar el resultado'
       using errcode = '22023';

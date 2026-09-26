@@ -5,20 +5,9 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { crearPedidoDePrueba, borrarPedidoDePrueba } from './limpieza';
 
 /**
- * Campana de mensajes sin leer.
- *
- * LA REGLA que se vigila: el aviso se quita al ABRIR la conversación, y solo
- * entonces. Ni al recibir el mensaje, ni al desplegar la campana. Si bastara
- * con desplegarla, un mensaje visto de reojo desaparecería sin que nadie lo
- * hubiera atendido, que es exactamente lo que hace inútil un contador.
- *
- * Lo demás que se comprueba, y que son las formas de que el número mienta:
- *   · Escribir no te avisa a ti mismo.
- *   · Los EVENTOS de trazabilidad no cuentan: los escribe la base y no
- *     esperan respuesta.
- *   · El cliente no cuenta —ni ve— las notas internas del equipo.
- *   · Nadie ve los mensajes sin leer de otro.
- *   · Marcar leído no puede alcanzar a la conversación de otro.
+ * Campana de sin leer: el aviso se quita al abrir la conversación, no al desplegar la
+ * campana. No cuentan los mensajes propios ni los eventos; el cliente no ve notas
+ * internas; nadie ve ni marca lo de otro.
  */
 
 function leerEnvLocal(): Record<string, string> {
@@ -69,7 +58,7 @@ describe.skipIf(!disponible || !SERVICE)('Campana de mensajes', () => {
   const sello = Date.now().toString().slice(-6);
   const creados: string[] = [];
 
-  /** Los mensajes del pedido, tal cual estaban antes de tocar nada. */
+  /** Mensajes del pedido antes de la prueba. */
   const estadoPrevio = new Map<string, string | null>();
 
   beforeAll(async () => {
@@ -87,8 +76,7 @@ describe.skipIf(!disponible || !SERVICE)('Campana de mensajes', () => {
     const o = await otro.auth.signInWithPassword(OTRO);
     if (o.error) throw new Error(`otro: ${o.error.message}`);
 
-    // Lo crea la prueba: depender de un pedido sembrado la dejaba rota en
-    // cuanto se limpiaba la base.
+    // Lo crea la prueba para no depender de datos sembrados.
     const suyo = await crearPedidoDePrueba(root, c.data.user?.id as string, { sello });
     pedidoId = suyo.id;
     numeroPedido = suyo.numero;
@@ -101,15 +89,14 @@ describe.skipIf(!disponible || !SERVICE)('Campana de mensajes', () => {
   });
 
   afterAll(async () => {
-    // El pedido es de la prueba, así que se va entero con sus mensajes. Ya no
-    // hace falta restituir `read_at` de nada ajeno: no se toca nada ajeno.
+    // El pedido es de la prueba: se borra entero con sus mensajes.
     await borrarPedidoDePrueba(root, pedidoId);
     await admin.auth.signOut();
     await cliente.auth.signOut();
     await otro.auth.signOut();
   });
 
-  /** Escribe como el equipo y anota el id para poder limpiarlo. */
+  /** Escribe como el equipo y anota el id para limpiarlo. */
   const equipoEscribe = async (texto: string, interno = false) => {
     const { error } = await admin.rpc('post_message', {
       _order_id: pedidoId, _project_id: null, _body: texto, _internal: interno,
@@ -132,8 +119,7 @@ describe.skipIf(!disponible || !SERVICE)('Campana de mensajes', () => {
   const delPedido = (filas: Fila[]) => filas.find((f) => f.order_id === pedidoId);
 
   it('parte de cero: lo anterior se dio por entregado', async () => {
-    // La migración 20260902100029 saldó el histórico. Si esto falla, la
-    // campana nacería con decenas de avisos que nadie va a atender.
+    // El histórico se saldó en una migración; si falla, la campana nacería llena de avisos viejos.
     const filas = await sinLeerDe(cliente);
     expect(delPedido(filas)).toBeUndefined();
   });
@@ -144,12 +130,12 @@ describe.skipIf(!disponible || !SERVICE)('Campana de mensajes', () => {
     expect(fila).toBeTruthy();
     expect(fila!.sin_leer).toBe(1);
     expect(fila!.ultimo).toContain(sello);
-    // El número es el del pedido que creó la prueba, no uno sembrado.
+    // El número es el del pedido creado por la prueba.
     expect(fila!.order_number).toBe(numeroPedido);
   });
 
   it('CONSULTAR la campana no baja el contador', async () => {
-    // Es la mitad que importa de la regla: mirar no es leer.
+    // Mirar no es leer.
     const antes = delPedido(await sinLeerDe(cliente));
     const despues = delPedido(await sinLeerDe(cliente));
     expect(despues?.sin_leer).toBe(antes?.sin_leer);
@@ -183,7 +169,7 @@ describe.skipIf(!disponible || !SERVICE)('Campana de mensajes', () => {
     creados.push((data as { id: string }).id);
 
     expect(delPedido(await sinLeerDe(cliente))).toBeUndefined();
-    // Pero al equipo sí le llega.
+    // Al equipo sí le llega.
     expect(delPedido(await sinLeerDe(admin))?.sin_leer).toBe(1);
   });
 
@@ -196,8 +182,7 @@ describe.skipIf(!disponible || !SERVICE)('Campana de mensajes', () => {
   });
 
   it('un evento de trazabilidad no genera aviso', async () => {
-    // Los escribe la base al cambiar de estado y no esperan respuesta: si
-    // contaran, cada pedido acumularía avisos por sí solo.
+    // Los escribe la base al cambiar de estado; si contaran, cada pedido acumularía avisos solo.
     const { data } = await root.from('conversation_messages').insert({
       order_id: pedidoId, kind: 'EVENTO', body: `Estado actualizado ${sello}`,
     }).select('id').single();
@@ -217,16 +202,13 @@ describe.skipIf(!disponible || !SERVICE)('Campana de mensajes', () => {
     expect(error).not.toBeNull();
     expect(error!.message).toMatch(/FORBIDDEN/);
 
-    // Y el aviso del dueño sigue en pie.
+    // El aviso del dueño sigue en pie.
     expect(delPedido(await sinLeerDe(cliente))?.sin_leer).toBe(1);
   });
 
   it('un compañero abriendo el hilo NO marca leídos los mensajes del equipo', async () => {
-    // El fallo que esto cierra: `read_at` lo marcaba quien abriera el hilo, sin
-    // mirar de qué lado estaba. Si un asesor abría la conversación, los
-    // mensajes escritos por OTRO compañero quedaban con dos chulitos y el
-    // portal decía «leído por el cliente» cuando el cliente no lo había visto.
-    // Un acuse que miente es peor que no tener acuse.
+    // `read_at` solo lo marca el lado contrario: si un asesor abre el hilo, los mensajes
+    // de otro compañero no deben quedar como leídos por el cliente.
     const texto = `Mensaje del equipo sin leer ${sello}`;
     const id = await equipoEscribe(texto);
 
@@ -240,15 +222,14 @@ describe.skipIf(!disponible || !SERVICE)('Campana de mensajes', () => {
     expect(error).toBeNull();
     await asesor.auth.signOut();
 
-    // El mensaje del equipo sigue SIN leer: el cliente no lo ha abierto.
+    // El mensaje del equipo sigue sin leer: el cliente no lo ha abierto.
     const { data } = await root
       .from('conversation_messages').select('read_at').eq('id', id).single();
     expect((data as { read_at: string | null }).read_at).toBeNull();
   });
 
   it('cuando el CLIENTE abre, el mensaje del equipo sí queda leído', async () => {
-    // La otra mitad: el acuse tiene que llegar a dos chulitos cuando de verdad
-    // corresponde, o no serviría de nada.
+    // Contrapartida: el acuse debe marcarse cuando sí corresponde.
     const { data: antes } = await root
       .from('conversation_messages').select('id, read_at')
       .eq('order_id', pedidoId).is('read_at', null);
@@ -259,9 +240,7 @@ describe.skipIf(!disponible || !SERVICE)('Campana de mensajes', () => {
     const { data } = await root
       .from('conversation_messages').select('id, read_at, kind')
       .eq('order_id', pedidoId).is('read_at', null);
-    // Lo único que puede quedar sin marcar son las notas internas —que al
-    // cliente no le llegan— y los EVENTO de trazabilidad, que no son mensajes
-    // de nadie y por eso se excluyen a propósito de la cuenta.
+    // Solo pueden quedar sin marcar las notas internas y los eventos, que se excluyen a propósito.
     for (const m of (data ?? []) as Array<{ kind: string }>) {
       expect(['NOTA_INTERNA', 'EVENTO'], `quedó sin leer un ${m.kind}`)
         .toContain(m.kind);

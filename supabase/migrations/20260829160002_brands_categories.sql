@@ -1,7 +1,3 @@
--- ============================================================
--- FASE 3 · 02 — Marcas y categorías jerárquicas
--- ============================================================
-
 create table public.brands (
   id         uuid primary key default gen_random_uuid(),
   name       text not null unique,
@@ -12,12 +8,7 @@ create table public.brands (
   updated_at timestamptz not null default now()
 );
 
--- ------------------------------------------------------------
--- Categorías jerárquicas (MÓDULO 4).
--- `parent_id` permite el árbol Pinturas > Interior / Exterior / ...
--- `kind` separa las categorías de producto de las de solución, que en el
--- frontend son dos listas distintas y no deben mezclarse.
--- ------------------------------------------------------------
+-- kind separa categorías de producto y de solución, que el frontend no mezcla.
 create table public.categories (
   id          uuid primary key default gen_random_uuid(),
   kind        public.category_kind not null,
@@ -30,11 +21,9 @@ create table public.categories (
   created_at  timestamptz not null default now(),
   updated_at  timestamptz not null default now(),
 
-  -- El nombre debe ser único dentro de su taxonomía: es la clave por la que
-  -- el servicio traduce de vuelta al literal que espera el frontend.
+  -- Único por taxonomía: el servicio traduce por nombre al literal del frontend.
   constraint categories_nombre_unico_por_tipo unique (kind, name),
   constraint categories_slug_unico_por_tipo   unique (kind, slug),
-  -- Una categoría no puede ser su propio padre.
   constraint categories_sin_autopadre check (parent_id is null or parent_id <> id)
 );
 

@@ -2,13 +2,7 @@ import { supabase } from '../lib/supabase';
 import type { CartItem, NotificationItem, SolutionKit, StoreProduct } from '../types';
 import { CANTIDAD_MAXIMA, type LineaInvitado } from './carritoInvitado';
 
-/**
- * Carrito, pedidos, notificaciones y motor de cálculo — FASES 7 a 13.
- *
- * PRINCIPIO: el navegador nunca envía precios ni totales. El carrito guarda
- * solo qué variante y cuánta cantidad; el precio se lee del catálogo al
- * mostrarlo y se congela en el servidor al confirmar el pedido.
- */
+/** Carrito, pedidos, notificaciones y calculadora. El navegador nunca envía precios ni totales. */
 
 function errorLegible(contexto: string, error: { message: string }): Error {
   console.error(`[commerce] ${contexto}:`, error.message);
@@ -25,9 +19,7 @@ function errorLegible(contexto: string, error: { message: string }): Error {
   return new Error('No fue posible completar la operación. Inténtalo nuevamente.');
 }
 
-// ============================================================
-// CARRITO (MÓDULO 15)
-// ============================================================
+// Carrito
 interface FilaCartItem {
   id: string;
   quantity: number;
@@ -71,7 +63,7 @@ function aCartItem(f: FilaCartItem): CartItem {
     colorName: f.colors?.name,
     colorCode: f.colors?.code,
     colorHex: f.colors?.hex,
-    // Precio SIEMPRE del catálogo, nunca almacenado en el carrito.
+    // El precio siempre sale del catálogo.
     unitPrice: num(v?.price_cop),
     quantity: f.quantity,
     image: p?.image_url ?? '',
@@ -80,7 +72,7 @@ function aCartItem(f: FilaCartItem): CartItem {
   };
 }
 
-/** Devuelve el carrito activo del usuario, creándolo si no existe. */
+/** Carrito activo del usuario; lo crea si no existe. */
 async function carritoActivo(): Promise<string | null> {
   const { data: sesion } = await supabase.auth.getSession();
   const userId = sesion.session?.user?.id;
@@ -118,10 +110,7 @@ export const cartService = {
     return ((data ?? []) as unknown as FilaCartItem[]).map(aCartItem);
   },
 
-  /**
-   * Añade una presentación. Se resuelve el `variant_id` real a partir del
-   * producto y la etiqueta de presentación que muestra la interfaz.
-   */
+  /** Resuelve el `variant_id` real a partir del producto y la presentación mostrada. */
   async addProduct(
     producto: StoreProduct,
     etiquetaPresentacion?: string,
@@ -146,7 +135,7 @@ export const cartService = {
       }
     }
 
-    // La presentación ya trae el UUID real de la variante (FASE 4).
+    // La presentación ya trae el UUID de la variante.
     const { data: existente } = await supabase
       .from('cart_items')
       .select('id, quantity')
@@ -175,7 +164,7 @@ export const cartService = {
     return this.getItems();
   },
 
-  /** Añade todos los pasos de un kit, marcados como tales para el descuento. */
+  /** Añade los pasos de un kit, marcados para el descuento. */
   async addKit(kit: SolutionKit, multiplicador = 1): Promise<CartItem[]> {
     const cartId = await carritoActivo();
     if (!cartId) throw new Error('Inicia sesión para agregar el kit al carrito.');
@@ -193,8 +182,7 @@ export const cartService = {
         .maybeSingle();
 
       const variantId = (variante as { id: string } | null)?.id;
-      // Algunos pasos citan etiquetas que no son una variante real (deuda de
-      // datos conocida): se omiten en lugar de romper la compra del kit.
+      // Pasos con etiquetas sin variante real se omiten sin romper la compra.
       if (!variantId) {
         console.warn(`[commerce] paso de kit sin variante: ${paso.productId} / ${paso.presentation}`);
         continue;
@@ -247,14 +235,8 @@ export const cartService = {
   },
 
   /**
-   * Absorbe el carrito que el visitante armó SIN sesión.
-   *
-   * Se llama una sola vez, justo después de entrar o registrarse: lo que la
-   * persona había puesto en el carrito antes de tener cuenta se suma al
-   * carrito real en lugar de perderse. Si ya tenía algo guardado de una visita
-   * anterior, las cantidades se suman, no se reemplazan.
-   *
-   * Recibe solo variante, color y cantidad. Ningún precio viene del navegador.
+   * Vuelca el carrito del visitante tras entrar; las cantidades se suman a las
+   * existentes. Solo recibe variante, color y cantidad.
    */
   async absorberLineas(lineas: LineaInvitado[]): Promise<CartItem[]> {
     if (lineas.length === 0) return this.getItems();
@@ -270,9 +252,7 @@ export const cartService = {
         .is('color_id', linea.colorId)
         .maybeSingle();
 
-      // El tope lo impone cart_items_cantidad_positiva (<= 999): pasarse haría
-      // fallar el volcado entero y el visitante perdería su carrito al entrar,
-      // que es exactamente lo que se está evitando.
+      // Tope de cart_items_cantidad_positiva (999): superarlo haría fallar todo el volcado.
       if (existente) {
         const fila = existente as { id: string; quantity: number };
         const cantidad = Math.min(CANTIDAD_MAXIMA, fila.quantity + linea.quantity);
@@ -295,9 +275,7 @@ export const cartService = {
   },
 };
 
-// ============================================================
-// PEDIDOS (MÓDULO 16 / 60)
-// ============================================================
+// Pedidos
 export interface ResumenPedido {
   id: string;
   orderNumber: string;
@@ -307,29 +285,19 @@ export interface ResumenPedido {
 }
 
 export const orderService = {
-  /**
-   * Convierte el carrito en pedido.
-   *
-   * Todos los importes los calcula create_order_from_cart en el servidor:
-   * subtotal, descuento de kit, envío y total. El navegador no envía ni un
-   * solo precio (MÓDULO 60).
-   */
+  /** Todos los importes los calcula create_order_from_cart en el servidor. */
   async createFromCart(datos: {
     deliveryMethod: 'pickup' | 'delivery';
     pickupLocationExternalRef?: string;
     /**
-     * Destino. Se manda el ID de la sede o de la dirección guardada, y el
-     * SERVIDOR lee de ahí la dirección: si el navegador enviara las dos cosas,
-     * podría mandar una dirección que no corresponde a esa sede y el despacho
-     * saldría hacia donde dijera la pestaña. La dirección escrita a mano
-     * (`shippingAddress` + `shippingMunicipalityCode`) es para la obra, que no
-     * es una sede registrada.
+     * Se envía el id de sede o dirección y el servidor lee la dirección, para que el
+     * navegador no pueda desviar el despacho. La dirección manual es para obras.
      */
     companyBranchId?: string | null;
     customerAddressId?: string | null;
     shippingAddress?: string;
     shippingMunicipalityCode?: string;
-    /** Quién recibe: los cuatro son obligatorios, también al retirar en tienda. */
+    /** Los cuatro datos del receptor son obligatorios, también al retirar en tienda. */
     recipientName: string;
     recipientDocumentType: string;
     recipientDocumentNumber: string;
@@ -398,9 +366,7 @@ export const orderService = {
   },
 };
 
-// ============================================================
-// NOTIFICACIONES (MÓDULO 24)
-// ============================================================
+// Notificaciones
 interface FilaNotificacion {
   id: string;
   title: string;
@@ -460,9 +426,7 @@ export const notificationService = {
   },
 };
 
-// ============================================================
-// CALCULADORA (MÓDULO 14)
-// ============================================================
+// Calculadora
 export interface ResultadoCalculo {
   productName: string;
   presentation: string;
@@ -476,13 +440,7 @@ export interface ResultadoCalculo {
 }
 
 export const calculatorService = {
-  /**
-   * Calcula la cantidad de pintura EN EL SERVIDOR.
-   *
-   * Unifica los dos motores contradictorios que existían en el frontend
-   * (R3 de la auditoría). El rendimiento y el precio se leen de la base:
-   * el navegador solo aporta área, manos, tipo de superficie y desperdicio.
-   */
+  /** Cálculo en el servidor con rendimiento y precio de la base; el navegador solo aporta los parámetros. */
   async calculate(entrada: {
     variantId: string;
     areaM2: number;

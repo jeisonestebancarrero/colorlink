@@ -1,30 +1,8 @@
--- ============================================================================
--- Los permisos dicen lo mismo en la pantalla y en la base
--- ============================================================================
--- Revisando el portal para el documento de requisitos salieron nueve sitios en
--- los que la pantalla ofrecía una acción que la base negaba, o al revés:
---
---   * Cambiar el estado de un pedido era solo del administrador, aunque el
---     permiso `orders.status` existe y lo tiene Despacho.
---   * Facturar pedía `invoices.write`, que nunca existió: Facturación tenía
---     `invoices.issue` y no podía emitir.
---   * Entregar con código aceptaba `shipments.write` (no existe) en lugar de
---     `dispatch.manage`.
---   * El panel contaba visitas y chats con `visits.read` y `chat.read`, que
---     tampoco existen: solo el administrador veía esos contadores.
---   * Los envíos se podían editar siendo personal de la sede, sin
---     `dispatch.manage`.
---   * Un rol creado desde el portal no contaba como personal interno, porque
---     la lista de roles internos estaba escrita a mano en varias funciones.
---   * Las excepciones de permiso por persona existían en la base pero no había
---     cómo ponerlas.
---
--- Criterio: el permiso que se muestra en la matriz es el que decide. El
--- administrador sigue pudiendo todo. Aprobado por el dueño del producto el
--- 25 de septiembre de 2026.
--- ============================================================================
+-- Alinea la base con la matriz de permisos: cada acción exige el permiso que muestra
+-- la pantalla (no permisos inexistentes ni solo admin), los roles creados desde Permisos
+-- cuentan como internos y se pueden fijar excepciones por persona. Admin sigue pudiendo todo.
 
--- 1. Cambiar el estado del pedido: con `orders.status`, en sus sedes.
+-- Cambio de estado con orders.status, en las sedes propias.
 CREATE OR REPLACE FUNCTION public.change_order_status(_order_id uuid, _nuevo text)
  RETURNS void
  LANGUAGE plpgsql
@@ -41,10 +19,8 @@ begin
       using errcode = '42501';
   end if;
 
-  -- La función salta RLS, así que aplica a mano la misma regla de lectura de
-  -- `orders`: la sede tiene que ser de quien cambia el estado, y un asesor
-  -- puro solo mueve los pedidos que tiene asignados. Un pedido que no se
-  -- puede ver responde igual que uno que no existe.
+  -- Salta RLS: repite la regla de lectura de orders (sede y asesor puro). Un pedido
+  -- no visible responde igual que uno inexistente.
   select o.status into v_actual
     from public.orders o
    where o.id = _order_id
@@ -56,8 +32,7 @@ begin
 
   v_nuevo := _nuevo::public.order_status;
 
-  -- Máquina de estados. No se permite saltar pasos ni resucitar un pedido
-  -- entregado o cancelado.
+  -- Sin saltar pasos ni reabrir pedidos entregados o cancelados.
   v_permitidos := case v_actual
     when 'PENDIENTE'  then array['CONFIRMADO','CANCELADO']::public.order_status[]
     when 'CONFIRMADO' then array['PREPARANDO','CANCELADO']::public.order_status[]
@@ -80,7 +55,7 @@ begin
 end;
 $function$;
 
--- 2. Facturar: con `invoices.issue`, el permiso que sí existe, y solo en sus sedes.
+-- Facturar con invoices.issue, en las sedes propias.
 CREATE OR REPLACE FUNCTION public.issue_pos_invoice(_order_id uuid)
  RETURNS uuid
  LANGUAGE plpgsql
@@ -126,9 +101,7 @@ begin
     left join public.companies c on c.id = p.company_id
    where p.id = v_pedido.user_id;
 
-  -- El medio de pago real: el que el cliente eligió al pagar. Solo cuando no
-  -- hay registro de pago (venta de mostrador digitada por el vendedor) se cae
-  -- al texto genérico.
+  -- Medio de pago real; el texto genérico solo si no hay registro de pago (mostrador).
   select case pa.method
            when 'EFECTIVO'            then 'Efectivo'
            when 'PSE'                 then 'PSE'
@@ -183,15 +156,11 @@ begin
      where oi.order_id = _order_id
   loop
     v_tarifa := coalesce(r.tax_rate, 19);
-    -- En Colombia el precio de góndola ya incluye IVA: la base se despeja
-    -- hacia atrás, no se suma por encima.
+    -- El precio de góndola incluye IVA: la base se despeja hacia atrás.
     v_linea_base := round(r.subtotal_cop / (1 + v_tarifa / 100.0), 2);
     v_linea_iva  := r.subtotal_cop - v_linea_base;
 
-    -- OJO con `invoice_items.subtotal_cop`: en la LÍNEA sí es la base SIN
-    -- IVA (`v_linea_base`), y el valor con IVA va en `total_cop`. Es la
-    -- convención contraria a la que tenía la cabecera, y tenerlas las dos con
-    -- el mismo nombre en el mismo documento era la trampa entera.
+    -- En la línea, subtotal_cop es la base sin IVA y total_cop el valor con IVA.
     insert into public.invoice_items (
       invoice_id, description, code, presentation, quantity,
       unit_price_cop, tax_rate, tax_cop, subtotal_cop, total_cop
@@ -218,7 +187,7 @@ begin
 end;
 $function$;
 
--- 3. Entregar con código: `dispatch.manage` en lugar de un permiso inexistente.
+-- Entregar con código exige dispatch.manage.
 CREATE OR REPLACE FUNCTION public.entregar_por_codigo(_codigo text)
  RETURNS jsonb
  LANGUAGE plpgsql
@@ -262,9 +231,7 @@ begin
       using errcode = '22023';
   end if;
 
-  -- El cobro se comprueba ANTES que el estado y con mensaje propio. Es el
-  -- motivo por el que un pedido sin pagar nunca llegó a LISTO_PARA_RETIRO, y
-  -- decir solo «no está listo» hace que en el mostrador se entregue igual.
+  -- El cobro se revisa antes que el estado y con mensaje propio.
   if not public.pedido_cobrado(v_pedido.id) then
     raise exception
       'SIN_PAGO: el pedido % NO está pagado. No entregues la mercancía. Cuando entre el pago, vuelve a pasar el mismo código.',
@@ -301,8 +268,7 @@ begin
 end;
 $function$;
 
--- 4. Panel: las visitas se cuentan con `projects.read` y los chats con
---    `chat.reply`, los mismos permisos que abren esas pantallas.
+-- Visitas con projects.read y chats con chat.reply, los permisos de esas pantallas.
 CREATE OR REPLACE FUNCTION public.resumen_panel(_sedes uuid[] DEFAULT NULL::uuid[])
  RETURNS jsonb
  LANGUAGE plpgsql
@@ -317,7 +283,7 @@ declare
   v_proyectos  boolean := public.is_admin() or public.has_permission('projects.read');
   v_ventas     boolean := public.is_admin() or public.has_permission('analytics.read');
   v_chat       boolean := public.is_admin() or public.has_permission('chat.reply');
-  -- Lo pedido cruzado con lo permitido. El navegador solo puede reducir.
+  -- Intersección de lo pedido con lo permitido: el navegador solo puede reducir.
   v_sedes      uuid[] := public.sedes_efectivas(_sedes);
 begin
   if not public.is_staff() then
@@ -325,7 +291,6 @@ begin
   end if;
 
   select jsonb_build_object(
-    -- ── Lo que espera una acción ───────────────────────────────────────
     'por_confirmar', case when v_pedidos then (
       select count(*) from public.orders
        where status = 'PENDIENTE'
@@ -343,7 +308,6 @@ begin
        where status = 'ENVIADO'
          and (pickup_location_id is null or pickup_location_id = any(v_sedes))) end,
 
-    -- ── Cómo va el día ─────────────────────────────────────────────────
     'ventas_hoy', case when v_ventas then coalesce((
       select sum(total_cop) from public.orders
        where status <> 'CANCELADO' and created_at::date = current_date
@@ -357,8 +321,7 @@ begin
        where status <> 'CANCELADO'
          and created_at >= date_trunc('month', current_date)
          and (pickup_location_id is null or pickup_location_id = any(v_sedes))), 0) end,
-    -- El mismo tramo del mes pasado, no el mes pasado completo: comparar los
-    -- primeros 5 días contra 30 diría siempre que vamos peor.
+    -- Mismo tramo del mes anterior, no el mes completo.
     'ventas_mes_anterior', case when v_ventas then coalesce((
       select sum(total_cop) from public.orders
        where status <> 'CANCELADO'
@@ -368,9 +331,7 @@ begin
                              * interval '1 day'
          and (pickup_location_id is null or pickup_location_id = any(v_sedes))), 0) end,
 
-    -- ── Alertas de inventario ──────────────────────────────────────────
-    -- El inventario SIEMPRE está en una bodega, así que aquí no hay caso de
-    -- fila sin sede: se filtra sin excepción.
+    -- El inventario siempre tiene bodega: se filtra por sede sin excepción.
     'bajo_minimo', case when v_inventario then (
       select count(*) from public.inventory
        where min_qty is not null and min_qty > 0 and qty_available <= min_qty
@@ -393,10 +354,7 @@ begin
          order by (i.min_qty - i.qty_available) desc
          limit 6) x), '[]'::jsonb) end,
 
-    -- ── Agenda ─────────────────────────────────────────────────────────
-    -- Las visitas cuelgan de un proyecto y hoy no tienen sede asignada
-    -- (`technical_visits.location_id` está en null). Se filtran igual, para
-    -- que empiece a funcionar el día que la programación fije la sede.
+    -- technical_visits.location_id aún es null; el filtro queda listo para cuando se fije.
     'visitas_hoy', case when v_visitas then (
       select count(*) from public.technical_visits
        where scheduled_date = current_date and status = 'PROGRAMADA'
@@ -423,9 +381,7 @@ begin
            and (tv.location_id is null or tv.location_id = any(v_sedes))
          order by tv.scheduled_date limit 5) x), '[]'::jsonb) end,
 
-    -- ── Trabajo sin dueño ──────────────────────────────────────────────
-    -- Los proyectos NO tienen sede y no se les inventa una: son obras del
-    -- cliente, no operación de una tienda. Van sin filtrar a propósito.
+    -- Los proyectos no tienen sede: van sin filtrar a propósito.
     'proyectos_sin_asesor', case when v_proyectos then (
       select count(*) from public.projects pr
        where not exists (
@@ -434,9 +390,7 @@ begin
       select count(*) from public.projects
        where status not in ('COMPLETADO', 'CANCELADO')) end,
 
-    -- Un hilo queda "sin responder" cuando lo último que se escribió lo
-    -- escribió el cliente. Se acota por la sede del pedido cuando el hilo
-    -- cuelga de uno; los de proyecto no tienen sede.
+    -- Sin responder = el último mensaje es del cliente. Los hilos de proyecto no tienen sede.
     'sin_responder', case when v_chat then (
       select count(*) from (
         select distinct on (coalesce(cm.order_id, cm.project_id))
@@ -456,8 +410,7 @@ begin
 end;
 $function$;
 
--- 5. is_staff: es interno todo rol que no sea de cliente, también los
---    creados desde Permisos.
+-- Interno es todo rol que no sea de cliente, incluidos los creados desde Permisos.
 CREATE OR REPLACE FUNCTION public.is_staff()
  RETURNS boolean
  LANGUAGE sql
@@ -471,8 +424,7 @@ AS $function$
   );
 $function$;
 
--- 5. mi_estado_mfa: es interno todo rol que no sea de cliente, también los
---    creados desde Permisos.
+-- Misma regla de rol interno que is_staff().
 CREATE OR REPLACE FUNCTION public.mi_estado_mfa()
  RETURNS jsonb
  LANGUAGE sql
@@ -496,8 +448,7 @@ AS $function$
   );
 $function$;
 
--- 5. estado_mfa_usuario: es interno todo rol que no sea de cliente, también los
---    creados desde Permisos.
+-- Misma regla de rol interno que is_staff().
 CREATE OR REPLACE FUNCTION public.estado_mfa_usuario(_user_id uuid)
  RETURNS jsonb
  LANGUAGE plpgsql
@@ -526,8 +477,7 @@ begin
 end;
 $function$;
 
--- 5. actualizar_cliente_persona: es interno todo rol que no sea de cliente, también los
---    creados desde Permisos.
+-- Misma regla de rol interno que is_staff().
 CREATE OR REPLACE FUNCTION public.actualizar_cliente_persona(_user_id uuid, _datos jsonb)
  RETURNS jsonb
  LANGUAGE plpgsql
@@ -551,8 +501,7 @@ begin
     raise exception 'NOT_FOUND: ese cliente no existe' using errcode = 'P0002';
   end if;
 
-  -- No se toca a nadie del personal interno desde la pantalla de Clientes:
-  -- los datos de un empleado se cambian en Usuarios, con sus propias reglas.
+  -- El personal interno se edita en Usuarios, con sus propias reglas.
   if exists (
     select 1 from public.user_roles ur
     where ur.user_id = _user_id
@@ -562,9 +511,7 @@ begin
       using errcode = '42501';
   end if;
 
-  -- Solo se escribe lo que venga en el objeto: una clave ausente significa
-  -- "no lo cambies". Mandar null borraría el dato sin querer al guardar un
-  -- formulario que no mostraba ese campo.
+  -- Clave ausente = no cambiar; un null borraría el dato de campos no mostrados.
   update public.profiles set
     first_name      = coalesce(_datos ->> 'first_name', first_name),
     last_name       = coalesce(_datos ->> 'last_name', last_name),
@@ -580,7 +527,7 @@ begin
     updated_at      = v_cuando
   where id = _user_id;
 
-  -- Se relee para contar lo que la base GUARDÓ, ya normalizado.
+  -- Se relee para comparar lo guardado ya normalizado por los disparadores.
   select * into v_despues from public.profiles where id = _user_id;
 
   if coalesce(v_antes.first_name,'') is distinct from coalesce(v_despues.first_name,'')
@@ -631,7 +578,7 @@ begin
 end;
 $function$;
 
--- 5. clientes_personas_naturales: excluye al personal con la misma regla.
+-- Excluye al personal con la misma regla de rol interno.
 CREATE OR REPLACE FUNCTION public.clientes_personas_naturales(_busqueda text DEFAULT NULL::text)
  RETURNS TABLE(id uuid, nombre text, correo text, telefono text, ciudad text, tipo_documento text, documento text, segmento text, foto_url text, estado text, pedidos bigint, creado timestamp with time zone)
  LANGUAGE sql
@@ -639,15 +586,13 @@ CREATE OR REPLACE FUNCTION public.clientes_personas_naturales(_busqueda text DEF
  SET search_path TO 'public'
 AS $function$
   with roles_del_personal as (
-    -- Los mismos roles que `is_staff()` considera internos: todos menos los
-    -- de cliente, también los que se creen desde Permisos.
+    -- Mismos roles internos que is_staff().
     select r as rol
       from unnest(enum_range(null::public.app_role)) as r
      where r not in ('CLIENTE','CLIENTE_B2B')
   )
   select
     p.id,
-    -- El nombre completo ya viene normalizado en mayúsculas por disparador.
     nullif(trim(coalesce(p.first_name, '') || ' ' || coalesce(p.last_name, '')), '') as nombre,
     p.email,
     p.phone,
@@ -676,13 +621,13 @@ AS $function$
       or p.first_name ilike '%' || trim(_busqueda) || '%'
       or p.last_name ilike '%' || trim(_busqueda) || '%'
       or p.email ilike '%' || trim(_busqueda) || '%'
-      -- El documento se guarda sin puntos, así que se limpia lo que escriban.
+      -- El documento se guarda sin puntos; se limpia la búsqueda igual.
       or p.document_number ilike '%' || regexp_replace(coalesce(_busqueda, ''), '[^0-9A-Za-z-]', '', 'g') || '%'
     )
   order by nombre nulls last;
 $function$;
 
--- 5. solo_asesor: la misma regla para los roles creados.
+-- Misma regla de rol interno para los roles creados.
 CREATE OR REPLACE FUNCTION public.solo_asesor(_user_id uuid DEFAULT NULL::uuid)
  RETURNS boolean
  LANGUAGE sql
@@ -697,16 +642,13 @@ AS $function$
     and not exists (
       select 1 from public.user_roles ur, quien q
        where ur.user_id = q.id
-         -- Cualquier otro rol interno, también uno creado desde Permisos,
-         -- le quita la condición de asesor puro. Técnico no, como antes.
+         -- Cualquier otro rol interno quita la condición de asesor puro; TECNICO no.
          and ur.role not in ('ASESOR', 'TECNICO', 'CLIENTE', 'CLIENTE_B2B')
     );
 $function$;
 
--- 7. Envíos: el personal los sigue leyendo en su sede (política
---    `shipments_select`), pero escribirlos exige `dispatch.manage`. Los envíos
---    que crea el pedido y la entrega por código pasan por funciones con
---    dueño y no dependen de esta política.
+-- Envíos: lectura por sede (shipments_select), escritura con dispatch.manage. Pedidos
+-- y entrega por código usan funciones con dueño y no dependen de esta política.
 drop policy if exists shipments_staff on public.shipments;
 
 create policy shipments_staff_insert on public.shipments
@@ -726,8 +668,7 @@ create policy shipments_staff_delete on public.shipments
   using ((select public.has_permission('dispatch.manage'))
          and (select public.puede_ver_sede(location_id)));
 
--- 6. Excepciones de permiso por persona. La tabla y su lectura existían;
---    faltaba cómo escribirlas. Mismo patrón que `set_user_view`.
+-- Excepciones de permiso por persona, con el mismo patrón que set_user_view.
 create or replace function public.set_user_permission(
   _user_id uuid, _permission_code text, _granted boolean, _reason text default null
 ) returns void

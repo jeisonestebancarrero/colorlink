@@ -34,8 +34,6 @@ interface DashboardPageProps {
 }
 
 export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
-  // FASE 4 — bloques de catálogo del panel desde Supabase. Los proyectos
-  // siguen viniendo de ProjectContext hasta la FASE 5.
   const { data: PINTUCO_PRODUCTS } = useProducts();
   const { data: PINTUCO_SOLUTION_KITS } = useSolutionKits();
   const { data: PINTUCO_COLOR_PALETTES } = useColorPalette();
@@ -46,8 +44,6 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
 
   const [selectedProblemTab, setSelectedProblemTab] = useState<string>('fachada');
 
-  // Proyecto activo. FASE 5: se retiró el fallback al id de dato mock
-  // 'proj-horiz-001', que con proyectos reales nunca coincide.
   const currentProject = activeProject || projects[0];
 
   const formatCOP = (num: number) => {
@@ -145,9 +141,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
 
   return (
     <div className="space-y-8 pb-16">
-      {/* Alguien espera una decisión que solo este usuario puede tomar: va
-          antes que cualquier banner comercial. Se dibuja solo si hay
-          solicitudes pendientes. */}
+      {/* Primero: hay solicitudes esperando una decisión de este usuario. */}
       <AvisoVinculaciones onNavigate={onNavigate} />
 
       {/* Top Value Banner */}

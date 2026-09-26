@@ -2,12 +2,8 @@ import { supabase } from '../lib/supabase';
 import { formatearFecha } from './backoffice';
 
 /**
- * Contabilidad en partida doble.
- *
- * ALCANCE: registra lo que el sistema ya sabe —facturas, recepciones,
- * recaudos— y entrega libro auxiliar y balance de prueba. No emite medios
- * magnéticos ni información exógena, no calcula retenciones y no reemplaza a
- * un contador público. La pantalla lo dice para que nadie lo descubra tarde.
+ * Contabilidad en partida doble: registra facturas, recepciones y recaudos y da
+ * auxiliar y balance de prueba. No calcula retenciones ni reemplaza a un contador.
  */
 
 function errorLegible(contexto: string, error: { message: string }): Error {
@@ -105,7 +101,7 @@ export interface SaldoCuenta {
   saldo: number;
 }
 
-/** El documento que originó un comprobante, con sus líneas. */
+/** Documento que originó un comprobante, con sus líneas. */
 export interface DocumentoOrigen {
   tipo: 'FACTURA' | 'RECEPCION' | 'RECAUDO' | 'MANUAL';
   numero?: string;
@@ -204,13 +200,7 @@ export const contabilidadService = {
     }));
   },
 
-  /**
-   * El documento que originó el comprobante.
-   *
-   * Va por función y no consultando las tablas porque una recepción incluye
-   * el costo de compra, que es confidencial: el servidor decide si lo
-   * devuelve según el permiso de quien pregunta.
-   */
+  /** Por función porque una recepción incluye el costo de compra y el servidor decide si lo devuelve. */
   async documento(entryId: string): Promise<DocumentoOrigen> {
     const { data, error } = await supabase.rpc('detalle_documento_comprobante', {
       _entry_id: entryId,
@@ -244,7 +234,7 @@ export const contabilidadService = {
     };
   },
 
-  /** Movimientos de una cuenta: la consulta más frecuente de un contador. */
+  /** Movimientos de una cuenta. */
   async auxiliar(cuenta: string, filtro?: { desde?: string; hasta?: string }): Promise<Array<{
     entryId: string;
     numero: string;
@@ -316,7 +306,7 @@ export const contabilidadService = {
     }));
   },
 
-  /** Comprobación global: la suma de débitos debe igualar la de créditos. */
+  /** Suma de débitos igual a la de créditos. */
   async cuadra(): Promise<{ debitos: number; creditos: number; cuadra: boolean; comprobantes: number }> {
     const { data, error } = await supabase.rpc('contabilidad_cuadra');
     if (error) throw errorLegible('cuadra', error);

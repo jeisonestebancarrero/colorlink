@@ -1,16 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import { inicialesDe } from './AvatarCliente';
 
-/**
- * Iniciales del avatar de un cliente.
- *
- * Importa porque hoy casi nadie tiene foto: las iniciales son lo que se ve en
- * la vista de tarjetas, sesenta veces seguidas. Si dos clientes distintos dan
- * las mismas letras, la cuadrícula deja de servir para reconocerlos.
- */
+/** Las iniciales identifican al cliente en la cuadrícula; deben distinguir empresas parecidas. */
 describe('Iniciales de un cliente', () => {
   it('descarta la forma jurídica, que no identifica a nadie', () => {
-    // Sin descartarla, estas dos empresas distintas darían las mismas letras.
+    // Sin descartar la palabra común, ambas darían las mismas letras.
     expect(inicialesDe('CONSTRUCTORA HORIZONTE S.A.S.')).toBe('CH');
     expect(inicialesDe('COMERCIALIZADORA ANDINA LTDA')).toBe('CA');
   });
@@ -31,7 +25,7 @@ describe('Iniciales de un cliente', () => {
   });
 
   it('un nombre vacío no rompe la tarjeta', () => {
-    // Un perfil recién creado puede no tener nombre todavía.
+    // Un perfil recién creado puede no tener nombre.
     expect(inicialesDe('')).toBe('?');
     expect(inicialesDe('   ')).toBe('?');
     expect(inicialesDe('S.A.S.')).toBe('?');

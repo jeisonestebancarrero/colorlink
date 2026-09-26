@@ -8,21 +8,12 @@ import type {
 } from '../types';
 
 /**
- * Traductores de fila de Postgres al tipo que ya consume el frontend.
- * ============================================================
- * Esta es la pieza que permite cambiar el origen de los datos sin tocar una
- * sola línea de JSX: los servicios devuelven objetos IDÉNTICOS en forma a los
- * que hoy exportan src/data/*.ts.
- *
- * CONVENIO SOBRE `id`:
- * Se devuelve `external_ref` ('prod-koraza-5'), no el UUID de la base. Hay
- * referencias literales a esos identificadores en el código existente
- * (por ejemplo el producto por defecto de PaintCalculatorPage) y en los pasos
- * de los kits. Cambiarlos rompería esas referencias. El UUID real viaja en
- * `dbId` para las fases de carrito y pedidos, que sí lo necesitan.
+ * Traductores de fila de Postgres a los tipos del frontend, con la misma forma que
+ * src/data/*.ts. `id` es `external_ref` porque hay referencias literales a él;
+ * el UUID viaja en `dbId`.
  */
 
-// ---------- filas tal como llegan de PostgREST ----------
+// Filas tal como llegan de PostgREST
 export interface ColorRow {
   code: string;
   name: string;
@@ -72,7 +63,7 @@ const num = (v: string | number | null | undefined, porDefecto = 0): number => {
   return Number.isFinite(n) ? n : porDefecto;
 };
 
-/** Deriva "R, G, B" a partir del hex. No inventa: es el mismo color. */
+/** "R, G, B" derivado del hex. */
 export function hexARgb(hex: string): string {
   const limpio = hex.replace('#', '');
   const r = parseInt(limpio.slice(0, 2), 16);
@@ -87,8 +78,7 @@ export function aColorSwatch(row: ColorRow): ColorSwatch {
     name: row.name,
     hex: row.hex,
     family: row.family,
-    // `rgb` es obligatorio en ColorSwatch. Si la fila no lo trae, se calcula
-    // desde el hex en lugar de dejarlo vacío.
+    // `rgb` es obligatorio en ColorSwatch; si falta, se deriva del hex.
     rgb: row.rgb ?? hexARgb(row.hex),
     recommendedProduct: row.recommended_product ?? '',
     description: row.description ?? '',
@@ -100,13 +90,12 @@ export function aPresentacion(
   disponibilidad: Map<string, StoreProductPresentation['stockStatus']>
 ): StoreProductPresentation {
   return {
-    // El UUID real: el carrito y los pedidos lo necesitarán para validar
-    // precio y existencias contra el servidor (FASES 8 y 9).
+    // UUID real, necesario para validar precio y existencias en el servidor.
     id: row.id,
     label: row.label,
     priceCOP: num(row.price_cop),
     volumeLiters: row.volume_liters === null ? undefined : num(row.volume_liters),
-    // Derivada del inventario real, nunca escrita a mano (MÓDULO 20).
+    // Derivada del inventario, nunca escrita a mano.
     stockStatus: disponibilidad.get(row.id) ?? 'PreOrder',
   };
 }
@@ -139,8 +128,7 @@ export function aStoreProduct(
     environment: row.environment ?? 'Ambos',
     finish: row.finish ?? 'N/A',
     coverage: row.coverage ?? '',
-    // Las herramientas no tienen rendimiento: se guardan como NULL en la base
-    // y aquí se proyectan como 0, que es lo que el tipo del frontend espera.
+    // Las herramientas no tienen rendimiento: NULL en la base, 0 en el frontend.
     spreadRateM2PerGal: num(row.spread_rate_m2_per_gal),
     dryingTime: row.drying_time ?? '',
     isPopular: row.is_popular ?? false,
@@ -156,7 +144,7 @@ export function aStoreProduct(
   };
 }
 
-// ---------- soluciones ----------
+// Soluciones
 export interface SolutionRow {
   external_ref: string | null;
   id: string;
@@ -236,12 +224,8 @@ export function aSolutionKit(row: SolutionRow): SolutionKit {
       productId: p.products?.external_ref ?? '',
       presentation: p.presentation_label ?? '',
       quantityFor85m2: num(p.quantity_for_85m2, 1),
-      // ORDEN DE AUTORIDAD DEL PRECIO:
-      // 1. La variante real del producto, cuando el paso la resuelve. Es el
-      //    SKU que se vende y su precio es el único válido.
-      // 2. El precio publicado del kit, cuando la etiqueta del paso no
-      //    corresponde a ninguna variante (deuda de datos conocida).
-      // Nunca se acepta un precio enviado por el navegador.
+      // Precio: el de la variante real si el paso la resuelve; si no, el publicado del kit.
+      // Nunca se acepta un precio del navegador.
       unitPriceCOP: p.product_variants
         ? num(p.product_variants.price_cop)
         : num(p.unit_price_cop),
@@ -251,7 +235,7 @@ export function aSolutionKit(row: SolutionRow): SolutionKit {
   };
 }
 
-// ---------- puntos de retiro ----------
+// Puntos de retiro
 export interface PickupLocationRow {
   id: string;
   external_ref: string | null;

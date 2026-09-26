@@ -14,26 +14,14 @@ import type {
 } from '../types';
 
 /**
- * Servicio de proyectos respaldado por Supabase — FASE 5.
- *
- * Conserva las firmas de la versión simulada para que ProjectContext y las
- * páginas no cambien.
- *
- * SOBRE EL AGREGADO `Project` (riesgo R9 de la auditoría):
- * El tipo del frontend es un objeto profundamente anidado que en SQL son
- * seis tablas. La consulta las trae en una sola llamada con relaciones
- * anidadas y `montarProyecto` las vuelve a ensamblar. Devolver filas planas
- * rompería ProjectDetailPage, que son 842 líneas construidas sobre esa forma.
+ * Proyectos sobre Supabase. `Project` es un agregado de seis tablas: se trae con
+ * relaciones anidadas y `montarProyecto` lo reensambla en la forma del frontend.
  */
 
 const BUCKET = 'project-files';
 const VIGENCIA_URL_FIRMADA = 60 * 60; // 1 hora
 
-// ============================================================
-// ESTADOS
-// ============================================================
-// La base usa la nomenclatura del MÓDULO 9; el frontend su propia unión.
-// La traducción vive aquí y en ningún otro sitio.
+// Traducción única entre los estados de la base y la unión del frontend.
 type DbStatus =
   | 'PENDIENTE' | 'EN_ANALISIS' | 'EN_PROCESO'
   | 'REQUIERE_INFORMACION' | 'COMPLETADO' | 'CANCELADO';
@@ -44,9 +32,7 @@ const DB_A_FRONT: Record<DbStatus, ProjectStatus | null> = {
   EN_PROCESO: 'in_progress',
   REQUIERE_INFORMACION: 'requires_info',
   COMPLETADO: 'completed',
-  // La unión ProjectStatus no contempla la cancelación y ninguna pantalla
-  // sabe pintarla. Estos proyectos se excluyen del listado hasta que se
-  // añada el valor al tipo y un `case` en Badge.tsx.
+  // ProjectStatus no contempla la cancelación: se excluyen hasta añadirla al tipo y a Badge.tsx.
   CANCELADO: null,
 };
 
@@ -63,9 +49,7 @@ function errorLegible(contexto: string, error: { message: string }): Error {
   return new Error('No fue posible completar la operación sobre el proyecto. Inténtalo nuevamente.');
 }
 
-// ============================================================
-// CONSULTA
-// ============================================================
+// Consulta
 const PROJECT_SELECT = `
   id, code, name, description, city, address, project_type, area_m2,
   required_date, surface, environment, current_color, selected_color,
@@ -160,10 +144,7 @@ const num = (v: string | number | null | undefined): number => {
 const formatearTamano = (bytes: number | null): string =>
   bytes ? `${(bytes / (1024 * 1024)).toFixed(1)} MB` : '';
 
-/**
- * Genera URLs firmadas para las fotos. El bucket es privado: no existen
- * enlaces públicos permanentes a imágenes de obra.
- */
+/** URLs firmadas: el bucket de fotos de obra es privado. */
 async function firmarFotos(
   archivos: FilaProyecto['project_files']
 ): Promise<ProjectPhoto[]> {
@@ -210,7 +191,7 @@ const ANALISIS_VACIO: PreliminaryAnalysis = {
 
 const SERVICIO_TECNICO_VACIO: TechnicalService = { requested: false, status: 'none' };
 
-/** Estados de la tabla -> unión TechnicalService['status'] del frontend. */
+/** Estados de la tabla → TechnicalService['status']. */
 const ESTADO_ASESORIA: Record<string, TechnicalService['status']> = {
   SOLICITADO: 'solicitado',
   PROGRAMADO: 'programado',
@@ -222,7 +203,7 @@ const ESTADO_ASESORIA: Record<string, TechnicalService['status']> = {
 function montarServicioTecnico(
   filas: FilaProyecto['technical_assistance']
 ): TechnicalService {
-  // Se toma la solicitud más reciente que siga viva.
+  // La solicitud viva más reciente.
   const viva = (filas ?? [])
     .filter((a) => a.status !== 'CANCELADO')
     .sort((a, b) => new Date(b.requested_at).getTime() - new Date(a.requested_at).getTime())[0];
@@ -248,7 +229,7 @@ async function montarProyecto(fila: FilaProyecto): Promise<Project> {
     .map((pp) => pp.pathologies?.name)
     .filter((n): n is string => Boolean(n)) as ConditionType[];
 
-  // Se toma el diagnóstico más reciente.
+  // El diagnóstico más reciente.
   const diagnosticos = [...(fila.project_diagnoses ?? [])].sort(
     (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
   );
@@ -308,16 +289,11 @@ async function montarProyecto(fila: FilaProyecto): Promise<Project> {
   };
 }
 
-// ============================================================
-// SUBIDA DE FOTOS
-// ============================================================
+// Subida de fotos
+
 /**
- * Sube las fotos de un proyecto a Storage y registra sus metadatos.
- *
- * Se ejecuta DESPUÉS de crear el proyecto porque la ruta incluye su id, que
- * es lo que usan las políticas del bucket para decidir el permiso.
- * Un fallo aquí no invalida el proyecto: se registra y se continúa, porque
- * perder el proyecto entero por una foto sería peor que quedarse sin ella.
+ * Tras crear el proyecto, porque la ruta lleva su id y de ella dependen las políticas
+ * del bucket. Un fallo se registra sin invalidar el proyecto.
  */
 async function subirFotos(projectId: string, fotos: ProjectPhoto[]): Promise<void> {
   const conArchivo = fotos.filter((f) => f.file instanceof File);
@@ -352,17 +328,14 @@ async function subirFotos(projectId: string, fotos: ProjectPhoto[]): Promise<voi
     });
 
     if (errorFila) {
-      // El binario quedó subido pero sin metadatos: se elimina para no
-      // dejar huérfanos en el bucket.
+      // Binario sin metadatos: se elimina para no dejar huérfanos.
       console.error('[projects] fallo al registrar la foto:', errorFila.message);
       await supabase.storage.from(BUCKET).remove([ruta]);
     }
   }
 }
 
-// ============================================================
-// SERVICIO
-// ============================================================
+// Servicio
 export const projectService = {
   async getProjects(filters?: { status?: ProjectStatus; search?: string }): Promise<Project[]> {
     let consulta = supabase
@@ -398,17 +371,8 @@ export const projectService = {
   },
 
   /**
-   * Crea un proyecto completo.
-   *
-   * La escritura en las cinco tablas ocurre dentro de la función
-   * public.create_project: o se crea todo, o nada.
-   *
-   * EL DIAGNÓSTICO YA NO SE MANDA. Lo calcula `diagnosticar_proyecto` en la
-   * base (20260904100004) contra el catálogo real. Antes lo armaba el
-   * navegador con códigos y precios escritos a mano —ninguno existía en
-   * `products`— y el servidor guardaba lo que le llegara, así que cualquiera
-   * podía fijarse su propio nivel de atención y su presupuesto desde la
-   * consola. Aquí solo viajan los datos que el cliente sí escribió.
+   * Crea el proyecto en una transacción (public.create_project). El diagnóstico no se
+   * envía: lo calcula `diagnosticar_proyecto` en la base contra el catálogo.
    */
   async createProject(formData: ProjectFormData): Promise<Project> {
     const payload = {
@@ -449,8 +413,7 @@ export const projectService = {
     const creado = await this.getProjectById(projectId);
     if (!creado) throw new Error('El proyecto se creó pero no fue posible recuperarlo.');
 
-    // La notificación la emite el trigger projects_notificar_creacion
-    // dentro de la misma transacción que crea el proyecto (FASE 13).
+    // La notificación la emite el trigger projects_notificar_creacion en la misma transacción.
 
     return creado;
   },
@@ -482,14 +445,7 @@ export const projectService = {
     return actualizado;
   },
 
-  /**
-   * Solicita acompañamiento técnico (MÓDULO 21/22).
-   *
-   * La solicitud y el avance del paso 6 de la cronología ocurren dentro de
-   * public.request_technical_assistance, en una sola transacción. La función
-   * además evita duplicados: pulsar el botón dos veces actualiza la solicitud
-   * abierta en lugar de generar dos visitas.
-   */
+  /** Solicitud y avance de cronología en una transacción; la función evita duplicados. */
   async requestTechnicalAssistance(
     projectId: string,
     details: { notes?: string; contactPhone?: string; preferredDate?: string }
@@ -508,5 +464,4 @@ export const projectService = {
   },
 };
 
-/** Se reexporta el tipo para quien lo necesite en fases posteriores. */
 export type { NotificationItem };

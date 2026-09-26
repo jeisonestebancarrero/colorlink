@@ -33,18 +33,12 @@ import { CotizacionFormal } from './CotizacionFormal';
 import { DestinoEnvioSelector, QuienRecibeFormulario } from './DestinoEnvio';
 
 interface CartDrawerProps {
-  /**
-   * La aplicación no usa librería de enrutado: la navegación es estado en
-   * App.tsx. Se recibe para poder llevar al visitante a entrar o registrarse
-   * sin perder el carrito. App.tsx ya lo pasaba, pero el componente lo
-   * ignoraba.
-   */
+  /** Navegación por estado en App.tsx; permite ir a entrar o registrarse sin perder el carrito. */
   onNavigate?: (page: string, param?: string) => void;
 }
 
 export const CartDrawer: React.FC<CartDrawerProps> = ({ onNavigate }) => {
-  // FASE 4 — puntos de retiro desde Supabase. La lógica del carrito y del
-  // pedido sigue en CartContext hasta las FASES 8 y 9.
+  // Puntos de retiro desde Supabase; carrito y pedido siguen en CartContext.
   const { data: PINTUCO_STORES } = usePickupStores();
 
   const {
@@ -88,9 +82,8 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ onNavigate }) => {
   const [isGeneratingQuote, setIsGeneratingQuote] = useState(false);
   const [showStoreDropdown, setShowStoreDropdown] = useState(false);
 
-  // El desglose se calcula sobre el total YA descontado, igual que la factura:
-  // si se calculara sobre el subtotal, el IVA del carrito no cuadraría con el
-  // de la factura en cuanto hubiera un descuento de kit.
+  // IVA sobre el total ya descontado, igual que la factura; sobre el subtotal no
+  // cuadraría con descuentos de kit.
   const { data: tarifaIva } = useTarifaIva();
   const desglose = desglosarIvaIncluido(totalCOP, tarifaIva);
 
@@ -102,13 +95,8 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ onNavigate }) => {
     }).format(num);
   };
 
-  // Antes esto llamaba a window.print() sobre la tienda entera y salía la
-  // barra de navegación y el catálogo. Ahora abre un documento de cotización
-  // de verdad, con emisor, NIT, IVA discriminado, vigencia y condiciones.
-  //
-  // La cotización lleva los datos del cliente y queda como documento a su
-  // nombre, así que exige cuenta. Se le pide aquí, con el carrito ya armado
-  // delante, en lugar de habérsela pedido al añadir el primer producto.
+  // Abre un documento de cotización formal (emisor, NIT, IVA, vigencia). Queda a
+  // nombre del cliente, por eso exige cuenta, pedida aquí y no al añadir productos.
   const handleDownloadQuote = () => {
     if (!isAuthenticated) {
       pedirSesionPara('cotizacion');
@@ -126,20 +114,8 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ onNavigate }) => {
   if (!isCartOpen && !isCheckoutSuccessOpen && !pedidoPorPagar) return null;
 
   /**
-   * Se dibuja en un PORTAL, colgado de `document.body`.
-   *
-   * El cajón se veía cortado por arriba: le faltaba su cabecera con el título
-   * y la X. No era un problema de altura —es `fixed inset-y-0`, ocupa toda la
-   * pantalla— sino de orden de pintado. `CartDrawer` cuelga de
-   * `<main className="relative z-10">`, y eso crea un CONTEXTO DE APILAMIENTO:
-   * su `z-50` solo compite dentro de ese contenedor, así que la cabecera del
-   * sitio (`sticky z-40`, hermana de `main`) se pintaba encima de los primeros
-   * 220 píxeles del cajón.
-   *
-   * Subir el número no lo arregla: mientras siga dentro de `main`, cualquier
-   * `z` pierde contra un hermano de `main`. Un portal lo saca de ahí y el
-   * problema desaparece de raíz, que es lo que se espera de un cajón o un
-   * diálogo: se dibujan sobre TODO.
+   * Portal a `document.body`: dentro de `main` (z-10) cualquier z pierde contra la
+   * cabecera sticky del sitio y el cajón quedaba tapado por arriba.
    */
   return createPortal(
     <>
@@ -153,8 +129,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ onNavigate }) => {
         />
       )}
 
-      {/* El pago se abre apenas el pedido queda creado: sin cobro el pedido no
-          se alista, así que confirmarlo sin pagar no significaría nada. */}
+      {/* El pago se abre al crear el pedido: sin cobro el pedido no se alista. */}
       {pedidoPorPagar && (
         <PagoModal
           orderId={pedidoPorPagar.id}
@@ -165,7 +140,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ onNavigate }) => {
         />
       )}
 
-      {/* Cart Drawer Backdrop */}
+      {/* Fondo del cajón */}
       {isCartOpen && (
         <div className="fixed inset-0 z-50 overflow-hidden bg-slate-900/60 backdrop-blur-xs transition-opacity animate-in fade-in">
           <div className="absolute inset-0" onClick={() => setIsCartOpen(false)} />
@@ -320,9 +295,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ onNavigate }) => {
                             />
                           </div>
 
-                          {/* Al retirar en tienda también hay que saber a
-                              quién se le entrega: el punto de venta verifica
-                              el documento. El servidor lo exige igual. */}
+                          {/* El punto de venta verifica el documento de quien recibe. */}
                           <QuienRecibeFormulario />
                         </div>
                       ) : (
@@ -452,12 +425,8 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ onNavigate }) => {
                       <span className="font-semibold text-blue-700">INCLUIDA ($0)</span>
                     </div>
 
-                    {/* Desglose del IVA.
-                        Los precios de góndola ya lo incluyen, así que aquí NO
-                        se suma nada: se despeja hacia atrás con el mismo
-                        cálculo de `emitir_factura_pos`, y por eso el total
-                        no cambia. Sin estas dos líneas el cliente veía un
-                        precio sin saber si al pagar le sumarían el 19 %. */}
+                    {/* Desglose del IVA: los precios ya lo incluyen, se despeja con el
+                        mismo cálculo de `emitir_factura_pos` y el total no cambia. */}
                     <div className="pt-2 border-t border-dashed border-slate-300 space-y-1.5">
                       <div className="flex justify-between text-slate-500">
                         <span>Base gravable:</span>
@@ -481,9 +450,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ onNavigate }) => {
                     </p>
                   </div>
 
-                  {/* Se pide la cuenta AQUÍ, no al añadir al carrito. Lo que
-                      la persona armó sigue arriba, a la vista, y se recupera
-                      tal cual después de entrar. */}
+                  {/* La cuenta se pide aquí, con el carrito a la vista; se conserva al entrar. */}
                   {necesitaSesionPara ? (
                     <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 space-y-3">
                       <div className="flex items-start gap-2.5">
@@ -571,13 +538,11 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ onNavigate }) => {
         </div>
       )}
 
-      {/* Order Confirmation Modal */}
+      {/* Confirmación del pedido */}
       {isCheckoutSuccessOpen && (
         <div className="fixed inset-0 z-60 overflow-y-auto bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 text-center space-y-4 animate-in zoom-in-95 duration-200">
-            {/* El estado del pedido depende del cobro, no de haber llegado a
-                esta pantalla: cerrar la ventana de pago dejaba antes un
-                "registrada con éxito" sobre un pedido que nadie pagó. */}
+            {/* El estado depende del cobro, no de haber llegado a esta pantalla. */}
             <div
               className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto shadow-inner ${
                 ultimoPedidoPagado

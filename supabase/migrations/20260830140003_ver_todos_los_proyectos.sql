@@ -1,23 +1,5 @@
--- ============================================================
--- Separar "abrir el módulo" de "ver todas las obras"
--- ============================================================
--- La migración anterior hizo que `can_access_project` aceptara a cualquiera
--- con el permiso `projects.read`. La intención era buena —conceder la
--- aplicación Proyectos a Gerencia y que no viera una lista vacía— pero el
--- efecto fue el contrario del deseado: el rol TECNICO ya tenía `projects.read`
--- en su línea base, así que todo técnico pasó a ver TODAS las obras, incluida
--- la dirección de la casa de clientes que no atiende.
---
--- El error de fondo fue confundir dos cosas distintas:
---   · `projects.read`     — puedo abrir el módulo Proyectos.
---   · `projects.read_all` — veo todas las obras, no solo las mías o las que
---                           me asignaron.
---
--- Con la separación, el técnico conserva su módulo y vuelve a ver únicamente
--- lo que le asignaron, y el administrador puede dar visión completa a quien
--- la necesite —Gerencia, Servicio al Cliente— desde la misma pantalla de
--- permisos, sin tocar código.
--- ============================================================
+-- Separa projects.read (abrir el módulo) de projects.read_all (ver todas las obras):
+-- con solo projects.read, todo técnico veía obras y direcciones que no atiende.
 
 insert into public.permissions (code, module, action, label, description, is_critical, sort_order)
 values (
@@ -28,8 +10,7 @@ values (
 )
 on conflict (code) do nothing;
 
--- Quiénes lo tienen por su rol. El técnico NO: su alcance es la obra que le
--- asignaron, y ese era justamente el problema.
+-- El técnico no lo recibe: su alcance son las obras asignadas.
 insert into public.role_permissions (role, permission_code, granted)
 values
   ('ADMINISTRADOR',    'projects.read_all', true),

@@ -3,16 +3,8 @@ import { readFileSync, existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 /**
- * Panel y analítica.
- *
- * Lo que se vigila:
- *   1. Que un cliente no pueda leer ni el panel ni la analítica. Son cifras de
- *      negocio: ventas, margen, rendimiento por tienda.
- *   2. Que el margen se calcule con el costo CONGELADO en la venta y no con el
- *      del catálogo. Si se usara el del catálogo, cambiar un costo hoy
- *      reescribiría el margen de ventas ya cerradas.
- *   3. Que los filtros acoten de verdad, y que un filtro vacío no se confunda
- *      con "ningún resultado".
+ * Panel y analítica: vedados a clientes; el margen usa el costo congelado en la
+ * venta, no el del catálogo; los filtros acotan y un filtro vacío no equivale a "sin resultados".
  */
 
 function leerEnvLocal(): Record<string, string> {
@@ -75,7 +67,6 @@ describe.skipIf(!disponible)('Panel y analítica', () => {
     [tAdmin, tCliente] = await Promise.all([login(ADMIN), login(CLIENTE)]);
   });
 
-  // ── Permisos ───────────────────────────────────────────────────────────
   it('un cliente no puede abrir el panel interno', async () => {
     const r = await rpc('resumen_panel', tCliente);
     expect(r.ok).toBe(false);
@@ -94,7 +85,6 @@ describe.skipIf(!disponible)('Panel y analítica', () => {
     expect(JSON.stringify(await r.json())).toMatch(/FORBIDDEN/);
   });
 
-  // ── Panel ──────────────────────────────────────────────────────────────
   it('el panel responde con la bandeja del día', async () => {
     const r = await rpc('resumen_panel', tAdmin);
     expect(r.ok).toBe(true);
@@ -112,7 +102,6 @@ describe.skipIf(!disponible)('Panel y analítica', () => {
     expect(Number(d.ventas_mes)).toBeGreaterThanOrEqual(0);
   });
 
-  // ── Analítica ──────────────────────────────────────────────────────────
   it('la analítica cuadra: ingresos, margen y cortes', async () => {
     const r = await rpc('analitica_ventas', tAdmin);
     expect(r.ok).toBe(true);
@@ -120,8 +109,7 @@ describe.skipIf(!disponible)('Panel y analítica', () => {
 
     expect(Number(d.ingresos)).toBeGreaterThan(0);
     expect(d.ver_costos).toBe(true);
-    // El margen nunca puede superar el ingreso: sería vender por debajo del
-    // costo en negativo, que es aritméticamente imposible.
+    // El margen no puede superar el ingreso.
     expect(Number(d.margen)).toBeLessThanOrEqual(Number(d.ingresos));
     expect(Array.isArray(d.por_mes)).toBe(true);
     expect(Array.isArray(d.por_punto)).toBe(true);
@@ -134,8 +122,7 @@ describe.skipIf(!disponible)('Panel y analítica', () => {
     const suma = (filas: Array<{ ingresos: number }>) =>
       filas.reduce((s, f) => s + Number(f.ingresos), 0);
 
-    // Cada corte reparte exactamente los mismos ingresos; si no cuadran, hay
-    // filas duplicadas o perdidas en algún join.
+    // Cada corte reparte los mismos ingresos; si no cuadra, un join duplica o pierde filas.
     expect(suma(d.por_punto)).toBeCloseTo(Number(d.ingresos), 0);
     expect(suma(d.por_categoria)).toBeCloseTo(Number(d.ingresos), 0);
   });

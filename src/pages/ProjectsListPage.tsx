@@ -35,7 +35,6 @@ export const ProjectsListPage: React.FC<ProjectsListPageProps> = ({
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
 
   const filteredProjects = projects.filter((p) => {
-    // Search
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim();
       const matches =
@@ -47,12 +46,10 @@ export const ProjectsListPage: React.FC<ProjectsListPageProps> = ({
       if (!matches) return false;
     }
 
-    // Status filter
     if (selectedStatus !== 'all' && p.status !== selectedStatus) {
       return false;
     }
 
-    // Surface filter
     if (selectedSurface !== 'all' && p.surface !== selectedSurface) {
       return false;
     }

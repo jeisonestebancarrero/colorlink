@@ -18,23 +18,8 @@ import {
 import { Button } from './Button';
 
 /**
- * Completar los datos que falten en el perfil.
- *
- * El caso típico es Google: entrega correo, nombre y foto, pero nunca
- * teléfono ni ciudad, y sin eso no se puede coordinar una entrega ni una
- * visita técnica. Se piden una sola vez, al entrar.
- *
- * La razón social solo se pide a quien compra como empresa. A una persona
- * natural no se le exige —antes se le exigía, y quedaba atrapada en este
- * modal justo después de registrarse, sin nada que pudiera responder.
- *
- * El aviso de Google solo aparece si la sesión realmente vino de Google:
- * decírselo a quien se registró con su correo es sencillamente mentirle.
- *
- * La ciudad se elige del mismo catálogo DIVIPOLA que usa el registro, no se
- * escribe. Escribirla producía «medellin», «Medellín » y «Mede» como ciudades
- * distintas, y dejaba el perfil sin código de municipio: sin él no se puede
- * decir qué tienda cubre la dirección ni a qué asesor va el pedido.
+ * Pide al entrar los datos que falten (típicamente tras Google: teléfono, ciudad, documento).
+ * La razón social solo a empresas; la ciudad sale de DIVIPOLA porque su código define tienda y asesor.
  */
 export const CompleteProfileModal: React.FC = () => {
   const { user, necesitaCompletarPerfil, completeProfile } = useAuth();
@@ -64,9 +49,7 @@ export const CompleteProfileModal: React.FC = () => {
   if (!necesitaCompletarPerfil || omitido) return null;
 
   const esParticular = datos.clientType === 'Particular';
-  // El modal puede salir por un campo distinto a la ciudad. A quien ya la
-  // tiene guardada no se le vuelve a exigir: el selector arranca vacío y
-  // hacerlo obligatorio le haría reelegir algo que ya había respondido.
+  // Si ya tiene ciudad guardada no se exige: el selector arranca vacío.
   const faltaCiudad = (user?.city ?? '').trim() === '';
 
   const tiposCliente: ClientType[] = [
@@ -83,8 +66,7 @@ export const CompleteProfileModal: React.FC = () => {
     }
     const malTel = errorTelefono(datos.phone);
     if (malTel) return setError(`${malTel}.`);
-    // Sin documento no se puede facturar, y esta es la única pantalla por la
-    // que pasa quien entró con Google.
+    // Sin documento no se factura, y quien entra con Google solo pasa por aquí.
     const malDoc = errorDocumento(datos.documentType, datos.documentNumber);
     if (malDoc) {
       return setError(
@@ -94,8 +76,7 @@ export const CompleteProfileModal: React.FC = () => {
       );
     }
 
-    // El barrio no se pide aquí: para atender el perfil basta la ciudad, y la
-    // dirección exacta se pregunta al despachar.
+    // El barrio se pide al despachar; aquí basta la ciudad.
     const eligioAlgo = ubicacion.departmentCode !== '' || ubicacion.municipalityCode !== '';
     const fallos =
       faltaCiudad || eligioAlgo
@@ -110,9 +91,7 @@ export const CompleteProfileModal: React.FC = () => {
     try {
       await completeProfile({
         ...datos,
-        // Sin municipio elegido no se manda nada: la RPC hace `coalesce` y
-        // enviar vacío no borra, pero mandar solo lo que la persona respondió
-        // deja claro en el registro de auditoría qué cambió de verdad.
+        // Solo se envía lo respondido, para que la auditoría refleje el cambio real (la RPC hace `coalesce`).
         documentType: datos.documentType,
         documentNumber: datos.documentNumber.trim(),
         ...(ubicacion.municipalityCode
@@ -196,11 +175,7 @@ export const CompleteProfileModal: React.FC = () => {
           required
         />
 
-        {/* El documento se pide en CUALQUIER registro. Google no lo entrega, y
-            sin él no se puede facturar: la cuenta quedaría comprando sin poder
-            recibir su factura, y el dato terminaría pidiéndose por teléfono en
-            el mostrador, que es donde se escribe mal.
-            Solo aparece si falta: una vez guardado no se cambia desde aquí. */}
+        {/* Documento obligatorio para facturar; solo aparece si falta y no se edita aquí. */}
         {!user?.documentNumber && (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Select

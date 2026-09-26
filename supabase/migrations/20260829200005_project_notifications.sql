@@ -1,11 +1,5 @@
--- ============================================================
--- FASE 13 — Notificaciones emitidas por el servidor
--- ============================================================
--- La notificación de creación de proyecto se emitía desde el navegador y
--- se guardaba en localStorage: se perdía al cambiar de dispositivo y podía
--- fabricarse a voluntad. Ahora la emite la propia transacción que crea el
--- proyecto, dentro de create_project.
--- ============================================================
+-- Notificaciones emitidas por triggers del servidor, no por el navegador
+-- (antes vivían en localStorage y podían fabricarse).
 
 create or replace function public.notificar_proyecto_creado()
 returns trigger
@@ -39,7 +33,6 @@ create trigger projects_notificar_creacion
   after insert on public.projects
   for each row execute function public.notificar_proyecto_creado();
 
--- Aviso al solicitar acompañamiento técnico (MÓDULO 24).
 create or replace function public.notificar_asesoria_solicitada()
 returns trigger
 language plpgsql

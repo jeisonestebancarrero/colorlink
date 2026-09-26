@@ -8,22 +8,8 @@ import { Button } from '../components/common/Button';
 import { Input } from '../components/common/Input';
 
 /**
- * Pasarela de pagos.
- *
- * Estas dos funciones (`estado_pasarela`, `configurar_pasarela`) llevaban
- * tiempo en la base sin pantalla. Cargar las llaves de Wompi o apagar el modo
- * prueba obligaba a entrar a la base a mano, que es justo lo que no puede
- * hacer quien administra el negocio el día del despliegue.
- *
- * LOS SECRETOS NO SE MUESTRAN. `estado_pasarela` solo informa si están puestos:
- * devolverlos los filtraría a cualquiera que abra la consola del navegador. Es
- * el mismo trato que la contraseña del correo saliente — campo vacío significa
- * «conserva la que hay», no «bórrala».
- *
- * El punto delicado es el MODO PRUEBA: aprueba el cobro sin cobrar. Sirve para
- * ensayar el flujo completo, y es exactamente lo que está activo hoy. Si sale a
- * producción así, los pedidos se confirman y el dinero nunca llega, sin que
- * ningún error lo delate. De ahí que el aviso sea del tamaño que es.
+ * Configuración de Wompi. `estado_pasarela` solo dice si hay secretos, nunca los devuelve; campo
+ * vacío conserva el guardado. El modo prueba aprueba sin cobrar: en producción no llega el dinero.
  */
 
 const AYUDA_WOMPI = 'https://docs.wompi.co/docs/colombia/inicio-rapido/';
@@ -148,7 +134,7 @@ export const PasarelaPanel: React.FC = () => {
         </div>
       )}
 
-      {/* El estado que más importa entender, dicho sin rodeos. */}
+      {/* Estado del modo prueba. */}
       {estado?.prueba && (
         <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900 font-medium flex items-start gap-2">
           <FlaskConical className="w-4 h-4 shrink-0 mt-px" />
@@ -160,7 +146,7 @@ export const PasarelaPanel: React.FC = () => {
         </div>
       )}
 
-      {/* ---- Interruptores ---- */}
+      {/* Interruptores */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         <label className="flex items-start gap-3 p-3.5 rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-50 transition-colors">
           <input
@@ -195,7 +181,7 @@ export const PasarelaPanel: React.FC = () => {
         </label>
       </div>
 
-      {/* ---- Llaves ---- */}
+      {/* Llaves */}
       <div className="pt-4 border-t border-slate-100 space-y-4">
         <div className="flex items-center gap-2">
           <KeyRound className="w-4 h-4 text-slate-400" />
@@ -251,7 +237,7 @@ export const PasarelaPanel: React.FC = () => {
         </div>
       </div>
 
-      {/* Segunda confirmación: es el cambio con consecuencias sobre dinero real. */}
+      {/* Segunda confirmación antes de cobrar de verdad. */}
       {pasaARealAhora && (
         <label className="flex items-start gap-3 p-3.5 rounded-xl bg-rose-50 border border-rose-300 cursor-pointer">
           <input

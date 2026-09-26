@@ -4,22 +4,8 @@ import { resolve } from 'node:path';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
 /**
- * Clientes persona natural en el portal interno.
- *
- * Lo que se vigila:
- *   1. Que un ASESOR —que NO es administrador— reciba la lista. Es el motivo
- *      de que esto sea una función y no una consulta: la política de
- *      `user_roles` solo deja leer los roles propios salvo que seas
- *      administrador, así que filtrar por rol desde el navegador le devolvía
- *      una lista vacía. Si alguien la reescribe como consulta directa, esta
- *      prueba lo detecta.
- *   2. Que NO se cuele el personal interno. En esta base las cuentas internas
- *      también tienen el rol CLIENTE, así que sin ese filtro el maestro de
- *      obra aparecería junto al administrador del sistema.
- *   3. Que un CLIENTE no pueda listar a los demás clientes. Sería una fuga de
- *      la cartera de clientes completa.
- *   4. Que solo salgan personas SIN empresa: los empleados de una constructora
- *      se ven dentro de su empresa, no como clientes sueltos.
+ * Clientes persona natural: es una función porque la RLS de `user_roles` dejaría
+ * vacía la lista a un asesor. Excluye personal interno y personas con empresa; vedada a clientes.
  */
 
 function leerEnvLocal(): Record<string, string> {
@@ -93,8 +79,7 @@ describe.skipIf(!disponible || !SERVICE)('Clientes persona natural', () => {
   });
 
   it('un asesor, que no es administrador, recibe la lista', async () => {
-    // El punto de todo el diseño. Si esto devuelve 0, alguien la convirtió en
-    // una consulta directa contra `user_roles`.
+    // Si da 0, alguien la reescribió como consulta directa contra `user_roles`.
     expect(personas.length).toBeGreaterThan(0);
   });
 
@@ -107,8 +92,7 @@ describe.skipIf(!disponible || !SERVICE)('Clientes persona natural', () => {
   });
 
   it('todas son personas SIN empresa', async () => {
-    // Un empleado de una constructora se ve dentro de su empresa; aparecer
-    // además como cliente suelto lo contaría dos veces.
+    // Un empleado se ve dentro de su empresa; listarlo suelto lo contaría dos veces.
     const ids = personas.map((p) => p.id);
     const { data } = await root
       .from('profiles').select('id, company_id').in('id', ids.slice(0, 200));
@@ -134,8 +118,7 @@ describe.skipIf(!disponible || !SERVICE)('Clientes persona natural', () => {
 
   it('un cliente NO puede listar a los demás clientes', async () => {
     const { data, error } = await cliente.rpc('clientes_personas_naturales');
-    // Devuelve vacío en lugar de error porque la función exige `is_staff()`
-    // dentro del `where`. Lo que importa es que no salga ningún dato.
+    // La función filtra con `is_staff()` en el `where`: devuelve vacío, no error.
     expect(error ? [] : (data ?? [])).toHaveLength(0);
   });
 
@@ -168,7 +151,7 @@ describe.skipIf(!disponible || !SERVICE)('Clientes persona natural', () => {
     const { data: exacto } = await asesor.rpc('clientes_personas_naturales', { _busqueda: doc });
     expect((exacto ?? []).length).toBeGreaterThan(0);
 
-    // Como lo escribiría una persona: con puntos, aunque se guarda sin ellos.
+    // Con puntos, como lo escribe una persona.
     const conPuntos = doc.replace(/(\d{3})(?=\d)/g, '$1.');
     const { data: puntos } = await asesor.rpc('clientes_personas_naturales', {
       _busqueda: conPuntos,

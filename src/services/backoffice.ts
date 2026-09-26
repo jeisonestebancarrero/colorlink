@@ -1,22 +1,8 @@
 import { supabase } from '../lib/supabase';
 
-/**
- * Servicios operativos del back-office: pedidos y conversaciones.
- *
- * Ninguna operación decide permisos aquí. Las políticas RLS filtran las
- * filas y las funciones del servidor validan las acciones; este archivo solo
- * consulta y presenta.
- */
+/** Servicios operativos del back-office. RLS filtra y las funciones del servidor validan; aquí solo se consulta. */
 
-/**
- * Formatea una fecha que puede venir con hora o sin ella.
- *
- * Las columnas `date` de Postgres llegan como 'YYYY-MM-DD'. `new Date()` las
- * interpreta como medianoche UTC y, al pintarlas en horario de Colombia
- * (UTC-5), retroceden un día: una visita programada para el 15 se mostraba
- * como el 14 y una entrega estimada se adelantaba una jornada. Anclar la
- * fecha sin hora al mediodía local elimina el corrimiento en cualquier huso.
- */
+/** Ancla las fechas sin hora al mediodía local: como medianoche UTC retroceden un día en UTC-5. */
 export function formatearFecha(
   valor: string | null | undefined,
   opciones: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'short', year: 'numeric' },
@@ -27,7 +13,7 @@ export function formatearFecha(
   return Number.isNaN(d.getTime()) ? '—' : d.toLocaleDateString('es-CO', opciones);
 }
 
-/** La fecha de hoy en 'YYYY-MM-DD' según el reloj local, no según UTC. */
+/** Hoy en 'YYYY-MM-DD' según el reloj local, no UTC. */
 export function hoyISO(): string {
   const d = new Date();
   const mes = String(d.getMonth() + 1).padStart(2, '0');
@@ -52,9 +38,7 @@ const num = (v: string | number | null | undefined): number => {
   return Number.isFinite(n) ? n : 0;
 };
 
-// ============================================================
-// PEDIDOS
-// ============================================================
+// Pedidos
 export const ESTADOS_PEDIDO = [
   'PENDIENTE', 'CONFIRMADO', 'PREPARANDO', 'ENVIADO',
   'LISTO_PARA_RETIRO', 'ENTREGADO', 'CANCELADO',
@@ -62,11 +46,7 @@ export const ESTADOS_PEDIDO = [
 
 export type EstadoPedido = (typeof ESTADOS_PEDIDO)[number];
 
-/**
- * Transiciones válidas. Es una COPIA de la máquina de estados que aplica
- * change_order_status en el servidor, usada solo para no ofrecer botones que
- * el servidor va a rechazar. La verdad sigue estando en la base.
- */
+/** Copia de la máquina de estados de change_order_status, solo para no ofrecer botones inválidos; manda la base. */
 export const TRANSICIONES: Record<EstadoPedido, EstadoPedido[]> = {
   PENDIENTE: ['CONFIRMADO', 'CANCELADO'],
   CONFIRMADO: ['PREPARANDO', 'CANCELADO'],
@@ -107,7 +87,7 @@ export interface PedidoLista {
   total: number;
   creadoEn: string;
   puntoRetiro: string | null;
-  /** Sede del pedido. Null en un envío que no sale de una tienda concreta. */
+  /** Null en un envío que no sale de una tienda concreta. */
   locationId: string | null;
 }
 
@@ -193,13 +173,7 @@ export const pedidoService = {
     return ((data ?? []) as unknown as FilaPedido[]).map(aPedido);
   },
 
-  /**
-   * Igual que `detalle`, pero por NÚMERO de pedido.
-   *
-   * La URL lleva `ORD-PNT-000045` y no el uuid: es lo que la persona reconoce
-   * y lo que va a pegar en un chat. Un uuid en la barra de direcciones no le
-   * dice nada a nadie.
-   */
+  /** Como `detalle`, pero por número de pedido, que es lo que lleva la URL. */
   async detallePorNumero(numero: string): Promise<PedidoDetalle | null> {
     const { data, error } = await supabase
       .from('orders').select('id').eq('order_number', numero).maybeSingle();
@@ -259,28 +233,17 @@ export const pedidoService = {
   },
 };
 
-// ============================================================
-// CONVERSACIONES (chatter)
-// ============================================================
+// Conversaciones (chatter)
 export interface Mensaje {
   id: string;
   tipo: 'MENSAJE' | 'NOTA_INTERNA' | 'EVENTO';
   cuerpo: string;
   autor: string | null;
   autorId: string | null;
-  /**
-   * Quién escribió, visto desde el portal interno. Sin esto los mensajes del
-   * cliente y los del equipo se pintaban iguales y el hilo se leía como un
-   * monólogo.
-   */
+  /** Autor visto desde el portal, para distinguir cliente y equipo en el hilo. */
   quien: 'CLIENTE' | 'EQUIPO' | 'YO' | 'SISTEMA';
   creadoEn: string;
-  /**
-   * Cuándo lo leyó el destinatario. Null = entregado pero sin abrir.
-   *
-   * Solo se muestra en los mensajes PROPIOS: `read_at` lo escribe quien abre
-   * la conversación, así que en un mensaje ajeno diría cuándo lo leí yo.
-   */
+  /** Null = entregado sin abrir. Solo aplica a mensajes propios: `read_at` lo escribe quien abre. */
   leidoEn: string | null;
 }
 
@@ -294,18 +257,7 @@ export interface AvisoInterno {
   orderId: string | null;
 }
 
-/**
- * Avisos del personal interno.
- *
- * Son los mismos `notifications` que recibe el cliente, pero dirigidos a una
- * cuenta interna: «Proyecto asignado» cuando alguien te asigna una obra,
- * «Solicitud de vinculación» cuando un empleado de una empresa cliente pide
- * entrar. Hasta ahora el portal no los mostraba en ninguna parte, así que
- * llegaban a la base y nadie los veía nunca.
- *
- * RLS ya limita cada fila a su destinatario: aquí no hay que filtrar por
- * usuario.
- */
+/** Avisos (`notifications`) dirigidos a cuentas internas; RLS ya limita cada fila a su destinatario. */
 export const avisoInternoService = {
   async listar(limite = 20): Promise<AvisoInterno[]> {
     const { data, error } = await supabase
@@ -329,7 +281,7 @@ export const avisoInternoService = {
     }));
   },
 
-  /** Al abrirlo. `notifications_update_propio` deja marcar solo los suyos. */
+  /** `notifications_update_propio` solo deja marcar los propios. */
   async marcarLeido(id: string): Promise<void> {
     const { error } = await supabase.from('notifications').update({ read: true }).eq('id', id);
     if (error) console.error('[avisos] marcarLeido:', error.message);
@@ -344,9 +296,7 @@ export const avisoInternoService = {
 
 export const chatterService = {
   async mensajes(campo: 'order_id' | 'project_id', id: string): Promise<Mensaje[]> {
-    // El dueño del hilo es el cliente. Todo lo demás que tenga autor es el
-    // equipo: es la única forma de distinguirlos sin consultar los roles de
-    // cada autor, que además el cliente no puede leer.
+    // El dueño del hilo es el cliente y todo otro autor es el equipo; el cliente no puede leer roles.
     const tabla = campo === 'order_id' ? 'orders' : 'projects';
 
     const [{ data, error }, dueno, sesion] = await Promise.all([
@@ -387,7 +337,7 @@ export const chatterService = {
     }));
   },
 
-  /** ¿Se puede escribir todavía? Solo aplica a pedidos. */
+  /** Solo aplica a pedidos. */
   async estadoConversacion(orderId: string): Promise<{
     sePuedeEscribir: boolean; atendida: boolean;
   } | null> {
@@ -395,18 +345,13 @@ export const chatterService = {
     if (error || !data) return null;
     const d = data as Record<string, unknown>;
     return {
-      // Lo decide el PEDIDO: mientras siga en curso, el cliente escribe.
+      // Lo decide el estado del pedido.
       sePuedeEscribir: d.se_puede_escribir !== false,
       atendida: d.atendida === true,
     };
   },
 
-  /**
-   * Da por terminada la conversación del pedido.
-   *
-   * Lo puede hacer cualquiera de los dos lados. No borra nada: impide escribir
-   * mensajes nuevos, y así el equipo sabe qué hilos siguen pendientes.
-   */
+  /** Cierra la conversación desde cualquier lado; no borra, solo impide mensajes nuevos. */
   async cerrarConversacion(orderId: string): Promise<void> {
     const { error } = await supabase.rpc('cerrar_conversacion', { _order_id: orderId });
     if (error) throw errorLegible('cerrarConversacion', error);
@@ -437,9 +382,7 @@ export const formatearCOP = (n: number): string =>
   new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(n);
 
 
-// ============================================================
-// DESPACHO (MÓDULO 18)
-// ============================================================
+// Despacho
 export const ESTADOS_ENVIO = [
   'PENDIENTE', 'EN_PREPARACION', 'DESPACHADO', 'EN_TRANSITO', 'ENTREGADO', 'DEVUELTO',
 ] as const;
@@ -455,28 +398,15 @@ export const ETIQUETA_ENVIO: Record<EstadoEnvio, string> = {
 };
 
 /**
- * Icono de cada estado de envío.
- *
- * Va aquí, junto a la etiqueta y el color, para que el estado se muestre igual
- * en el filtro, en la tabla y en el detalle. Si cada pantalla eligiera su
- * icono, «Despachado» sería un camión en una y una caja en otra.
- *
- * Se guarda el NOMBRE del icono y no el componente porque este archivo es de
- * servicios y no debe importar de `lucide-react`: quien lo consume resuelve el
- * nombre contra su propio mapa.
+ * Icono por estado, compartido por filtro, tabla y detalle. Se guarda el nombre
+ * y no el componente para no importar `lucide-react` en servicios.
  */
 export const ICONO_ENVIO: Record<EstadoEnvio, string> = {
-  // Espera a que alguien lo tome.
   PENDIENTE: 'Clock',
-  // Alguien está armando la caja en la bodega.
   EN_PREPARACION: 'PackageOpen',
-  // Salió de la tienda.
   DESPACHADO: 'PackageCheck',
-  // Va en camino.
   EN_TRANSITO: 'Truck',
-  // Lo recibió el cliente.
   ENTREGADO: 'CheckCircle2',
-  // Volvió: es el único estado que hay que mirar dos veces.
   DEVUELTO: 'Undo2',
 };
 
@@ -502,7 +432,7 @@ export interface Despacho {
   estimada: string | null;
   despachadoEn: string | null;
   entregadoEn: string | null;
-  /** Sede que despacha. Se hereda del pedido. */
+  /** Sede que despacha; se hereda del pedido. */
   locationId: string | null;
 }
 
@@ -543,13 +473,7 @@ const aDespacho = (f: FilaEnvio): Despacho => ({
 });
 
 export const despachoService = {
-  /**
-   * Entrega un retiro en tienda verificando el código que trae el cliente.
-   *
-   * Quien atiende NO elige el pedido: escribe el código y el servidor decide
-   * cuál es. Por eso no puede equivocarse de pedido, ni entregar uno que
-   * todavía se está alistando.
-   */
+  /** Entrega un retiro por código: el servidor resuelve el pedido, así no se entrega uno equivocado ni sin alistar. */
   async entregarPorCodigo(codigo: string): Promise<{
     numero: string; recibe: string | null; documento: string | null; total: number;
   }> {
@@ -563,8 +487,7 @@ export const despachoService = {
       if (/CANCELADO/.test(m)) {
         throw new Error('Ese pedido está cancelado. No entregues la mercancía.');
       }
-      // El del mostrador tiene al cliente enfrente: el motivo va completo y
-      // sin rodeos, porque de esto depende que la mercancía salga o no.
+      // En mostrador el motivo se muestra completo: decide si la mercancía sale.
       if (/SIN_PAGO/.test(m)) throw new Error(m.replace(/^.*SIN_PAGO:\s*/, ''));
       if (/NO_ESTA_LISTO/.test(m)) {
         throw new Error(m.replace(/^.*NO_ESTA_LISTO:\s*/, ''));
@@ -595,12 +518,7 @@ export const despachoService = {
     return ((data ?? []) as unknown as FilaEnvio[]).map(aDespacho);
   },
 
-  /**
-   * Actualiza guía, transportadora y estado.
-   *
-   * El trigger `shipments_trazabilidad` escribe el cambio en el hilo del
-   * pedido, así que el cliente lo ve sin que nadie tenga que avisarle.
-   */
+  /** El trigger `shipments_trazabilidad` escribe el cambio en el hilo del pedido. */
   async actualizar(
     id: string,
     cambios: {
@@ -613,8 +531,7 @@ export const despachoService = {
     const patch: Record<string, unknown> = {};
     if (cambios.estado) {
       patch.status = cambios.estado;
-      // Las fechas se derivan del estado en lugar de pedirlas aparte:
-      // un despacho sin fecha de despacho es un dato incoherente.
+      // Las fechas se derivan del estado para que no queden incoherentes.
       if (cambios.estado === 'DESPACHADO') patch.shipped_at = new Date().toISOString();
       if (cambios.estado === 'ENTREGADO') patch.delivered_at = new Date().toISOString();
     }
@@ -626,10 +543,7 @@ export const despachoService = {
     if (error) throw errorLegible('actualizarDespacho', error);
   },
 
-  /**
-   * Escucha cambios en vivo. Es lo que hace que el tablero de despacho de
-   * una persona se actualice cuando otra mueve un envío, sin recargar.
-   */
+  /** Cambios en vivo para que el tablero de despacho se actualice sin recargar. */
   suscribir(alCambiar: () => void): () => void {
     const canal = supabase
       .channel('despachos')
@@ -640,9 +554,7 @@ export const despachoService = {
 };
 
 
-// ============================================================
-// INVENTARIO (MÓDULO 20)
-// ============================================================
+// Inventario
 export const TIPOS_MOVIMIENTO = [
   'ENTRADA', 'SALIDA', 'AJUSTE', 'TRASLADO_SALIDA', 'TRASLADO_ENTRADA',
 ] as const;
@@ -671,18 +583,11 @@ export interface Existencia {
   disponible: number;
   reservado: number;
   neto: number;
-  /** Punto de reorden. 0 = sin definir. */
+  /** Punto de reorden; 0 = sin definir. */
   minimo: number;
 }
 
-/**
- * En qué situación está una referencia.
- *
- * 'agotado' es un hecho comprobable. 'bajo' solo se afirma cuando alguien
- * definió un punto de reorden para esa referencia en esa bodega: sin ese
- * dato, decir que quedan pocas unidades sería una opinión disfrazada de
- * alerta, que es justo lo que hacía el umbral fijo anterior.
- */
+/** 'bajo' solo si hay punto de reorden definido para esa referencia y bodega. */
 export type SituacionExistencia = 'agotado' | 'bajo' | 'ok';
 
 export function situacion(e: Existencia): SituacionExistencia {
@@ -693,7 +598,7 @@ export function situacion(e: Existencia): SituacionExistencia {
 
 export interface ResumenPunto {
   locationId: string;
-  /** Llave estable con la que se resuelve la imagen de la tienda. */
+  /** Llave estable para resolver la imagen de la tienda. */
   referencia: string | null;
   imageUrl: string | null;
   punto: string;
@@ -707,15 +612,8 @@ export interface ResumenPunto {
 }
 
 /**
- * Hacia dónde mueve el saldo cada tipo de movimiento.
- *
- * `inventory_movements.quantity` guarda siempre una magnitud POSITIVA; la
- * dirección vive en `kind`. Leer el signo del número hacía que una salida de
- * traslado apareciera como «+5» en verde: en un libro de inventario eso no es
- * un detalle estético, es leer al revés lo que pasó en la bodega.
- *
- * El AJUSTE no tiene dirección: no suma ni resta, FIJA el saldo tras un
- * conteo físico, y la cantidad guardada es la diferencia en valor absoluto.
+ * `quantity` siempre es positiva y la dirección está en `kind`. AJUSTE no suma ni
+ * resta: fija el saldo tras un conteo y guarda la diferencia absoluta.
  */
 export function signoMovimiento(tipo: string): 1 | -1 | 0 {
   if (tipo === 'AJUSTE') return 0;
@@ -736,7 +634,7 @@ export interface Movimiento {
 }
 
 export const inventarioService = {
-  /** Totales por punto de venta, para el tablero. */
+  /** Totales por punto de venta. */
   async porPunto(): Promise<ResumenPunto[]> {
     const { data, error } = await supabase
       .from('v_inventario_por_punto')
@@ -759,7 +657,6 @@ export const inventarioService = {
     }));
   },
 
-  /** Existencias, opcionalmente de un solo punto de venta. */
   async existencias(opciones?: { locationId?: string; busqueda?: string }): Promise<Existencia[]> {
     let consulta = supabase
       .from('inventory')
@@ -813,8 +710,7 @@ export const inventarioService = {
             (f.codigo ?? '').toLowerCase().includes(q),
         );
 
-    // Lo agotado primero, luego lo que está bajo su punto de reorden: el orden
-    // de la lista es lo que decide qué se ve sin desplazarse.
+    // Primero lo agotado y luego lo bajo el punto de reorden.
     const peso = (e: Existencia) =>
       situacion(e) === 'agotado' ? 0 : situacion(e) === 'bajo' ? 1 : 2;
     return lista.sort(
@@ -825,7 +721,6 @@ export const inventarioService = {
     );
   },
 
-  /** Fija el punto de reorden de una referencia en una bodega. */
   async fijarPuntoReorden(variantId: string, locationId: string, minimo: number): Promise<void> {
     const { error } = await supabase.rpc('set_reorder_point', {
       _variant_id: variantId,
@@ -835,13 +730,7 @@ export const inventarioService = {
     if (error) throw errorLegible('fijarPuntoReorden', error);
   },
 
-  /**
-   * Traslada unidades de un punto de venta a otro.
-   *
-   * Las dos patas —salida y entrada— ocurren dentro de la misma transacción
-   * en el servidor. Hacerlo como dos movimientos sueltos permitía que la
-   * mercancía saliera de una bodega y no entrara en ninguna.
-   */
+  /** Salida y entrada ocurren en una sola transacción en el servidor. */
   async trasladar(datos: {
     variantId: string;
     origen: string;
@@ -914,7 +803,7 @@ export const inventarioService = {
     }));
   },
 
-  /** El saldo nunca se edita: se registra un movimiento y el servidor lo recalcula. */
+  /** El saldo no se edita: se registra un movimiento y el servidor lo recalcula. */
   async registrar(datos: {
     variantId: string; locationId: string; tipo: TipoMovimiento;
     cantidad: number; notas?: string;
@@ -937,9 +826,7 @@ export const inventarioService = {
   },
 };
 
-// ============================================================
-// CONVERSACIONES — bandeja del personal
-// ============================================================
+// Conversaciones: bandeja del personal
 export interface HiloConversacion {
   id: string;
   tipo: 'PEDIDO' | 'PROYECTO';
@@ -952,11 +839,7 @@ export interface HiloConversacion {
 }
 
 export const conversacionService = {
-  /**
-   * Agrupa los mensajes por hilo. Se hace en el cliente porque son pocos y
-   * evita una vista adicional; si el volumen crece, esto pasa a una vista
-   * materializada en la base.
-   */
+  /** Agrupa por hilo en el cliente porque el volumen es bajo; si crece, pasar a una vista materializada. */
   async bandeja(): Promise<HiloConversacion[]> {
     const { data, error } = await supabase
       .from('conversation_messages')
@@ -1011,9 +894,7 @@ export const conversacionService = {
 };
 
 
-// ============================================================
-// FACTURACIÓN
-// ============================================================
+// Facturación
 export interface FacturaLista {
   id: string;
   numero: string;
@@ -1024,7 +905,7 @@ export interface FacturaLista {
   total: number;
   estado: string;
   emitida: string;
-  /** Sede que emitió la factura. Null en las históricas sin pedido asociado. */
+  /** Null en facturas históricas sin pedido. */
   locationId: string | null;
 }
 
@@ -1061,7 +942,7 @@ export const facturaService = {
     }));
   },
 
-  /** Pedidos entregados o listos que todavía no tienen factura vigente. */
+  /** Pedidos entregados o listos sin factura vigente. */
   async pendientes(): Promise<Array<{ id: string; numero: string; cliente: string; total: number }>> {
     const [{ data: pedidos }, { data: facturados }] = await Promise.all([
       supabase
@@ -1092,16 +973,7 @@ export const facturaService = {
     return data as string;
   },
 
-  /**
-   * Anula una factura emitida.
-   *
-   * El motivo es obligatorio y lo exige la base, no esta pantalla: una factura
-   * anulada sin explicación es lo primero que pregunta una auditoría.
-   *
-   * Se niega si la factura ya tiene dinero recibido. No es una limitación
-   * técnica: anularla dejaría el recaudo colgando de un documento que dejó de
-   * existir, y el dinero del cliente sin respaldo. Primero se devuelve.
-   */
+  /** Motivo obligatorio (lo exige la base). Se rechaza si hay recaudos: primero se devuelven. */
   async anular(invoiceId: string, motivo: string): Promise<{
     numero: string; asientoRevertido: boolean;
   }> {
@@ -1111,8 +983,7 @@ export const facturaService = {
     if (error) {
       const m = error.message;
       if (/TIENE_RECAUDOS/.test(m)) {
-        // Se conserva la cifra que devuelve la base: decir «tiene recaudos» sin
-        // decir cuánto obliga a ir a buscarlo a otra pantalla.
+        // Se conserva la cifra que devuelve la base.
         const cuanto = m.match(/tiene ([\d.,]+) recaudado/)?.[1];
         throw new Error(
           cuanto
@@ -1137,14 +1008,9 @@ export const facturaService = {
   },
 };
 
-// ============================================================
-// PANEL
-// ============================================================
-/**
- * Cada bloque es `null` cuando el rol no tiene el permiso correspondiente. La
- * pantalla lo usa para no dibujar tarjetas vacías: un técnico de campo no debe
- * ver un cero en "ventas de hoy", debe no ver la tarjeta.
- */
+// Panel
+
+/** Cada bloque es null si el rol no tiene el permiso, para no dibujar la tarjeta. */
 export interface ResumenPanel {
   porConfirmar: number | null;
   porAlistar: number | null;
@@ -1173,12 +1039,7 @@ export interface ResumenPanel {
 }
 
 export const panelService = {
-  /**
-   * Resumen del panel, acotado a las sedes que pida la pantalla.
-   *
-   * El servidor cruza `_sedes` con las permitidas, así que mandar una sede
-   * ajena no devuelve sus cifras: aquí solo se pasa la selección de pantalla.
-   */
+  /** El servidor cruza `_sedes` con las permitidas; una sede ajena no devuelve cifras. */
   async resumen(sedes?: string[] | null): Promise<ResumenPanel> {
     const { data, error } = await supabase.rpc('resumen_panel', {
       _sedes: sedes && sedes.length > 0 ? sedes : null,
@@ -1209,9 +1070,7 @@ export const panelService = {
   },
 };
 
-// ============================================================
-// ANALÍTICA
-// ============================================================
+// Analítica
 export interface ResumenVentas {
   ingresos: number;
   pedidos: number;
@@ -1224,7 +1083,6 @@ export interface ResumenVentas {
   topEmpresas: Array<{ empresa: string; pedidos: number; total: number }>;
 }
 
-// ── Analítica detallada ─────────────────────────────────────────────────────
 export interface FiltrosAnalitica {
   desde?: string;
   hasta?: string;
@@ -1312,7 +1170,7 @@ export const analiticaService = {
     };
   },
 
-  /** Opciones de los desplegables de filtro. */
+  /** Opciones de los filtros. */
   async opciones(): Promise<OpcionesAnalitica> {
     const { data, error } = await supabase.rpc('analitica_filtros');
     if (error) throw errorLegible('opciones', error);
@@ -1325,13 +1183,12 @@ export const analiticaService = {
     };
   },
 
-  /** Tablero completo: una sola consulta con todos los cortes. */
+  /** Tablero completo en una sola consulta. */
   async detallada(f: FiltrosAnalitica = {}): Promise<AnaliticaDetallada> {
     const { data, error } = await supabase.rpc('analitica_ventas', {
       _desde: f.desde ?? null,
       _hasta: f.hasta ?? null,
-      // Un arreglo vacío significaría "ningún punto" y devolvería cero filas.
-      // Sin filtro es null.
+      // Arreglo vacío significaría "ningún punto"; sin filtro va null.
       _puntos: f.puntos?.length ? f.puntos : null,
       _categorias: f.categorias?.length ? f.categorias : null,
       _productos: f.productos?.length ? f.productos : null,
@@ -1406,9 +1263,7 @@ export const analiticaService = {
 };
 
 
-// ============================================================
-// TESORERÍA (MÓDULO 17)
-// ============================================================
+// Tesorería
 export const METODOS_PAGO = [
   'PSE', 'TARJETA_CREDITO', 'TARJETA_DEBITO', 'EFECTIVO',
   'TRANSFERENCIA', 'CREDITO_EMPRESARIAL',
@@ -1455,7 +1310,7 @@ export interface MovimientoTesoreria {
   referencia: string | null;
   conciliado: boolean;
   refExtracto: string | null;
-  /** Sede del movimiento. Null en un egreso que no pertenece a una tienda. */
+  /** Null en un egreso que no pertenece a una tienda. */
   locationId: string | null;
 }
 
@@ -1478,7 +1333,7 @@ export const tesoreriaService = {
     }));
   },
 
-  /** Facturas con saldo pendiente, ordenadas por antigüedad. */
+  /** Facturas con saldo pendiente, por antigüedad. */
   async cartera(): Promise<CarteraItem[]> {
     const { data, error } = await supabase
       .from('v_cartera')
@@ -1550,13 +1405,7 @@ export const tesoreriaService = {
     return { saldo: num(d.saldo), saldada: Boolean(d.saldada) };
   },
 
-  /**
-   * Cuentas contables que pueden ser contrapartida de un egreso.
-   *
-   * Se excluyen caja y bancos: pagar de una cuenta a otra es un traslado, no
-   * un egreso, y mezclarlos haría que el estado de resultados contara como
-   * gasto un dinero que sigue siendo de la empresa.
-   */
+  /** Se excluyen caja y bancos: mover entre ellas es un traslado, no un gasto. */
   async cuentasParaEgreso(): Promise<Array<{ codigo: string; nombre: string; clase: string }>> {
     const { data, error } = await supabase
       .from('accounts')
@@ -1571,13 +1420,7 @@ export const tesoreriaService = {
     }));
   },
 
-  /**
-   * Registra una salida de dinero.
-   *
-   * La contrapartida es OBLIGATORIA: un egreso no dice por sí solo qué se
-   * pagó —un flete, un abono a proveedor, un servicio— y ponerle una por
-   * defecto metería todos los pagos en la misma cuenta.
-   */
+  /** La contrapartida es obligatoria para saber qué se pagó. */
   async registrarEgreso(datos: {
     cuentaId: string; monto: number; concepto: string;
     contrapartida: string; referencia?: string; fecha?: string;

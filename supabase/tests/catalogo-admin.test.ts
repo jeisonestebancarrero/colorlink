@@ -3,16 +3,8 @@ import { readFileSync, existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 /**
- * Catálogo desde el portal interno.
- *
- * Lo que se vigila:
- *   1. Que un cliente no pueda crear ni modificar productos, presentaciones
- *      ni colores. Es la vitrina de Pintuco.
- *   2. Que no se cuelen datos que rompen la tienda: precios en cero, códigos
- *      duplicados, IVA inventado, hexadecimales inválidos.
- *   3. Que el RGB de un color se derive del hexadecimal y no se pida aparte,
- *      que es como la carta original terminó con dos colores contradiciéndose.
- *   4. Que lo publicado aquí sea exactamente lo que ve el cliente.
+ * Catálogo desde el portal interno: vedado a clientes; rechaza datos que rompen
+ * la tienda; el RGB se deriva del hex; lo publicado es lo que ve el cliente.
  */
 
 function leerEnvLocal(): Record<string, string> {
@@ -99,7 +91,6 @@ describe.skipIf(!disponible)('Catálogo · administración', () => {
     }
   });
 
-  // ── Categorías ─────────────────────────────────────────────────────────
   it('un cliente no puede crear categorías', async () => {
     const r = await rpc('upsert_category', tCliente, { name: `Pirata ${sello}` });
     expect(r.ok).toBe(false);
@@ -123,8 +114,7 @@ describe.skipIf(!disponible)('Catálogo · administración', () => {
 
     expect(fila.kind).toBe('PRODUCT');
     expect(fila.status).toBe('ACTIVO');
-    // Sin padre la tienda no la lista nunca: sería una categoría que solo
-    // existe en el portal interno.
+    // Sin padre la tienda nunca la lista.
     expect(fila.parent_id).not.toBeNull();
     expect(fila.slug).toMatch(/^categoria-de-prueba-\d+$/);
   });
@@ -179,7 +169,7 @@ describe.skipIf(!disponible)('Catálogo · administración', () => {
   });
 
   it('rechaza un IVA que no existe en Colombia', async () => {
-    // Un dedazo aquí sale mal en la factura de todos los pedidos.
+    // Un error aquí se propaga a la factura de todos los pedidos.
     const r = await rpc('upsert_product', tAdmin, {
       code: `${codigo}-B`, name: 'Con IVA raro', tax_rate: 16,
     });
@@ -216,8 +206,7 @@ describe.skipIf(!disponible)('Catálogo · administración', () => {
   });
 
   it('el costo NO se toca al editar una presentación', async () => {
-    // El costo entra por la recepción. Si se pudiera escribir aquí, se
-    // reescribiría en silencio la rentabilidad histórica.
+    // El costo solo entra por la recepción; editarlo aquí reescribiría la rentabilidad histórica.
     await fetch(`${API}/rest/v1/rpc/set_standard_cost`, {
       method: 'POST',
       headers: cab(tAdmin),
@@ -274,7 +263,7 @@ describe.skipIf(!disponible)('Catálogo · administración', () => {
   });
 
   it('lo oculto no llega a la tienda del cliente; lo publicado sí', async () => {
-    // Esta es la promesa del módulo: publicar aquí es publicar allá.
+    // Publicar aquí es publicar en la tienda.
     const oculto = await fetch(`${API}/rest/v1/products?select=id&id=eq.${producto}`, {
       headers: cab(),
     }).then((r) => r.json());
@@ -289,8 +278,7 @@ describe.skipIf(!disponible)('Catálogo · administración', () => {
     }).then((r) => r.json());
     expect(visible).toHaveLength(1);
 
-    // Se vuelve a ocultar para no alterar el conteo del catálogo, que otra
-    // suite comprueba en paralelo.
+    // Se vuelve a ocultar para no alterar el conteo que otra suite comprueba en paralelo.
     await rpc('upsert_product', tAdmin, {
       id: producto, code: codigo, name: `Producto de prueba ${sello}`, status: 'INACTIVO',
     });

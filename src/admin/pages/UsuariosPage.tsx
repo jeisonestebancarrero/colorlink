@@ -45,15 +45,12 @@ export const UsuariosPage: React.FC = () => {
     }
   };
 
-  // La ciudad se elige del diccionario oficial, no se escribe. Con texto libre
-  // el perfil quedaba sin código de municipio, y sin él este empleado no puede
-  // entrar en el reparto de pedidos por sede.
+  // Ciudad del catálogo oficial: sin código de municipio el empleado queda fuera del reparto por sede.
   const [ubicacion, setUbicacion] = useState<ValorUbicacion>(UBICACION_VACIA);
 
   useEffect(() => { void cargar(soloInternos); }, [soloInternos]);
 
-  // Los roles que se ofrecen al crear salen del catálogo configurable, así
-  // aparecen también los creados desde Permisos.
+  // Roles del catálogo configurable, para incluir los creados desde Permisos.
   const [rolesDisponibles, setRolesDisponibles] = useState<{ codigo: string; etiqueta: string }[]>([]);
   useEffect(() => {
     rolService.internosActivos().then(setRolesDisponibles).catch(() => setRolesDisponibles([]));
@@ -126,8 +123,7 @@ export const UsuariosPage: React.FC = () => {
         ))}
 
         <div className="ml-auto">
-          {/* Un listado del personal con sus roles es lo que pide auditoría y
-              lo que se revisa cuando alguien entra o sale de la empresa. */}
+          {/* Listado de personal y roles para auditoría. */}
           <ExportarBoton<UsuarioAdmin>
             filas={usuarios}
             nombre={soloInternos ? 'personal-interno' : 'usuarios'}
@@ -139,8 +135,7 @@ export const UsuariosPage: React.FC = () => {
               { titulo: 'Teléfono', valor: (u) => u.telefono },
               { titulo: 'Ciudad', valor: (u) => u.ciudad },
               { titulo: 'Empresa', valor: (u) => u.empresa },
-              // Los roles legibles, no los códigos: el archivo lo lee alguien
-              // de recursos humanos, no la base de datos.
+              // Nombres legibles de rol, no códigos.
               { titulo: 'Roles', valor: (u) => u.roles.map((r) => ETIQUETA_ROL[r] ?? r).join(', ') },
               { titulo: 'Estado', valor: (u) => u.estado },
               { titulo: 'Creado', valor: (u) => new Date(u.creadoEn).toLocaleDateString('es-CO') },
@@ -219,11 +214,7 @@ export const UsuariosPage: React.FC = () => {
         />
       )}
 
-      {/* El subtítulo decía «se le enviará una contraseña temporal que deberá
-          cambiar», y las dos mitades eran falsas: no se enviaba ningún correo
-          y nada la obligaba a cambiarla. Ahora sale un correo con un enlace
-          para que ponga la suya —la contraseña nunca viaja por correo— y la
-          cuenta queda obligada a cambiarla al entrar. */}
+      {/* Se envía un enlace para fijar contraseña (nunca la contraseña) y se exige cambiarla al entrar. */}
       <Modal isOpen={abierto} onClose={() => setAbierto(false)} title="Crear usuario interno"
         subtitle="Recibe un enlace para poner su contraseña, y tendrá que cambiar la provisional al entrar">
         {claveTemporal ? (
@@ -273,9 +264,7 @@ export const UsuariosPage: React.FC = () => {
             <Input label="Correo corporativo" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required />
             <Input label="Teléfono" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
 
-            {/* Del catálogo, igual que en el registro del cliente. Escrita a
-                mano quedaba sin código de municipio y el empleado no entraba en
-                el reparto de pedidos por sede. */}
+            {/* Del catálogo: sin código de municipio no entra en el reparto por sede. */}
             <SelectorUbicacion
               valor={ubicacion}
               onChange={setUbicacion}

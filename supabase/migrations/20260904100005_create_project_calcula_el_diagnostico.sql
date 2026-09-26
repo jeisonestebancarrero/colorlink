@@ -1,16 +1,7 @@
--- ============================================================
--- `create_project` calcula el diagnóstico en vez de creérselo
--- ============================================================
--- Complementa a 20260904100004. El motor ya vive en la base; aquí se corta la
--- vía por la que el navegador dictaba el resultado.
--- ============================================================
+-- create_project calcula el diagnóstico en el servidor (motor de 20260904100004)
+-- en lugar de guardar el que envía el navegador.
 
--- ------------------------------------------------------------
--- La ruta de solución con la que nace todo proyecto
--- ------------------------------------------------------------
--- Son siete pasos fijos, portados del motor del navegador tal cual estaban.
--- No dependen del diagnóstico ni del catálogo: describen el recorrido del
--- servicio, no la obra.
+-- Siete pasos fijos del recorrido del servicio; no dependen del diagnóstico.
 create or replace function public.cronologia_inicial()
 returns jsonb
 language sql
@@ -76,12 +67,11 @@ begin
       using errcode = '22023';
   end if;
 
-  -- La empresa NO se acepta del cliente: se toma del perfil del usuario.
+  -- La empresa sale del perfil, no del payload.
   select p.company_id into v_company_id
   from public.profiles p
   where p.id = v_user_id;
 
-  -- ---------- 1. Proyecto ----------
   insert into public.projects (
     user_id, company_id, name, description, city, address, project_type,
     area_m2, required_date, surface, environment, current_color,
@@ -103,15 +93,13 @@ begin
     _payload ->> 'current_color',
     _payload -> 'selected_color',
     _payload ->> 'custom_condition',
-    -- Un proyecto recién creado entra en análisis, nunca en un estado
-    -- avanzado elegido por el cliente.
+    -- Todo proyecto nace en análisis, sin importar lo que envíe el cliente.
     'EN_ANALISIS',
     3,
     _payload -> 'next_recommended_action'
   )
   returning id into v_project_id;
 
-  -- ---------- 2. Superficie principal ----------
   if coalesce(_payload ->> 'surface', '') <> '' then
     select s.id into v_surface_id
     from public.surfaces s
@@ -129,7 +117,6 @@ begin
     );
   end if;
 
-  -- ---------- 3. Patologías ----------
   for v_condicion in
     select jsonb_array_elements_text(coalesce(_payload -> 'conditions', '[]'::jsonb))
   loop
@@ -140,12 +127,7 @@ begin
     on conflict on constraint project_pathologies_unica do nothing;
   end loop;
 
-  -- ---------- 4. Diagnóstico preliminar ----------
-  -- SE CALCULA AQUÍ. Antes se guardaba `_payload -> 'diagnosis'` tal como
-  -- llegara del navegador: cualquiera con la consola abierta podía fijarse su
-  -- nivel de atención, sus productos y su presupuesto, y quedaba registrado
-  -- como si lo hubiera dictado el sistema. Lo que mande el cliente en esa
-  -- clave se ignora por completo.
+  -- Se calcula aquí; cualquier 'diagnosis' del payload se ignora.
   v_diag := public.diagnosticar_proyecto(_payload);
 
   insert into public.project_diagnoses (
@@ -169,10 +151,6 @@ begin
     v_user_id
   );
 
-  -- ---------- 5. Cronología ----------
-  -- La ruta de solución es la misma para todo proyecto y no dependía de nada
-  -- que calculara el navegador; se arma aquí para que crear un proyecto deje
-  -- de necesitar que el cliente mande nada más que sus datos.
   for v_paso in
     select jsonb_array_elements(public.cronologia_inicial())
   loop

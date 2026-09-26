@@ -1,17 +1,5 @@
--- ============================================================
--- FASE 3 · 08 — RLS del catálogo
--- ============================================================
--- CRITERIO DE LECTURA PÚBLICA:
--- El MÓDULO 30 prohíbe `USING (true)` sobre información SENSIBLE. Un
--- catálogo comercial no lo es: los productos, precios de lista y colores de
--- Pintuco son públicos por definición, y la LandingPage debe poder mostrarlos
--- antes de iniciar sesión. Por eso la lectura es abierta, pero acotada a las
--- filas con estado ACTIVO: nunca se filtra el catálogo descontinuado.
---
--- La ESCRITURA es exclusiva de ADMINISTRADOR en todas las tablas.
--- El inventario es la excepción de lectura: sus cantidades solo las ve el
--- personal interno; el público consume la vista derivada de disponibilidad.
--- ============================================================
+-- RLS del catálogo: lectura pública solo de filas ACTIVO (es información comercial
+-- pública) y escritura solo de administradores. inventory solo lo lee el personal.
 
 alter table public.brands            enable row level security;
 alter table public.categories        enable row level security;
@@ -27,10 +15,7 @@ alter table public.solution_products enable row level security;
 alter table public.pickup_locations  enable row level security;
 alter table public.inventory         enable row level security;
 
--- ------------------------------------------------------------
--- Permisos base: lectura para todos, escritura para nadie.
--- (La escritura de administrador pasa por las políticas de más abajo.)
--- ------------------------------------------------------------
+-- Grants amplios; las políticas de abajo limitan la escritura a administradores.
 do $$
 declare t text;
 begin
@@ -45,16 +30,11 @@ begin
   end loop;
 end $$;
 
--- Inventario: ni lectura pública.
 revoke all on public.inventory from anon, authenticated;
 grant select, insert, update, delete on public.inventory to authenticated;
 
--- Vista de disponibilidad: legible por cualquiera.
 grant select on public.v_variant_availability to anon, authenticated;
 
--- ------------------------------------------------------------
--- Políticas de LECTURA del catálogo activo
--- ------------------------------------------------------------
 create policy "brands_lectura_publica" on public.brands
   for select to anon, authenticated using ( status = 'ACTIVO' );
 
@@ -82,7 +62,7 @@ create policy "solutions_lectura_publica" on public.solutions
 create policy "pickup_locations_lectura_publica" on public.pickup_locations
   for select to anon, authenticated using ( status = 'ACTIVO' );
 
--- Tablas puente: se leen si su fila padre es visible.
+-- Tablas puente: visibles si su fila padre lo es.
 create policy "product_colors_lectura_publica" on public.product_colors
   for select to anon, authenticated
   using ( exists (select 1 from public.products p
@@ -98,15 +78,9 @@ create policy "solution_products_lectura_publica" on public.solution_products
   using ( exists (select 1 from public.solutions s
                   where s.id = solution_id and s.status = 'ACTIVO') );
 
--- ------------------------------------------------------------
--- Inventario: solo personal interno ve las cantidades reales
--- ------------------------------------------------------------
 create policy "inventory_lectura_staff" on public.inventory
   for select to authenticated using ( (select public.is_staff()) );
 
--- ------------------------------------------------------------
--- ESCRITURA: exclusiva de ADMINISTRADOR en todo el catálogo
--- ------------------------------------------------------------
 do $$
 declare t text;
 begin

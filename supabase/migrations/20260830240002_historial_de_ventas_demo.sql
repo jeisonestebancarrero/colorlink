@@ -1,19 +1,5 @@
--- ============================================================
--- Historial de ventas de demostración
--- ============================================================
--- ATENCIÓN: estos pedidos NO son ventas reales. Se generan para que la
--- analítica se pueda usar y evaluar: con tres pedidos del mismo día, del mismo
--- producto y del mismo punto de venta, un tablero de tendencias no dice nada.
---
--- Cómo reconocerlos y cómo borrarlos: todos llevan el prefijo 'DEMO-' en
--- `order_number`. Para dejar el sistema limpio antes de salir a producción:
---
---   delete from public.orders where order_number like 'DEMO-%';
---
--- Se insertan con estado ENTREGADO y sin pasar por `update`, que es lo que
--- dispara los movimientos de inventario y los asientos contables. Así el
--- historial alimenta la analítica sin ensuciar ni las existencias ni los
--- libros, que sí deben reflejar solo operaciones reales.
+-- Pedidos de demostración para la analítica, con prefijo 'DEMO-' en order_number.
+-- Se insertan ya ENTREGADO para no disparar inventario ni asientos.
 do $$
 declare
   v_cliente   uuid;
@@ -49,12 +35,9 @@ begin
   select company_id into v_empresa from public.profiles where id = v_cliente;
   select array_agg(id) into v_puntos from public.pickup_locations where status = 'ACTIVO';
 
-  -- 24 meses hacia atrás. Un año y medio largo permite comparar años completos
-  -- y ver estacionalidad, que es lo que se le pide a un tablero de ventas.
+    -- 24 meses para comparar años completos.
   for v_mes in reverse 23 .. 0 loop
-    -- La pintura se mueve más en temporada seca (diciembre-marzo) y antes de
-    -- las lluvias. Sin esta variación todos los meses salen iguales y el
-    -- tablero no enseña nada.
+      -- Estacionalidad: más venta en temporada seca.
     v_estacional := case extract(month from (current_date - (v_mes || ' months')::interval))
                        when 12 then 1.6 when 1 then 1.45 when 2 then 1.3
                        when 3 then 1.15 when 7 then 0.75 when 10 then 0.8
@@ -65,7 +48,6 @@ begin
                  + ((random() * 26)::int || ' days')::interval
                  + ((8 + (random() * 10)::int) || ' hours')::interval;
 
-      -- No se inventan ventas en el futuro.
       continue when v_fecha > now();
 
       v_punto := v_puntos[1 + floor(random() * array_length(v_puntos, 1))::int];
@@ -101,8 +83,7 @@ begin
         ) values (
           v_orden, v_variante.id, v_variante.name, v_variante.code, v_variante.label,
           v_variante.price_cop, v_cantidad, v_variante.price_cop * v_cantidad,
-          -- El costo se congela en la venta, con una variación pequeña: el
-          -- costo de reposición no es idéntico mes a mes.
+            -- Variación pequeña del costo de reposición.
           round(v_variante.cost_cop * (0.94 + random() * 0.12)::numeric, 2)
         );
 

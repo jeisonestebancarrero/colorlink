@@ -5,20 +5,8 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { crearPedidoDePrueba, borrarPedidoDePrueba } from './limpieza';
 
 /**
- * Conversación del pedido, del lado del CLIENTE.
- *
- * El chat existía solo en el portal interno: el equipo escribía y el cliente
- * no se enteraba, así que las dudas sobre un pedido acababan en WhatsApp,
- * fuera del sistema. La base ya lo permitía todo; faltaba la pantalla.
- *
- * Lo que se vigila:
- *   1. Que el cliente LEA los mensajes que le escribe el equipo.
- *   2. Que el cliente PUEDA responder, y que su mensaje lo vea el equipo.
- *   3. Que NO vea las notas internas. Es lo que hace que el equipo pueda
- *      seguir escribiendo entre ellos en el mismo hilo; si se filtraran, o se
- *      pierde esa función o se le muestra al cliente lo que no debe ver.
- *   4. Que no pueda colar una nota interna haciéndose pasar por el equipo.
- *   5. Que no vea NI escriba en el pedido de otro.
+ * Chat del pedido desde el cliente: lee y responde al equipo, no ve notas internas
+ * ni puede crearlas, y no accede al pedido de otro.
  */
 
 function leerEnvLocal(): Record<string, string> {
@@ -63,9 +51,9 @@ describe.skipIf(!disponible || !SERVICE)('Chat del pedido, lado del cliente', ()
   let idCliente = '';
   const sello = Date.now().toString().slice(-6);
   const creados: string[] = [];
-  /** Momento en que arrancó la corrida, para borrar solo lo suyo. */
+  /** Inicio de la corrida, para borrar solo lo suyo. */
   const arranque = new Date().toISOString();
-  /** Pedidos extra que crea alguna prueba y hay que retirar. */
+  /** Pedidos extra creados por las pruebas, para retirarlos. */
   const creadosExtra: string[] = [];
 
   beforeAll(async () => {
@@ -84,10 +72,7 @@ describe.skipIf(!disponible || !SERVICE)('Chat del pedido, lado del cliente', ()
     const o = await otro.auth.signInWithPassword(OTRO);
     if (o.error) throw new Error(`otro: ${o.error.message}`);
 
-    // El pedido lo CREA la prueba. Antes se tomaba uno sembrado con los datos
-    // de demostración; al pasar el sistema a la versión real esos pedidos
-    // desaparecieron y la prueba se quedó sin sobre qué trabajar. Un dato que
-    // la prueba necesita lo crea la prueba.
+    // El pedido lo crea la prueba para no depender de datos sembrados.
     const { data: emp } = await root
       .from('profiles').select('company_id').eq('id', idCliente).single();
     const suPedido = await crearPedidoDePrueba(root, idCliente, {
@@ -98,15 +83,11 @@ describe.skipIf(!disponible || !SERVICE)('Chat del pedido, lado del cliente', ()
   });
 
   afterAll(async () => {
-    // Se borra TODO lo creado durante la corrida, no solo lo que se fue
-    // anotando: `cerrar_conversacion` y `reabrir_conversacion` generan eventos
-    // que ninguna lista recoge, y se acumulaban corrida tras corrida hasta
-    // desajustar la prueba de la campana. Por marca de tiempo no se escapa
-    // nada, y nunca alcanza a lo que ya existía.
+    // Se borra todo lo creado desde `arranque`: cerrar y reabrir generan eventos que
+    // ninguna lista recoge y desajustaban la prueba de la campana.
     await root.from('conversation_messages')
       .delete().eq('order_id', pedidoId).gte('created_at', arranque);
-    // Y se deja la conversación como pendiente, que es el estado natural.
-    // El pedido entero se va con lo suyo: era de la prueba.
+    // La conversación vuelve a pendiente y el pedido de prueba se borra con lo suyo.
     await borrarPedidoDePrueba(root, pedidoId);
     for (const id of creadosExtra) await borrarPedidoDePrueba(root, id);
     await admin.auth.signOut();
@@ -114,7 +95,7 @@ describe.skipIf(!disponible || !SERVICE)('Chat del pedido, lado del cliente', ()
     await otro.auth.signOut();
   });
 
-  /** Anota el id del último mensaje para poder borrarlo al final. */
+  /** Anota el id del último mensaje para borrarlo al final. */
   const anotarUltimo = async () => {
     const { data } = await root
       .from('conversation_messages').select('id')
@@ -160,19 +141,19 @@ describe.skipIf(!disponible || !SERVICE)('Chat del pedido, lado del cliente', ()
     expect(error).toBeNull();
     await anotarUltimo();
 
-    // El equipo sí la ve.
+    // El equipo la ve.
     const { data: paraElEquipo } = await admin
       .from('conversation_messages').select('body').eq('order_id', pedidoId);
     expect((paraElEquipo ?? []).map((m: { body: string }) => m.body)).toContain(secreto);
 
-    // El cliente no. Y no porque la pantalla la filtre: no le llega.
+    // El cliente no la recibe: el filtro está en la base, no en la pantalla.
     const { data: paraElCliente } = await cliente
       .from('conversation_messages').select('body').eq('order_id', pedidoId);
     expect((paraElCliente ?? []).map((m: { body: string }) => m.body)).not.toContain(secreto);
   });
 
   it('si el cliente pide nota interna, se guarda como mensaje normal', async () => {
-    // No se rechaza: se degrada, para no perder lo que escribió.
+    // No se rechaza: se degrada a mensaje normal para no perder el texto.
     const texto = `Intento de nota interna ${sello}`;
     const { error } = await cliente.rpc('post_message', {
       _order_id: pedidoId, _project_id: null, _body: texto, _internal: true,
@@ -200,9 +181,7 @@ describe.skipIf(!disponible || !SERVICE)('Chat del pedido, lado del cliente', ()
   });
 
   it('dar por atendida NO deja mudo a un cliente con el pedido en curso', async () => {
-    // La regla, y es de negocio, no técnica: mientras el pedido esté vivo el
-    // cliente SIEMPRE tiene que poder escribir. Un asesor —o el propio cliente
-    // por error— no puede cortarle el canal a alguien que espera mercancía.
+    // Regla de negocio: mientras el pedido esté vivo el cliente siempre puede escribir.
     const { data, error } = await admin.rpc('cerrar_conversacion', { _order_id: pedidoId });
     expect(error).toBeNull();
     expect((data as { se_puede_seguir: boolean }).se_puede_seguir).toBe(true);
@@ -215,8 +194,7 @@ describe.skipIf(!disponible || !SERVICE)('Chat del pedido, lado del cliente', ()
   });
 
   it('escribir vuelve a marcar la conversación como pendiente', async () => {
-    // Si alguien escribe, es que no estaba resuelta. Dejarla marcada como
-    // atendida escondería un hilo vivo de la bandeja del equipo.
+    // Si el cliente escribe, la conversación deja de estar atendida para no esconder un hilo vivo.
     const est = await cliente.rpc('estado_conversacion', { _order_id: pedidoId });
     expect((est.data as { atendida: boolean }).atendida).toBe(false);
   });
@@ -228,8 +206,7 @@ describe.skipIf(!disponible || !SERVICE)('Chat del pedido, lado del cliente', ()
   });
 
   it('cuando el PEDIDO termina, nadie puede escribir', async () => {
-    // Lo que cierra la conversación de verdad es un hecho del negocio, no el
-    // humor de quien esté atendiendo.
+    // Solo un hecho del negocio (el pedido terminado) cierra la conversación.
     const terminado = await crearPedidoDePrueba(root, idCliente, {
       estado: 'ENTREGADO', sello: `fin-${sello}`,
     });
@@ -255,7 +232,7 @@ describe.skipIf(!disponible || !SERVICE)('Chat del pedido, lado del cliente', ()
       .from('conversation_messages').select('id, kind, body', { count: 'exact' })
       .eq('order_id', pedidoId).order('created_at', { ascending: false }).limit(1);
 
-    // Un mensaje MÁS —el evento—, nunca menos: el historial se conserva.
+    // Un mensaje más (el evento): el historial se conserva.
     expect((despues.count ?? 0)).toBe((antes.count ?? 0) + 1);
     const ultimo = (despues.data ?? [])[0] as { kind: string; body: string };
     expect(ultimo.kind).toBe('EVENTO');

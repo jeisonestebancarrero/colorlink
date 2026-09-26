@@ -1,18 +1,5 @@
--- Quién le está escribiendo al cliente.
---
--- La conversación del pedido mostraba «PINTUCO» en todos los mensajes del
--- equipo. No era una decisión: es que el cliente NO PUEDE leer el perfil de
--- otra persona —RLS se lo impide, y hace bien—, así que el nombre llegaba en
--- nulo y la pantalla caía a la marca.
---
--- El efecto es que quien compra no sabe con quién habla. En una conversación
--- de una tienda eso importa: «Yerson» responde por lo que dice; «Pintuco»,
--- nadie. Y si escriben dos personas distintas, el cliente no lo nota.
---
--- Se devuelve SOLO EL NOMBRE DE PILA, y solo de quien ha escrito en un pedido
--- que es del propio cliente. No el apellido, ni el correo, ni el teléfono: para
--- saludar a alguien basta su nombre, y de la plantilla del personal no tiene
--- por qué salir nada más.
+-- Mensajes del pedido con el nombre de pila del autor: RLS impide al cliente leer
+-- perfiles del personal. Solo el nombre, nada más de la persona.
 create or replace function public.mensajes_del_pedido(_order_id uuid)
 returns table (
   id uuid,
@@ -38,9 +25,7 @@ as $$
     from public.conversation_messages m
     left join public.profiles p on p.id = m.author_id
    where m.order_id = _order_id
-     -- La misma puerta que ya protege la tabla: solo se ven los mensajes de un
-     -- pedido que se puede ver. Al ser SECURITY DEFINER hay que repetirla aquí
-     -- a mano, porque las políticas de `conversation_messages` no se aplican.
+     -- SECURITY DEFINER omite las políticas de conversation_messages: se repite la guarda.
      and exists (
        select 1 from public.orders o
         where o.id = m.order_id
@@ -53,7 +38,7 @@ as $$
                ))
           )
      )
-     -- Las notas internas no salen jamás hacia el cliente.
+     -- Las notas internas nunca llegan al cliente.
      and m.kind <> 'NOTA_INTERNA'
    order by m.created_at;
 $$;

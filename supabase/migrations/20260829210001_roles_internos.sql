@@ -1,10 +1,5 @@
--- ============================================================
--- BACK-OFFICE · 01 — Roles internos
--- ============================================================
--- Solo añade valores al enum. PostgreSQL permite ALTER TYPE ... ADD VALUE
--- dentro de una transacción, pero NO usar el valor nuevo en esa misma
--- transacción: por eso esta migración no hace nada más.
--- ============================================================
+-- Roles internos. Solo ADD VALUE: un valor nuevo de enum no puede usarse en la
+-- misma transacción que lo crea.
 
 alter type public.app_role add value if not exists 'BODEGA';
 alter type public.app_role add value if not exists 'DESPACHO';

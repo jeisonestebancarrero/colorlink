@@ -26,36 +26,18 @@ import {
 } from 'lucide-react';
 import { Button } from '../components/common/Button';
 
-/**
- * Categorías de respaldo, solo para el instante en que la consulta todavía no
- * ha respondido o falló. Las de verdad vienen de la base: cuando estaban
- * escritas aquí, una categoría creada en el portal interno no llegaba nunca a
- * la tienda.
- */
+/** Respaldo mientras la consulta responde o si falla; las categorías reales vienen de la base. */
 const CATEGORIAS_RESPALDO = ['Todos'];
 
 interface StorePageProps {
   onNavigate: (page: string, param?: string) => void;
   initialCategory?: string;
-  /**
-   * Término que llega desde el buscador del Navbar.
-   *
-   * BUG CORREGIDO: App.tsx siempre ha pasado `initialSearch`, pero esta
-   * interfaz solo declaraba `initialCategory`, así que buscar desde la barra
-   * superior navegaba a la tienda sin filtrar nada. TypeScript no lo detectó
-   * porque la configuración actual no valida props sobrantes en JSX.
-   *
-   * El Navbar usa este mismo parámetro para dos intenciones: enviar un
-   * término libre ("Koraza") o una categoría completa ("Esmaltes & Metales"),
-   * por eso abajo se distingue entre ambas.
-   */
+  /** Término del buscador del Navbar: puede ser texto libre o una categoría completa. */
   initialSearch?: string;
 }
 
 export const StorePage: React.FC<StorePageProps> = ({ onNavigate, initialCategory, initialSearch }) => {
-  // FASE 4 — los productos vienen de Supabase.
-  // Se conserva el identificador PINTUCO_PRODUCTS a propósito: así ninguna
-  // de sus referencias en el JSX de esta página necesita cambiar.
+  // Se conserva el nombre PINTUCO_PRODUCTS para no tocar sus usos en el JSX.
   const { data: PINTUCO_PRODUCTS, isLoading, error, reload } = useProducts();
 
   const { addToCart, setIsCartOpen } = useCart();
@@ -70,10 +52,8 @@ export const StorePage: React.FC<StorePageProps> = ({ onNavigate, initialCategor
   const [selectedCategory, setSelectedCategory] = useState<string>(initialCategory || 'Todos');
   const [searchQuery, setSearchQuery] = useState(initialSearch ?? '');
 
-  // El Navbar usa `initialSearch` para dos intenciones: un término libre
-  // ("Koraza") o una categoría completa ("Esmaltes & Metales"). Cuál de las dos
-  // es solo se sabe cuando las categorías llegan de la base, así que la
-  // reclasificación ocurre aquí y no en el estado inicial.
+  // Solo con las categorías ya cargadas se sabe si `initialSearch` es término o
+  // categoría, por eso se reclasifica aquí y no en el estado inicial.
   useEffect(() => {
     if (!initialSearch || !categoriasBD.includes(initialSearch)) return;
     setSelectedCategory(initialSearch);
@@ -83,7 +63,6 @@ export const StorePage: React.FC<StorePageProps> = ({ onNavigate, initialCategor
   const [selectedEnvironment, setSelectedEnvironment] = useState<string>('Todos');
   const [selectedProductDetail, setSelectedProductDetail] = useState<StoreProduct | null>(null);
 
-  // Modal active selection
   const [modalPresentation, setModalPresentation] = useState<string>('');
   const [modalColor, setModalColor] = useState<{ name: string; hex: string; code: string } | null>(null);
   const [modalQuantity, setModalQuantity] = useState<number>(1);
@@ -104,10 +83,8 @@ export const StorePage: React.FC<StorePageProps> = ({ onNavigate, initialCategor
 
       return matchCategory && matchQuery && matchFinish && matchEnv;
     });
-    // PINTUCO_PRODUCTS va en las dependencias: sin él, el filtro se calculaba
-    // una sola vez con la lista todavía vacía —los productos llegan después,
-    // en una consulta— y la tienda decía "no se encontraron productos" hasta
-    // que el usuario tocaba un filtro y forzaba el recálculo.
+    // PINTUCO_PRODUCTS en las dependencias: los productos llegan después y sin él
+    // el filtro se quedaba calculado sobre la lista vacía.
   }, [PINTUCO_PRODUCTS, selectedCategory, searchQuery, selectedFinish, selectedEnvironment]);
 
   const handleOpenProductDetail = (product: StoreProduct) => {
@@ -137,7 +114,6 @@ export const StorePage: React.FC<StorePageProps> = ({ onNavigate, initialCategor
     }).format(num);
   };
 
-  // FASE 4 — estados de carga y error (MÓDULO 37).
   if (isLoading) return <CatalogLoading />;
   if (error) return <CatalogError mensaje={error} onReintentar={reload} />;
 
@@ -319,16 +295,13 @@ export const StorePage: React.FC<StorePageProps> = ({ onNavigate, initialCategor
                     <span className="text-base font-extrabold text-[#004F9F]">
                       {formatCOP(mainPres?.priceCOP || 0)}
                     </span>
-                    {/* El precio del catálogo YA incluye IVA (la factura lo
-                        despeja hacia atrás, no lo suma). Decirlo evita que el
-                        cliente crea que al pagar le añadirán el 19 %. */}
+                    {/* El precio ya incluye IVA; se aclara para que no esperen un 19 % extra. */}
                     <span className="text-[10px] text-slate-400 block font-medium">
                       IVA incluido
                     </span>
                   </div>
 
-                  {/* Con texto y del mismo estilo que el «Comprar» de la portada:
-                      un icono suelto de 32 px era un blanco pequeño para el dedo. */}
+                  {/* Botón con texto: un icono de 32 px era un blanco táctil muy pequeño. */}
                   <button
                     onClick={() => handleOpenProductDetail(product)}
                     className="bg-[#004F9F] hover:bg-[#003B77] text-white px-3 py-2 min-h-11 sm:min-h-0 rounded-xl text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs"
@@ -367,14 +340,8 @@ export const StorePage: React.FC<StorePageProps> = ({ onNavigate, initialCategor
         </div>
       )}
 
-      {/* Product Detail Modal
-          Va en un PORTAL colgado de `document.body`. Se veía cortado por
-          arriba: le faltaba su cabecera azul con el nombre y la X. No era
-          altura —es `fixed inset-0`— sino orden de pintado: esta página se
-          dibuja dentro de `<main class="relative z-10">`, que crea un contexto
-          de apilamiento, así que su `z-50` solo competía ahí dentro y la
-          cabecera del sitio (`sticky z-40`, hermana de `main`) le pasaba por
-          encima. Es el mismo fallo que tenía el carrito. */}
+      {/* Detalle en un portal sobre `document.body`: dentro de `main` (z-10) su z-50
+          quedaba bajo la cabecera sticky del sitio. */}
       {selectedProductDetail && createPortal(
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-white rounded-2xl max-w-2xl w-full overflow-hidden shadow-2xl border border-slate-200 animate-in zoom-in-95 duration-150">

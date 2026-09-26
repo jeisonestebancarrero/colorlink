@@ -1,14 +1,5 @@
--- ============================================================
--- Gmail por el puerto 465
--- ============================================================
--- El 587 negocia STARTTLS sobre una conexión ya abierta, y esa negociación
--- falla dentro del runtime de Deno: la librería lanza "invalid cmd" fuera del
--- bucle de eventos y se lleva por delante la función completa, sin que el
--- bloque catch alcance a registrar nada. El síntoma era un correo que se
--- quedaba en PENDIENTE para siempre.
---
--- Con el 465 la conexión ya nace cifrada, no hay negociación intermedia y el
--- envío es estable. Gmail admite los dos puertos, así que no se pierde nada.
+-- Gmail por el 465 (TLS implícito): STARTTLS en el 587 falla en Deno fuera del
+-- catch y deja los correos en PENDIENTE.
 update public.app_settings
    set smtp_port = 465,
        smtp_secure = true

@@ -4,22 +4,9 @@ import { resolve } from 'node:path';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
 /**
- * Fecha estimada de entrega, foto de perfil y barrios de las ciudades.
- *
- * Lo que se vigila:
- *   1. Que la fecha de entrega la calcule el SERVIDOR y quede guardada en el
- *      pedido. Antes la tienda mostraba "24-48 horas" escrito a mano, igual
- *      para Medellín que para Mitú, y el pedido no guardaba ninguna fecha:
- *      nadie podía saber si un envío iba tarde.
- *   2. Que los tramos usen el CÓDIGO del municipio y no su nombre. Con la
- *      comparación por texto, Bogotá —que tiene dos tiendas Pintuco— se
- *      prometía a 5 días porque los puntos dicen 'Bogotá D.C.' y el DANE dice
- *      'Bogotá, D.C.'.
- *   3. Que la fecha nunca caiga en sábado o domingo: prometer una entrega en
- *      domingo es prometer algo que no va a pasar.
- *   4. Que NADIE pueda sobrescribir la foto de perfil de otro. El bucket es
- *      compartido, así que la política exige que la carpeta sea su propio id.
- *   5. Que Bogotá, Cali y Barranquilla tengan barrios en el diccionario.
+ * Fecha de entrega, avatares y barrios: la fecha la calcula el servidor por código de
+ * municipio, se guarda en el pedido y no cae en fin de semana; nadie sobrescribe el avatar
+ * de otro; Bogotá, Cali y Barranquilla tienen barrios.
  */
 
 function leerEnvLocal(): Record<string, string> {
@@ -41,7 +28,7 @@ const SERVICE = env.SUPABASE_SERVICE_ROLE_KEY ?? '';
 const CLIENTE = { email: 'carlos.mendoza@constructorahorizonte.com', password: 'pintuco2025*' };
 const OTRO = { email: 'ana.torres@edificarplus.com', password: 'pintuco2025*' };
 
-/** Municipios con punto de venta Pintuco, y otros para contrastar. */
+/** Municipios con punto de venta Pintuco y otros de contraste. */
 const MEDELLIN = '05001';
 const BOGOTA = '11001';
 const CALI = '76001';
@@ -95,9 +82,6 @@ describe.skipIf(!disponible || !SERVICE)('Entrega estimada, avatares y barrios',
     await otro.auth.signOut();
   });
 
-  // ----------------------------------------------------------
-  // Tramos de entrega
-  // ----------------------------------------------------------
   const dias = async (code: string): Promise<number> => {
     const { data, error } = await admin.rpc('dias_de_entrega', { _municipality_code: code });
     expect(error).toBeNull();
@@ -111,9 +95,8 @@ describe.skipIf(!disponible || !SERVICE)('Entrega estimada, avatares y barrios',
   });
 
   it('REGRESIÓN: Bogotá y Cali no caen al tramo lejano por el nombre', async () => {
-    // Los puntos de venta dicen 'Bogotá D.C.' y 'Cali'; el DANE dice
-    // 'Bogotá, D.C.' y 'Santiago de Cali'. Con la comparación por texto estos
-    // dos daban 5 días teniendo tienda en la ciudad.
+    // Los nombres difieren entre puntos de venta y DANE ('Bogotá D.C.' vs 'Bogotá, D.C.'):
+    // por eso los tramos usan el código.
     expect(await dias(BOGOTA)).toBe(2);
     expect(await dias(CALI)).toBe(2);
   });
@@ -127,7 +110,7 @@ describe.skipIf(!disponible || !SERVICE)('Entrega estimada, avatares y barrios',
   });
 
   it('sin municipio se asume el tramo más largo, nunca el más corto', async () => {
-    // Prometer 2 días sin saber a dónde va sería prometer a ciegas.
+    // Sin municipio no se promete un plazo.
     const { data } = await admin.rpc('dias_de_entrega', { _municipality_code: null });
     expect(data).toBe(5);
   });
@@ -152,9 +135,6 @@ describe.skipIf(!disponible || !SERVICE)('Entrega estimada, avatares y barrios',
     expect(data).toBe('2026-09-08');
   });
 
-  // ----------------------------------------------------------
-  // La fecha queda en el pedido
-  // ----------------------------------------------------------
   it('el pedido de envío guarda su fecha estimada y el envío la hereda', async () => {
     const { data: existente } = await cliente
       .from('carts').select('id').eq('user_id', uidCliente).eq('is_active', true).maybeSingle();
@@ -233,11 +213,8 @@ describe.skipIf(!disponible || !SERVICE)('Entrega estimada, avatares y barrios',
       .toBeNull();
   });
 
-  // ----------------------------------------------------------
-  // Puntos de venta con municipio oficial
-  // ----------------------------------------------------------
   it('todos los puntos de venta activos tienen su municipio DIVIPOLA', async () => {
-    // Uno sin código vuelve a caer en el tramo de 5 días sin que nadie lo note.
+    // Uno sin código caería en el tramo de 5 días.
     const { data } = await admin
       .from('pickup_locations').select('name, city, municipality_code')
       .eq('status', 'ACTIVO');
@@ -249,9 +226,6 @@ describe.skipIf(!disponible || !SERVICE)('Entrega estimada, avatares y barrios',
     expect(sinCodigo.map((p) => `${p.name} (${p.city})`)).toEqual([]);
   });
 
-  // ----------------------------------------------------------
-  // Avatares: cada uno en su carpeta
-  // ----------------------------------------------------------
   const imagen = () =>
     new Blob([Uint8Array.from([0xff, 0xd8, 0xff, 0xd9])], { type: 'image/jpeg' });
 
@@ -264,8 +238,7 @@ describe.skipIf(!disponible || !SERVICE)('Entrega estimada, avatares y barrios',
   });
 
   it('ATAQUE: nadie puede escribir en la carpeta de otro', async () => {
-    // Es el defecto clásico de un bucket compartido: sin la comprobación de
-    // carpeta, cualquier cliente autenticado le cambia la foto a otro.
+    // Bucket compartido: sin la comprobación de carpeta, cualquiera cambia la foto de otro.
     const ruta = `${uidCliente}/perfil-intruso-${Date.now()}.jpg`;
     const { error } = await otro.storage
       .from('avatares').upload(ruta, imagen(), { contentType: 'image/jpeg' });
@@ -280,12 +253,8 @@ describe.skipIf(!disponible || !SERVICE)('Entrega estimada, avatares y barrios',
   });
 
   it('el bucket de avatares limita el peso a 2 MB y solo acepta imágenes', async () => {
-    // Sin límite, alguien sube una foto de 8 MB y cada pantalla donde aparezca
-    // se vuelve lenta. Y sin lista de tipos, el bucket acepta un PDF.
-    //
-    // El esquema `storage` no está expuesto por PostgREST, así que la
-    // configuración se lee con la API de Storage y el límite se comprueba
-    // donde se nota: intentando subir algo que no cumple.
+    // Límite de tamaño y tipos permitidos. `storage` no está expuesto por PostgREST: se lee
+    // por la API de Storage y se prueba subiendo algo que no cumple.
     const { data: bucket, error } = await admin.storage.getBucket('avatares');
     expect(error).toBeNull();
     expect(bucket?.public).toBe(true);
@@ -311,9 +280,6 @@ describe.skipIf(!disponible || !SERVICE)('Entrega estimada, avatares y barrios',
     expect(error).not.toBeNull();
   });
 
-  // ----------------------------------------------------------
-  // Barrios de las ciudades grandes
-  // ----------------------------------------------------------
   it('Bogotá, Cali y Barranquilla tienen sus barrios en el diccionario', async () => {
     for (const [code, minimo] of [[BOGOTA, 900], [CALI, 300], [BARRANQUILLA, 150]] as const) {
       const { count } = await admin
@@ -333,9 +299,7 @@ describe.skipIf(!disponible || !SERVICE)('Entrega estimada, avatares y barrios',
   });
 
   it('un municipio sin lista de barrios sigue teniendo sus centros poblados', async () => {
-    // Medellín no tiene lista de barrios (la Alcaldía no la publica por API),
-    // pero sus centros poblados del DANE sí están: el cliente no se queda sin
-    // nada que elegir.
+    // Medellín no tiene barrios publicados, pero sí sus centros poblados del DANE.
     const { count } = await admin
       .from('neighborhoods').select('id', { count: 'exact', head: true })
       .eq('municipality_code', MEDELLIN);

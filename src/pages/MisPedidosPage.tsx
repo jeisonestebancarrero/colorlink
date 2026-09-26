@@ -10,16 +10,10 @@ import { useMensajes } from '../context/MensajesContext';
 import { Button } from '../components/common/Button';
 import { CatalogError, CatalogLoading } from '../components/common/CatalogState';
 
-/**
- * Mis pedidos — vista del CLIENTE.
- *
- * Enfoque distinto al del portal interno: aquí no hay estados de base de
- * datos, transportadoras ni acciones de gestión. Solo la respuesta a
- * "¿dónde está mi pedido y cuándo llega?", con el avance en vivo.
- */
+/** Pedidos del cliente: solo dónde va y cuándo llega, sin estados internos ni gestión. */
 interface Props {
   onNavigate: (page: string, param?: string) => void;
-  /** Pedido que pide la URL, por su NÚMERO. Lo usa la campana de mensajes. */
+  /** Número de pedido a abrir desde la URL (lo usa la campana de mensajes). */
   numeroAbierto?: string;
 }
 
@@ -33,13 +27,7 @@ export const MisPedidosPage: React.FC<Props> = ({ onNavigate, numeroAbierto }) =
   const [abierto, setAbierto] = useState<string | null>(null);
   const [enVivo, setEnVivo] = useState(false);
   const { conversaciones } = useMensajes();
-  /**
-   * Filtro por estado.
-   *
-   * Arranca en «en curso» porque es lo que se viene a mirar: nadie entra a
-   * esta pantalla para revisar un pedido que recibio hace tres meses. Con
-   * 160 entregados de por medio, los tres que importan quedaban enterrados.
-   */
+  /** Arranca en «en curso»: los entregados enterraban los pedidos que importan. */
   const [filtro, setFiltro] = useState<'CURSO' | 'TERMINADOS' | 'TODOS'>('CURSO');
 
   /** Cuántos mensajes sin leer tiene cada pedido, para señalarlo en la lista. */
@@ -58,13 +46,7 @@ export const MisPedidosPage: React.FC<Props> = ({ onNavigate, numeroAbierto }) =
 
   useEffect(() => { void cargar(); }, []);
 
-  /**
-   * Abre el pedido que pide la URL.
-   *
-   * Se guarda cuál se abrió para no volver a hacerlo: sin esa marca, cerrar el
-   * detalle volvería a abrirlo en el siguiente render, porque el número sigue
-   * en la dirección.
-   */
+  /** Recuerda el pedido ya abierto desde la URL; si no, cerrarlo lo reabriría en el siguiente render. */
   const [abrioPorUrl, setAbrioPorUrl] = useState<string | null>(null);
   useEffect(() => {
     if (!numeroAbierto || abrioPorUrl === numeroAbierto || pedidos.length === 0) return;
@@ -73,8 +55,7 @@ export const MisPedidosPage: React.FC<Props> = ({ onNavigate, numeroAbierto }) =
     if (p) setAbierto(p.id);
   }, [numeroAbierto, abrioPorUrl, pedidos]);
 
-  // Seguimiento en vivo: cuando despacho mueve el envío, esto se actualiza
-  // solo, sin recargar ni consultar cada pocos segundos.
+  // Realtime: los cambios de despacho llegan sin recargar ni hacer polling.
   useEffect(() => {
     const cancelar = trackingService.suscribir(() => { void cargar(); });
     setEnVivo(true);
@@ -96,7 +77,6 @@ export const MisPedidosPage: React.FC<Props> = ({ onNavigate, numeroAbierto }) =
 
   const detalle = pedidos.find((p) => p.id === abierto);
 
-  // ---------- Detalle con seguimiento ----------
   if (detalle) {
     return (
       <div className="space-y-6 pb-16">
@@ -202,11 +182,7 @@ export const MisPedidosPage: React.FC<Props> = ({ onNavigate, numeroAbierto }) =
 
           {/* Línea de tiempo */}
           <div className="lg:col-span-2">
-            {/* SIN `sticky`, y es lo único que había que arreglar.
-                La tarjeta de estados se quedaba fija al desplazar y tapaba lo
-                que venía debajo. Un elemento fijo solo se sostiene si nada
-                tiene que pasar por su sitio; aquí sí lo hay, así que la
-                tarjeta se desplaza con el resto de la página. */}
+            {/* Sin `sticky` a propósito: fija, tapaba el contenido de debajo al desplazar. */}
             <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-2xs">
               <h2 className="text-base font-extrabold text-slate-900 mb-5">Estado de tu pedido</h2>
               <div className="space-y-1">
@@ -241,8 +217,7 @@ export const MisPedidosPage: React.FC<Props> = ({ onNavigate, numeroAbierto }) =
             </div>
 
 
-            {/* La conversación, debajo del estado: es donde la persona mira
-                cómo va su pedido y donde le nace la pregunta. */}
+            {/* Chat bajo el estado: ahí surge la pregunta sobre el pedido. */}
             <div className="mt-5">
               <ConversacionPedido orderId={detalle.id} numero={detalle.numero} />
             </div>
@@ -252,7 +227,6 @@ export const MisPedidosPage: React.FC<Props> = ({ onNavigate, numeroAbierto }) =
     );
   }
 
-  // ---------- Listado ----------
   return (
     <div className="space-y-6 pb-16">
       <div className="bg-white rounded-2xl p-6 sm:p-8 border border-slate-200 shadow-2xs">
@@ -261,8 +235,7 @@ export const MisPedidosPage: React.FC<Props> = ({ onNavigate, numeroAbierto }) =
           Sigue el avance de tus compras en tiempo real.
         </p>
 
-        {/* Filtro por estado. Con 160 entregados de por medio, los tres
-            pedidos que importan quedaban enterrados al final de la lista. */}
+        {/* Filtro por estado. */}
         {pedidos.length > 0 && (
           <div className="mt-5 inline-flex p-1 bg-slate-100 rounded-xl border border-slate-200">
             {([
@@ -323,8 +296,7 @@ export const MisPedidosPage: React.FC<Props> = ({ onNavigate, numeroAbierto }) =
                   <p className="text-xs text-slate-500 font-medium mt-0.5">{fecha(p.creadoEn)}</p>
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0">
-                  {/* En qué pedido está el mensaje: sin esto, la campana dice
-                      que hay uno sin leer y hay que abrirlos de uno en uno. */}
+                  {/* Marca qué pedido tiene mensajes sin leer. */}
                   {(sinLeerPorPedido.get(p.id) ?? 0) > 0 && (
                     <span className="inline-flex items-center gap-1 text-[11px] font-bold text-white
                                      bg-[#004F9F] px-2 py-1 rounded-full">

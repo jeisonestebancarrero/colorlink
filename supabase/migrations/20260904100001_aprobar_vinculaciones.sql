@@ -1,25 +1,6 @@
--- ============================================================
--- Aprobar la vinculación de un empleado a su empresa
--- ============================================================
--- `resolve_join_request` existe desde el 30 de agosto (20260830100002) y hasta
--- hoy tenía CERO usos: la solicitud se creaba sola en el alta y no había una
--- sola pantalla para resolverla. El segundo comprador de una constructora se
--- registraba, leía «tu vinculación quedó pendiente de aprobación» y ahí se
--- quedaba para siempre, porque del otro lado no existía dónde aprobarla.
---
--- Antes de poder dibujar esa pantalla falta un dato: QUIÉN está pidiendo
--- entrar. `profiles` solo se deja leer por su propio dueño, por compañeros de
--- la MISMA empresa y por el personal interno (20260829154035); quien solicita
--- todavía no es compañero de nadie —su `company_id` es null hasta que lo
--- aprueben—. El dueño de la cuenta empresarial veía la fila de la solicitud
--- con un `user_id` y nada más. Aprobar a ciegas un uuid no es aprobar.
---
--- Por eso el listado se sirve desde una función SECURITY DEFINER con su propia
--- guarda y NO desde una vista con `security_invoker`: la vista invocante le
--- devolvería el nombre en blanco justo a quien tiene que decidir. La guarda es
--- literalmente la misma que ya aplica `resolve_join_request`, así que la
--- pantalla no puede mostrar ni una solicitud que su usuario no pueda resolver.
--- ============================================================
+-- Listado de solicitudes de vinculación con nombre del solicitante. SECURITY DEFINER
+-- porque quien solicita aún no comparte empresa y RLS ocultaría su perfil; la guarda
+-- es la misma de resolve_join_request.
 
 create or replace function public.solicitudes_de_vinculacion()
 returns table (
@@ -49,9 +30,7 @@ as $$
     c.name,
     c.nit,
     s.user_id,
-    -- Un perfil recién creado puede tener el apellido vacío; concatenar sin
-    -- limpiar dejaba nombres terminados en espacio y tarjetas con la inicial
-    -- equivocada.
+    -- El apellido puede venir vacío; se recorta para no dejar espacios sobrantes.
     nullif(trim(coalesce(p.first_name, '') || ' ' || coalesce(p.last_name, '')), ''),
     p.email,
     p.phone,
@@ -66,9 +45,7 @@ as $$
   join public.profiles  p on p.id = s.user_id
   left join public.profiles r on r.id = s.resolved_by
   where
-    -- El administrador de la plataforma, para destrabar soporte: una empresa
-    -- cuyo OWNER nunca volvió a entrar acumula solicitudes que nadie más
-    -- podría resolver.
+    -- El admin de plataforma, para soporte cuando el OWNER no vuelve a entrar.
     public.is_admin()
     or exists (
       select 1
@@ -78,7 +55,6 @@ as $$
          and m.company_role in ('OWNER', 'ADMIN')
          and m.status = 'ACTIVO'
     )
-  -- Lo pendiente primero: es lo único sobre lo que hay que actuar.
   order by (s.status = 'PENDIENTE') desc, s.created_at desc;
 $$;
 
@@ -89,20 +65,8 @@ comment on function public.solicitudes_de_vinculacion() is
 revoke all on function public.solicitudes_de_vinculacion() from public, anon;
 grant execute on function public.solicitudes_de_vinculacion() to authenticated;
 
--- ============================================================
--- Dos correcciones en `resolve_join_request`
--- ============================================================
--- 1. Exigía `company_role in ('OWNER','ADMIN')` pero NO miraba el `status` del
---    vínculo. A quien fue dado de baja de la empresa le quedaba la fila en
---    `company_members` con status INACTIVO, y con ella la potestad de seguir
---    metiendo gente en una empresa de la que ya no hace parte.
--- 2. `on conflict do nothing` al insertar el miembro: si esa persona ya había
---    pertenecido a la empresa y la desactivaron, aprobar no hacía nada y la
---    dejaba INACTIVA. La solicitud quedaba APROBADA y la persona seguía sin
---    entrar — el peor de los dos mundos, porque ya nadie vuelve a mirarla.
---
--- El resto del cuerpo es idéntico al original.
--- ============================================================
+-- resolve_join_request: exige vínculo ACTIVO de quien aprueba y reactiva al miembro
+-- si ya existía inactivo (antes on conflict do nothing lo dejaba INACTIVO).
 
 create or replace function public.resolve_join_request(
   _request_id uuid,
@@ -124,8 +88,7 @@ begin
     raise exception 'ALREADY_RESOLVED: esta solicitud ya fue resuelta' using errcode = '23505';
   end if;
 
-  -- Solo el dueño/administrador ACTIVO de ESA empresa decide. Un administrador
-  -- de la plataforma también, para poder destrabar casos de soporte.
+  -- Solo el OWNER/ADMIN activo de la empresa, o el admin de plataforma.
   if not (
     public.is_admin()
     or exists (
@@ -147,8 +110,7 @@ begin
    where id = _request_id;
 
   if _aprobar then
-    -- `do update set status` y NO el rol: si esa persona ya era OWNER de la
-    -- empresa, reaprobarla no puede degradarla a MEMBER.
+    -- Se actualiza el status, no el rol: reaprobar no degrada a un OWNER.
     insert into public.company_members (company_id, user_id, company_role)
     values (v_sol.company_id, v_sol.user_id, 'MEMBER')
     on conflict (company_id, user_id) do update

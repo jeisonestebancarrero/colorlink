@@ -1,18 +1,5 @@
--- ============================================================
--- Analítica: una sola consulta, con filtros y todas las aperturas
--- ============================================================
--- La pantalla anterior solo respondía "cuánto vendimos". Faltaba lo que de
--- verdad se pregunta un gerente: en qué mes se ganó más, qué punto de venta
--- rinde, qué producto deja margen y qué producto se vende mucho pero no deja
--- nada.
---
--- Todo se calcula a nivel de LÍNEA de pedido, no de pedido. Es la única forma
--- de poder filtrar por producto: el total del pedido no se puede repartir
--- entre sus productos sin inventar una regla. Los pedidos se cuentan aparte,
--- como distintos, para que el ticket medio siga teniendo sentido.
---
--- El costo sale de `order_items.unit_cost_cop` (el congelado en la venta) y
--- solo si falta se recurre al del catálogo. Ver 20260830230002.
+-- Analítica con filtros calculada por línea de pedido, única forma de filtrar por
+-- producto; los pedidos se cuentan distintos para el ticket medio.
 create or replace function public.analitica_ventas(
   _desde       date default null,
   _hasta       date default null,
@@ -34,8 +21,7 @@ begin
     raise exception 'FORBIDDEN: no tienes permiso para ver la analítica' using errcode = '42501';
   end if;
 
-  -- El margen es información de costos. Quien no tenga ese permiso ve las
-  -- ventas completas pero no la rentabilidad.
+    -- Sin permiso de costos se ven las ventas pero no el margen.
   v_ver_costos := public.is_admin() or public.has_permission('costs.read');
 
   with rango as (
@@ -73,8 +59,7 @@ begin
       and (_categorias is null or p.category_id = any(_categorias))
       and (_productos  is null or p.id = any(_productos))
   ),
-  -- Un pedido puede tener líneas de varios productos; al filtrar por producto
-  -- solo cuentan las líneas que pasaron el filtro, pero el pedido es uno.
+    -- Al filtrar por producto el pedido cuenta una sola vez.
   pedidos as (select distinct order_id from base),
   meses as (
     select to_char(mes, 'YYYY-MM') as mes,
@@ -117,7 +102,7 @@ begin
                         then sum(ingreso) - coalesce(sum(costo), 0) end as margen
               from base group by anio) x), '[]'::jsonb),
 
-    -- El mes que más dejó. Si no hay costos visibles, el de más ingresos.
+      -- Mes de mayor margen; sin costos visibles, el de más ingresos.
     'mejor_mes', (
       select jsonb_build_object('mes', m.mes, 'ingresos', m.ingresos,
                                 'margen', case when v_ver_costos then m.margen end)
@@ -169,11 +154,7 @@ grant execute on function public.analitica_ventas(date, date, uuid[], uuid[], uu
 comment on function public.analitica_ventas(date, date, uuid[], uuid[], uuid[]) is
   'Analítica de ventas por mes, año, punto de venta, categoría y producto, con filtros combinables. El margen solo se calcula para quien tenga costs.read.';
 
--- ------------------------------------------------------------
--- Opciones de los filtros
--- ------------------------------------------------------------
--- Se resuelven en la base para que la pantalla no tenga que traer el catálogo
--- entero solo para llenar tres desplegables.
+-- Opciones de filtros resueltas en la base para no traer el catálogo entero.
 create or replace function public.analitica_filtros()
 returns jsonb
 language plpgsql
@@ -200,7 +181,7 @@ begin
       select jsonb_agg(jsonb_build_object('id', id, 'nombre', name, 'codigo', code)
                        order by name)
         from public.products), '[]'::jsonb),
-    -- Desde cuándo hay ventas: la pantalla lo usa para no ofrecer años vacíos.
+      -- Años con ventas, para no ofrecer años vacíos.
     'anios', coalesce((
       select jsonb_agg(distinct date_part('year', created_at)::int)
         from public.orders where status <> 'CANCELADO'), '[]'::jsonb)

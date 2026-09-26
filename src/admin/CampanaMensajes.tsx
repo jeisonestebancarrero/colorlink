@@ -3,15 +3,8 @@ import { MessageSquare } from 'lucide-react';
 import { useMensajes } from '../context/MensajesContext';
 
 /**
- * Campana de mensajes del portal interno.
- *
- * Usa las MISMAS funciones de base que la de la tienda: el criterio de acceso
- * está dentro, así que al personal le cuenta lo de todos los pedidos que puede
- * atender —incluidas las notas internas, que el cliente ni ve— y al cliente lo
- * suyo. No hacía falta una segunda implementación.
- *
- * El número no baja al desplegar la lista: solo al abrir la conversación, que
- * es lo que hace el `Chatter` del pedido. Mirar no es atender.
+ * Reutiliza las funciones de la tienda: el filtro de acceso vive en la base.
+ * El contador baja al abrir la conversación en `Chatter`, no al desplegar la lista.
  */
 export const CampanaMensajes: React.FC<{
   /** Lleva al pedido, donde está el hilo. */
@@ -51,8 +44,7 @@ export const CampanaMensajes: React.FC<{
         <>
           {/* Capa para cerrar al pulsar fuera. */}
           <div className="fixed inset-0 z-40" onClick={() => setAbierto(false)} />
-          {/* En la barra lateral la campana está al pie de la pantalla: el
-              menú se abre hacia arriba o quedaría fuera de la ventana. */}
+          {/* En la barra lateral abre hacia arriba para no salirse de la ventana. */}
           <div className={`absolute w-80 bg-white rounded-xl shadow-2xl border border-slate-200 py-2 z-50 overflow-hidden ${
             variante === 'lateral' ? 'left-0 bottom-full mb-2' : 'right-0 mt-2'
           }`}>

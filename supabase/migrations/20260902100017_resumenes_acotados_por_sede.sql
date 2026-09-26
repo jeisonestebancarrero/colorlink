@@ -1,34 +1,7 @@
--- ============================================================
--- Los resúmenes se acotan por sede (Panel y Analítica)
--- ============================================================
--- HUECO DE SEGURIDAD, no solo de filtro.
---
--- `resumen_panel`, `resumen_ventas`, `analitica_ventas` y `analitica_filtros`
--- son SECURITY DEFINER, así que **RLS no aplica dentro de ellas**. Las tablas
--- ya estaban acotadas por sede (20260902100014), pero estas cuatro funciones
--- se salían del dominio: un asesor restringido a Barranquilla veía en el Panel
--- las ventas del día de las siete sedes, el inventario crítico de todas y, en
--- Analítica, el ranking completo. La restricción se aplicaba a las listas y no
--- a los números de arriba, que es justo donde se lee el negocio.
---
--- CÓMO SE ARREGLA: cada función calcula ELLA MISMA el conjunto de sedes que
--- puede ver y lo cruza con las que pide la pantalla. Nunca confía en el
--- parámetro: si el navegador manda una sede ajena, la intersección la
--- descarta.
---
--- FILAS SIN SEDE: se cuentan siempre. Un pedido de envío no sale de una tienda
--- y un proyecto no tiene sede; esconderlos de todo el mundo daría cifras que no
--- suman con ninguna vista.
+-- Las funciones de resumen son SECURITY DEFINER y RLS no aplica dentro: cada una
+-- cruza las sedes pedidas con las permitidas. Las filas sin sede siempre cuentan.
 
-/**
- * Sedes que se van a usar de verdad: lo pedido ∩ lo permitido.
- *
- * `null` en `_pedidas` significa «todas las que pueda ver».
- *
- * Es la pieza que hace que estas funciones sigan siendo seguras a pesar de ser
- * SECURITY DEFINER: el parámetro que llega del navegador solo puede REDUCIR el
- * conjunto, nunca ampliarlo.
- */
+/** Sedes pedidas ∩ permitidas (null = todas las visibles); el parámetro solo puede reducir. */
 create or replace function public.sedes_efectivas(_pedidas uuid[] default null)
 returns uuid[]
 language sql
@@ -38,9 +11,7 @@ set search_path = ''
 as $$
   select coalesce(
     array_agg(s.id),
-    -- Sin ninguna sede permitida se devuelve un arreglo vacío y no `null`:
-    -- `null` significaría «sin filtro» y abriría todo justo en el caso
-    -- contrario al que se quiere.
+      -- Vacío y no null: null significaría «sin filtro».
     array[]::uuid[]
   )
   from public.sedes_permitidas() as s(id)
@@ -50,9 +21,6 @@ $$;
 revoke all on function public.sedes_efectivas(uuid[]) from public;
 grant execute on function public.sedes_efectivas(uuid[]) to authenticated;
 
--- ------------------------------------------------------------
--- Panel
--- ------------------------------------------------------------
 create or replace function public.resumen_panel(_sedes uuid[] default null)
 returns jsonb
 language plpgsql
@@ -68,7 +36,6 @@ declare
   v_proyectos  boolean := public.is_admin() or public.has_permission('projects.read');
   v_ventas     boolean := public.is_admin() or public.has_permission('analytics.read');
   v_chat       boolean := public.is_admin() or public.has_permission('chat.read');
-  -- Lo pedido cruzado con lo permitido. El navegador solo puede reducir.
   v_sedes      uuid[] := public.sedes_efectivas(_sedes);
 begin
   if not public.is_staff() then
@@ -76,7 +43,6 @@ begin
   end if;
 
   select jsonb_build_object(
-    -- ── Lo que espera una acción ───────────────────────────────────────
     'por_confirmar', case when v_pedidos then (
       select count(*) from public.orders
        where status = 'PENDIENTE'
@@ -94,7 +60,6 @@ begin
        where status = 'ENVIADO'
          and (pickup_location_id is null or pickup_location_id = any(v_sedes))) end,
 
-    -- ── Cómo va el día ─────────────────────────────────────────────────
     'ventas_hoy', case when v_ventas then coalesce((
       select sum(total_cop) from public.orders
        where status <> 'CANCELADO' and created_at::date = current_date
@@ -108,8 +73,7 @@ begin
        where status <> 'CANCELADO'
          and created_at >= date_trunc('month', current_date)
          and (pickup_location_id is null or pickup_location_id = any(v_sedes))), 0) end,
-    -- El mismo tramo del mes pasado, no el mes pasado completo: comparar los
-    -- primeros 5 días contra 30 diría siempre que vamos peor.
+      -- Mismo tramo del mes pasado, no el mes completo.
     'ventas_mes_anterior', case when v_ventas then coalesce((
       select sum(total_cop) from public.orders
        where status <> 'CANCELADO'
@@ -119,9 +83,7 @@ begin
                              * interval '1 day'
          and (pickup_location_id is null or pickup_location_id = any(v_sedes))), 0) end,
 
-    -- ── Alertas de inventario ──────────────────────────────────────────
-    -- El inventario SIEMPRE está en una bodega, así que aquí no hay caso de
-    -- fila sin sede: se filtra sin excepción.
+      -- El inventario siempre tiene bodega: se filtra sin excepción.
     'bajo_minimo', case when v_inventario then (
       select count(*) from public.inventory
        where min_qty is not null and min_qty > 0 and qty_available <= min_qty
@@ -144,10 +106,7 @@ begin
          order by (i.min_qty - i.qty_available) desc
          limit 6) x), '[]'::jsonb) end,
 
-    -- ── Agenda ─────────────────────────────────────────────────────────
-    -- Las visitas cuelgan de un proyecto y hoy no tienen sede asignada
-    -- (`technical_visits.location_id` está en null). Se filtran igual, para
-    -- que empiece a funcionar el día que la programación fije la sede.
+      -- Las visitas se filtran por sede aunque las antiguas estén en null.
     'visitas_hoy', case when v_visitas then (
       select count(*) from public.technical_visits
        where scheduled_date = current_date and status = 'PROGRAMADA'
@@ -174,9 +133,7 @@ begin
            and (tv.location_id is null or tv.location_id = any(v_sedes))
          order by tv.scheduled_date limit 5) x), '[]'::jsonb) end,
 
-    -- ── Trabajo sin dueño ──────────────────────────────────────────────
-    -- Los proyectos NO tienen sede y no se les inventa una: son obras del
-    -- cliente, no operación de una tienda. Van sin filtrar a propósito.
+      -- Los proyectos no tienen sede: van sin filtrar.
     'proyectos_sin_asesor', case when v_proyectos then (
       select count(*) from public.projects pr
        where not exists (
@@ -185,9 +142,7 @@ begin
       select count(*) from public.projects
        where status not in ('COMPLETADO', 'CANCELADO')) end,
 
-    -- Un hilo queda "sin responder" cuando lo último que se escribió lo
-    -- escribió el cliente. Se acota por la sede del pedido cuando el hilo
-    -- cuelga de uno; los de proyecto no tienen sede.
+      -- Sin responder: el último mensaje es del cliente. Se acota por la sede del pedido si lo hay.
     'sin_responder', case when v_chat then (
       select count(*) from (
         select distinct on (coalesce(cm.order_id, cm.project_id))
@@ -207,9 +162,6 @@ begin
 end;
 $$;
 
--- ------------------------------------------------------------
--- Analítica: resumen general
--- ------------------------------------------------------------
 create or replace function public.resumen_ventas(
   _desde date default null,
   _hasta date default null,
@@ -278,12 +230,7 @@ begin
 end;
 $$;
 
--- ------------------------------------------------------------
--- Analítica: filtros
--- ------------------------------------------------------------
--- El desplegable de puntos solo ofrece los permitidos. Ofrecer una sede que
--- después no devuelve datos hace pensar que no hubo ventas, cuando lo que pasa
--- es que no se tiene acceso.
+-- Solo se ofrecen los puntos permitidos.
 create or replace function public.analitica_filtros()
 returns jsonb
 language plpgsql
@@ -305,7 +252,7 @@ begin
                        order by name)
         from public.pickup_locations
        where id = any(v_sedes)), '[]'::jsonb),
-    -- El catálogo es GLOBAL (ver 20260902100015): no se filtra por sede.
+      -- El catálogo es global (ver 20260902100015).
     'categorias', coalesce((
       select jsonb_agg(jsonb_build_object('id', id, 'nombre', name) order by sort_order, name)
         from public.categories

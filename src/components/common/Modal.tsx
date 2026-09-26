@@ -3,20 +3,8 @@ import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 
 /**
- * Diálogo modal.
- *
- * Se dibuja en un PORTAL colgado de `document.body`, y eso NO es un detalle de
- * implementación: es lo que hace que funcione.
- *
- * Las dos aplicaciones montan el contenido dentro de un `<main>` con
- * `relative z-10`, y un elemento posicionado con `z-index` crea un CONTEXTO DE
- * APILAMIENTO: todo lo que cuelga de él compite solo ahí dentro. Un diálogo con
- * `z-50` escrito dentro de una página quedaba por debajo de cualquier hermano
- * de `main` con `z` mayor —la cabecera de la tienda (`z-40`) y la barra azul
- * del portal (`z-20`)— y aparecía cortado. Subir el número no sirve de nada
- * mientras el diálogo siga dentro del contenedor.
- *
- * El `id` se conserva por si alguna prueba o estilo lo busca.
+ * Diálogo en un portal sobre `document.body`: dentro de `main` (relative z-10) queda atrapado
+ * en su contexto de apilamiento y cualquier z-index lo deja bajo la cabecera.
  */
 
 interface ModalProps {
@@ -67,10 +55,8 @@ export const Modal: React.FC<ModalProps> = ({
   };
 
   return createPortal(
-    // Sin `items-center`: con él, un cuadro más alto que la ventana se
-    // desbordaba por arriba y el encabezado —título y botón de cerrar— quedaba
-    // fuera de la zona desplazable. `m-auto` centra igual cuando cabe y, cuando
-    // no, deja el cuadro arriba y se baja con la rueda.
+    // Sin `items-center`: un cuadro más alto que la ventana perdía el encabezado por arriba;
+    // `m-auto` centra cuando cabe.
     <div
       id="colorlink-modal-portal"
       className="fixed inset-0 z-50 flex justify-center p-4 overflow-y-auto bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200"

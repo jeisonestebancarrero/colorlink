@@ -5,49 +5,26 @@ import { LogOut } from 'lucide-react';
 import type { VistaMenu } from '../services/admin';
 import logoPintuco from '../../assets/brand/pintuco-logo.jpeg';
 import { SelectorSede } from './SelectorSede';
-// El mapa de iconos es UNO solo, compartido con la barra lateral y con el
-// encabezado de cada pantalla. Aquí había una TERCERA copia, y le faltaban
-// `PackagePlus`, `Store` y `Building2`: por eso Recepciones, Puntos de venta y
-// Clientes salían en el tablero con un círculo genérico. Centralizarlo en un
-// sitio no bastó mientras quedara una copia sin tocar.
+// Mapa de iconos compartido; no duplicarlo aquí.
 import { iconoDeModulo } from './IconosDeModulo';
 import { CampanaMensajes } from './CampanaMensajes';
 import { CampanaAvisos } from './CampanaAvisos';
 
-/**
- * Tablero de aplicaciones del ERP.
- *
- * IDEA DE DISEÑO: cada módulo es una MUESTRA DE COLOR. Pintuco es una marca
- * de pinturas, así que el lanzador usa su propio material —el color— como
- * lenguaje: la franja superior de cada tarjeta es una pincelada de la carta
- * cromática real, y al pasar el cursor la muestra se derrama sobre la
- * tarjeta, como pintura al extenderse.
- *
- * Los colores no están escritos aquí: vienen de `app_views.color`, de modo
- * que el administrador puede recolorear o reordenar el tablero sin desplegar.
- */
+/** Lanzador de módulos como muestras de color; colores y orden vienen de `app_views`. */
 export const LauncherPage: React.FC<{
   onAbrir: (ruta: string) => void;
-  /** Abre un pedido concreto. Lo usa la campana de mensajes. */
+  /** Lo usa la campana de mensajes. */
   onAbrirPedido?: (numero: string) => void;
 }> = ({ onAbrir, onAbrirPedido }) => {
   const { acceso, nombre, salir } = useAdminAuth();
   const [filtro, setFiltro] = useState('');
   const [buscando, setBuscando] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
-  // Espejo del estado para la escucha de teclado: el listener se registra
-  // una sola vez y de otro modo leería siempre el valor inicial.
+  // Ref espejo: el listener se registra una vez y leería el valor inicial.
   const buscandoRef = useRef(false);
   buscandoRef.current = buscando;
 
-  /**
-   * Búsqueda oculta: no ocupa sitio hasta que hace falta.
-   *
-   * Basta con empezar a escribir para que aparezca, como en un lanzador de
-   * escritorio. Se usa un input real —enfocado al abrirse— en vez de acumular
-   * pulsaciones a mano: así funcionan el pegado, el acento y el teclado del
-   * móvil, que un contador de teclas rompería.
-   */
+  /** Búsqueda que aparece al teclear; usa un input real para soportar pegado, acentos y móvil. */
   useEffect(() => {
     const alPulsar = (e: KeyboardEvent) => {
       const destino = e.target as HTMLElement | null;
@@ -63,15 +40,8 @@ export const LauncherPage: React.FC<{
       }
       if (escribiendoEnOtroSitio || e.metaKey || e.ctrlKey || e.altKey) return;
 
-      // Una sola letra, número o signo abre el buscador. Las teclas de
-      // navegación y función no deben dispararlo.
-      //
-      // El carácter que abrió la búsqueda se SIEMBRA en el campo: el foco
-      // llega un fotograma después, así que esa primera pulsación se perdería
-      // y el usuario vería el buscador abierto pero vacío.
-      // A partir de ahí el foco ya está en el input y esta escucha se
-      // detiene sola en la comprobación de arriba, de modo que no se duplica
-      // ninguna letra.
+      // Solo caracteres imprimibles abren el buscador. El primero se siembra en el campo
+      // porque el foco llega un fotograma después; luego esta escucha se detiene sola.
       if (!buscandoRef.current && e.key.length === 1 && e.key !== ' ') {
         setBuscando(true);
         setFiltro(e.key);
@@ -108,11 +78,7 @@ export const LauncherPage: React.FC<{
       <div aria-hidden className="pointer-events-none absolute top-1/3 right-[-10rem] w-[34rem] h-[34rem] rounded-full bg-[#0284C7]/14 blur-3xl" />
       <div aria-hidden className="pointer-events-none absolute -bottom-52 left-1/4 w-[38rem] h-[38rem] rounded-full bg-[#CA8A04]/10 blur-3xl" />
 
-      {/*
-        Marca de agua. El archivo oficial es un JPEG con fondo azul sólido,
-        así que se difumina con una máscara radial para que no se recorte
-        como un rectángulo.
-      */}
+      {/* Marca de agua: el JPEG tiene fondo sólido, la máscara radial evita el recorte. */}
       <img
         src={logoPintuco}
         alt=""
@@ -125,11 +91,7 @@ export const LauncherPage: React.FC<{
       />
 
       <div className="relative w-full px-6 sm:px-10 lg:px-14 py-7">
-        {/*
-          Barra delgada en vez de un encabezado grande. El saludo y el
-          recuento ocupaban un tercio de la pantalla para decir algo que se
-          lee una vez; el espacio rinde más mostrando aplicaciones.
-        */}
+        {/* Barra delgada para dejar el espacio a las aplicaciones. */}
         <header className="flex items-center justify-between gap-4 mb-7">
           <div className="flex items-center gap-3 min-w-0">
             <img
@@ -150,9 +112,7 @@ export const LauncherPage: React.FC<{
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
-            {/* El selector de sede va también aquí: el lanzador es donde se
-                aterriza, y si solo estuviera dentro de los módulos habría que
-                entrar a uno para saber qué sede está activa. */}
+            {/* Sede visible desde el lanzador, antes de entrar a un módulo. */}
             <div className="hidden sm:block">
               <SelectorSede variante="barra" />
             </div>
@@ -191,13 +151,11 @@ export const LauncherPage: React.FC<{
               </button>
             )}
 
-            {/* La campana va en el tablero porque entrar al portal es el
-                momento en que uno mira si le escribieron. */}
+            {/* Campana de mensajes. */}
             {onAbrirPedido && (
               <CampanaMensajes onAbrirPedido={onAbrirPedido} variante="barra" />
             )}
-            {/* Y la de avisos aparte: uno se archiva, el otro espera
-                respuesta. */}
+            {/* Avisos aparte: se archivan, no esperan respuesta. */}
             <CampanaAvisos onIr={(ruta) => onAbrir(ruta)} />
 
             <button
@@ -240,12 +198,7 @@ export const LauncherPage: React.FC<{
                              focus-visible:ring-offset-2 focus-visible:ring-offset-[#00142E]"
                   style={{ ['--c' as string]: c }}
                 >
-                  {/*
-                    Franja de color del módulo: la identidad cromática vive
-                    arriba, no en toda la tarjeta, para que veinte módulos no
-                    compitan entre sí. Al pasar el cursor se derrama y cubre
-                    la tarjeta, como pintura al extenderse.
-                  */}
+                  {/* Franja de color arriba para que los módulos no compitan; se extiende al pasar el cursor. */}
                   <span
                     aria-hidden
                     className="absolute inset-x-0 top-0 h-2 group-hover:h-full transition-all duration-300 ease-out"

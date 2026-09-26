@@ -4,22 +4,9 @@ import { resolve } from 'node:path';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
 /**
- * Sedes permitidas por usuario (multi-sede al estilo de Odoo).
- *
- * Lo que se vigila, y es lo único que hace que esto sea SEGURIDAD y no
- * decoración de pantalla:
- *   1. Que asignarle sedes a alguien le CIERRE de verdad el resto. Si el
- *      filtro viviera solo en el selector de la cabecera, bastaría cambiar el
- *      desplegable —o la petición— para ver el inventario de otra ciudad.
- *   2. Que no pueda ESCRIBIR en una sede que no tiene permitida.
- *   3. Que el administrador nunca se quede sin acceso a una sede.
- *   4. Que el personal SIN asignación siga viendo todo: es el estado de las
- *      cuentas internas de hoy, y cambiarlo a "ninguna" dejaría el portal
- *      inservible el día del despliegue.
- *   5. Que el catálogo y los clientes NO se filtren por sede. Un producto
- *      creado en Medellín tiene que seguir apareciendo en la tienda para un
- *      cliente de Cali, y el historial de un cliente no se parte en dos.
- *   6. Que el cliente siga viendo SUS pedidos, salgan de la sede que salgan.
+ * Sedes permitidas por usuario: la restricción la aplica la base, no el selector. Sin
+ * asignación se ve todo, el admin nunca queda sin acceso, catálogo y clientes no se
+ * filtran por sede y el cliente ve todos sus pedidos.
  */
 
 function leerEnvLocal(): Record<string, string> {
@@ -92,7 +79,7 @@ describe.skipIf(!disponible || !SERVICE)('Sedes permitidas por usuario', () => {
   });
 
   afterAll(async () => {
-    // Se deja al asesor como estaba: sin restricción.
+    // Se restaura al asesor sin restricción.
     await asignar();
     for (const id of visitasCreadas) {
       await admin.from('technical_visits').delete().eq('id', id);
@@ -112,9 +99,6 @@ describe.skipIf(!disponible || !SERVICE)('Sedes permitidas por usuario', () => {
       .map((f) => f.location_id))];
   };
 
-  // ----------------------------------------------------------
-  // Sin restricción
-  // ----------------------------------------------------------
   it('sin sedes asignadas, el personal ve el inventario de todas', async () => {
     await asignar();
     const vistas = await sedesConInventario(asesor);
@@ -127,9 +111,6 @@ describe.skipIf(!disponible || !SERVICE)('Sedes permitidas por usuario', () => {
     expect(data).toBe(false);
   });
 
-  // ----------------------------------------------------------
-  // Con una sede
-  // ----------------------------------------------------------
   it('con UNA sede asignada, solo ve el inventario de esa', async () => {
     await asignar(sedes[0].id);
     const vistas = await sedesConInventario(asesor);
@@ -152,7 +133,7 @@ describe.skipIf(!disponible || !SERVICE)('Sedes permitidas por usuario', () => {
   });
 
   it('ATAQUE: pedir explícitamente otra sede devuelve vacío, no sus datos', async () => {
-    // Es el intento obvio: el id de la sede viaja en la petición.
+    // El id de la sede viaja en la petición: se intenta con una ajena.
     await asignar(sedes[0].id);
     const { data, error } = await asesor
       .from('inventory').select('id').eq('location_id', sedes[1].id);
@@ -172,8 +153,7 @@ describe.skipIf(!disponible || !SERVICE)('Sedes permitidas por usuario', () => {
     await asesor
       .from('inventory').update({ qty_available: f.qty_available + 999 }).eq('id', f.id);
 
-    // Se rechaza, o simplemente no alcanza ninguna fila. Lo que NO puede pasar
-    // es que la cantidad cambie.
+    // Puede rechazarse o no alcanzar filas; lo que no puede es cambiar la cantidad.
     const { data: despues } = await admin
       .from('inventory').select('qty_available').eq('id', f.id).single();
     expect((despues as { qty_available: number }).qty_available).toBe(f.qty_available);
@@ -188,9 +168,6 @@ describe.skipIf(!disponible || !SERVICE)('Sedes permitidas por usuario', () => {
     }
   });
 
-  // ----------------------------------------------------------
-  // El administrador
-  // ----------------------------------------------------------
   it('el ADMINISTRADOR ve todas las sedes aunque se le asigne una sola', async () => {
     const adminCli = createClient(API, ANON, { auth: { persistSession: false } });
     const s = await adminCli.auth.signInWithPassword(ADMIN);
@@ -201,7 +178,7 @@ describe.skipIf(!disponible || !SERVICE)('Sedes permitidas por usuario', () => {
     await admin.from('user_pickup_locations')
       .insert({ user_id: uidAdmin, location_id: sedes[0].id });
 
-    // No se le puede dejar sin acceso a una sede por un error de configuración.
+    // Un error de configuración no puede dejarlo sin acceso.
     const vistas = await sedesConInventario(adminCli);
     expect(vistas.length).toBe(sedes.length);
 
@@ -209,12 +186,8 @@ describe.skipIf(!disponible || !SERVICE)('Sedes permitidas por usuario', () => {
     await adminCli.auth.signOut();
   });
 
-  // ----------------------------------------------------------
-  // Lo que NO se filtra por sede
-  // ----------------------------------------------------------
   it('el CATÁLOGO es global: no se filtra por sede', async () => {
-    // Un producto creado en Medellín tiene que seguir apareciendo en la tienda
-    // para un cliente de Cali.
+    // Un producto creado en una sede debe verse en la tienda de cualquier ciudad.
     await asignar(sedes[0].id);
     const { count: total } = await admin
       .from('products').select('id', { count: 'exact', head: true });
@@ -230,7 +203,7 @@ describe.skipIf(!disponible || !SERVICE)('Sedes permitidas por usuario', () => {
   });
 
   it('los CLIENTES son globales: no se asignan a una sede', async () => {
-    // Asignar un cliente a una sede partiría su historial en dos.
+    // Filtrar clientes por sede partiría su historial.
     await asignar(sedes[0].id);
     const { count: total } = await admin
       .from('companies').select('id', { count: 'exact', head: true });
@@ -246,12 +219,8 @@ describe.skipIf(!disponible || !SERVICE)('Sedes permitidas por usuario', () => {
     expect(count).toBe(1122);
   });
 
-  // ----------------------------------------------------------
-  // El cliente
-  // ----------------------------------------------------------
   it('el CLIENTE sigue viendo sus pedidos, salgan de la sede que salgan', async () => {
-    // La restricción de sede es del personal interno. Un cliente que compró en
-    // Medellín y en Bogotá tiene que ver los dos pedidos.
+    // La restricción es del personal: el cliente ve pedidos de cualquier sede.
     const { data: uid } = await cliente.auth.getUser();
     const propio = uid.user?.id as string;
 
@@ -262,13 +231,8 @@ describe.skipIf(!disponible || !SERVICE)('Sedes permitidas por usuario', () => {
     expect(vistos).toBe(suyos);
   });
 
-
-  // ----------------------------------------------------------
-  // Una sede NUEVA
-  // ----------------------------------------------------------
   it('una sede NUEVA aparece sola para quien no está restringido', async () => {
-    // Es la pregunta práctica: si mañana abre una tienda, ¿sale en los filtros
-    // sin que nadie toque nada?
+    // Una tienda nueva debe aparecer en los filtros sin tocar nada.
     await asignar();   // sin restricción
 
     const antes = await asesor.rpc('sedes_permitidas');
@@ -295,8 +259,7 @@ describe.skipIf(!disponible || !SERVICE)('Sedes permitidas por usuario', () => {
   });
 
   it('una sede nueva NO se le abre a quien está restringido, hasta asignársela', async () => {
-    // Es lo correcto: si estuviera acotado a Barranquilla, abrir una tienda en
-    // Cali no puede darle acceso de golpe. Alguien tiene que asignársela.
+    // Quien está restringido no gana acceso a una tienda nueva hasta que se la asignen.
     const { data: creada } = await admin.from('pickup_locations').insert({
       external_ref: `store-prueba2-${Date.now()}`,
       name: `Tienda Restringida ${Date.now()}`,
@@ -315,7 +278,7 @@ describe.skipIf(!disponible || !SERVICE)('Sedes permitidas por usuario', () => {
     expect(ids).not.toContain(nueva);
     expect(ids).toEqual([sedes[0].id]);
 
-    // Y en cuanto se le asigna, la ve.
+    // En cuanto se le asigna, la ve.
     await asignar(sedes[0].id, nueva);
     const r2 = await asesor.rpc('sedes_permitidas');
     const ids2 = (r2.data as Array<string | { sedes_permitidas: string }>)
@@ -324,7 +287,7 @@ describe.skipIf(!disponible || !SERVICE)('Sedes permitidas por usuario', () => {
   });
 
   it('una sede INACTIVA no se ofrece, aunque esté asignada', async () => {
-    // Cerrar una tienda no debe dejarla en el selector de nadie.
+    // Una tienda cerrada sale de todos los selectores.
     const { data: creada } = await admin.from('pickup_locations').insert({
       external_ref: `store-cerrada-${Date.now()}`,
       name: `Tienda Cerrada ${Date.now()}`,
@@ -344,9 +307,7 @@ describe.skipIf(!disponible || !SERVICE)('Sedes permitidas por usuario', () => {
   });
 
   it('la sede nueva trae los campos que necesitan las tarjetas del contador', async () => {
-    // `external_ref` es con lo que se resuelve la foto (`imagenPunto`), e
-    // `image_url` es la que se sube desde el portal y tiene prioridad. Sin
-    // estas dos columnas la tarjeta saldría sin imagen.
+    // `external_ref` resuelve la foto y `image_url` (subida desde el portal) tiene prioridad.
     const { data } = await admin
       .from('pickup_locations')
       .select('id, name, city, address, external_ref, image_url')
@@ -359,15 +320,8 @@ describe.skipIf(!disponible || !SERVICE)('Sedes permitidas por usuario', () => {
     }
   });
 
-
-  // ----------------------------------------------------------
-  // Los RESÚMENES: Panel y Analítica
-  // ----------------------------------------------------------
-  // Estas funciones son SECURITY DEFINER, así que RLS NO aplica dentro. Sin el
-  // cruce con las sedes permitidas, un asesor restringido a una sede veía en el
-  // Panel las ventas del día de las siete y el ranking completo en Analítica:
-  // la restricción llegaba a las listas pero no a los números de arriba, que es
-  // donde se lee el negocio.
+  // Panel y Analítica son SECURITY DEFINER: RLS no aplica dentro, así que deben cruzar
+  // con las sedes permitidas o un asesor restringido vería los números de todas.
 
   it('el Panel se acota a las sedes del usuario', async () => {
     await asignar();
@@ -380,20 +334,19 @@ describe.skipIf(!disponible || !SERVICE)('Sedes permitidas por usuario', () => {
     expect(una.error).toBeNull();
     const conUna = (una.data as Record<string, number>).por_alistar;
 
-    // Con una sola sede no puede ver MÁS de lo que veía con todas.
+    // Con una sola sede no puede ver más que con todas.
     expect(conUna).toBeLessThanOrEqual(conTodas);
   });
 
   it('ATAQUE: pedirle al Panel una sede ajena no devuelve sus cifras', async () => {
     await asignar(sedes[0].id);
 
-    // Se pide explícitamente la sede que NO tiene asignada.
+    // Se pide explícitamente una sede no asignada.
     const ajena = await asesor.rpc('resumen_panel', { _sedes: [sedes[1].id] });
     expect(ajena.error).toBeNull();
     const d = ajena.data as Record<string, number>;
 
-    // La intersección queda vacía, así que el inventario de esa sede no sale.
-    // (El inventario siempre tiene sede, a diferencia de los pedidos de envío.)
+    // La intersección queda vacía; el inventario siempre tiene sede, a diferencia de los envíos.
     expect(d.bajo_minimo).toBe(0);
     expect(d.agotados).toBe(0);
     expect(d.criticos).toEqual([]);
@@ -416,11 +369,11 @@ describe.skipIf(!disponible || !SERVICE)('Sedes permitidas por usuario', () => {
     const sinPedir = await asesor.rpc('sedes_efectivas', { _pedidas: null });
     expect(sinPedir.data).toEqual([sedes[0].id]);
 
-    // Pedir una ajena: la intersección la descarta.
+    // Una sede ajena se descarta en la intersección.
     const ajena = await asesor.rpc('sedes_efectivas', { _pedidas: [sedes[1].id] });
     expect(ajena.data).toEqual([]);
 
-    // Pedir la propia y una ajena: solo queda la propia.
+    // Propia y ajena: solo queda la propia.
     const mezcla = await asesor.rpc('sedes_efectivas', {
       _pedidas: [sedes[0].id, sedes[1].id],
     });
@@ -428,22 +381,17 @@ describe.skipIf(!disponible || !SERVICE)('Sedes permitidas por usuario', () => {
   });
 
   it('los filtros de Analítica solo ofrecen las sedes permitidas', async () => {
-    // Ofrecer una sede que luego no devuelve datos hace pensar que no hubo
-    // ventas, cuando lo que pasa es que no se tiene acceso.
+    // Ofrecer una sede sin acceso haría creer que no hubo ventas.
     await asignar(sedes[0].id, sedes[1].id);
 
-    // Con el ADMINISTRADOR real, no con `service_role`: estas funciones se
-    // apoyan en `auth.uid()`, y `service_role` no tiene sesión, así que
-    // `is_admin()` da falso y la función responde FORBIDDEN.
+    // Con el admin real: con `service_role`, `auth.uid()` es nulo e `is_admin()` da falso.
     const comoAdmin = createClient(API, ANON, { auth: { persistSession: false } });
     await comoAdmin.auth.signInWithPassword(ADMIN);
     const r = await comoAdmin.rpc('analitica_filtros');
     expect(r.error).toBeNull();
     const puntosAdmin = ((r.data as Record<string, unknown>).puntos ?? []) as
       Array<{ id: string }>;
-    // El administrador ve TODAS las sedes activas. Se cuenta AHORA y no con
-    // la foto de `beforeAll`: las pruebas anteriores crearon sedes que todavía
-    // no se han limpiado.
+    // Se cuentan las sedes activas ahora: pruebas anteriores crearon sedes aún sin limpiar.
     const { count: activas } = await admin
       .from('pickup_locations').select('id', { count: 'exact', head: true })
       .eq('status', 'ACTIVO');
@@ -453,8 +401,7 @@ describe.skipIf(!disponible || !SERVICE)('Sedes permitidas por usuario', () => {
     const comoAsesor = createClient(API, ANON, { auth: { persistSession: false } });
     await comoAsesor.auth.signInWithPassword(ASESOR);
     const suyo = await comoAsesor.rpc('analitica_filtros');
-    // El asesor no tiene `analytics.read`, así que la función lo rechaza: eso
-    // también es correcto y hay que distinguirlo de «no hay datos».
+    // Sin `analytics.read` la función rechaza, y eso debe distinguirse de «no hay datos».
     if (!suyo.error) {
       const puntos = ((suyo.data as Record<string, unknown>).puntos ?? []) as
         Array<{ id: string }>;
@@ -465,14 +412,8 @@ describe.skipIf(!disponible || !SERVICE)('Sedes permitidas por usuario', () => {
     await comoAsesor.auth.signOut();
   });
 
-
-  // ----------------------------------------------------------
-  // La visita técnica y su sede
-  // ----------------------------------------------------------
   it('la visita deduce su sede de la ciudad del proyecto', async () => {
-    // Hasta ahora `technical_visits.location_id` quedaba siempre en null y las
-    // visitas se salían del dominio: la agenda de un asesor de Barranquilla
-    // mostraba visitas de Medellín.
+    // `technical_visits.location_id` debe deducirse de la ciudad del proyecto para acotar la agenda por sede.
     const { data: proy } = await admin.from('projects')
       .select('id, city').not('city', 'is', null).limit(1).maybeSingle();
     if (!proy) return;   // sin proyectos sembrados no hay nada que comprobar
@@ -482,8 +423,7 @@ describe.skipIf(!disponible || !SERVICE)('Sedes permitidas por usuario', () => {
       _project_id: proyecto.id,
       _fecha: '2026-12-15',
     });
-    // El admin es `service_role` aquí y la función exige permiso: si rechaza,
-    // se comprueba con el administrador real más abajo.
+    // Con `service_role` la función puede rechazar por permiso; entonces se prueba con el admin real abajo.
     if (r.error) {
       expect(r.error.message).toMatch(/FORBIDDEN/);
       return;
@@ -495,7 +435,7 @@ describe.skipIf(!disponible || !SERVICE)('Sedes permitidas por usuario', () => {
       .select('location_id').eq('id', visita).single();
     const sede = (v as { location_id: string | null }).location_id;
 
-    // Si la ciudad del proyecto tiene tienda, quedó asignada; si no, en null.
+    // Si la ciudad tiene tienda queda asignada; si no, en null.
     const { data: tienda } = await admin.from('pickup_locations')
       .select('id, city').eq('status', 'ACTIVO');
     const hayTienda = ((tienda ?? []) as Array<{ city: string }>).some(
@@ -506,22 +446,16 @@ describe.skipIf(!disponible || !SERVICE)('Sedes permitidas por usuario', () => {
   });
 
   it('NO se le asigna «la sede más cercana» a una obra sin tienda en su ciudad', async () => {
-    // Asignar la más cercana sería inventar el dato. Sin tienda en la ciudad,
-    // la visita queda sin sede y la sigue viendo todo el mundo, que es el
-    // comportamiento correcto mientras nadie decida quién la atiende.
+    // Sin tienda en la ciudad no se asigna la más cercana: queda sin sede y visible para todos.
     const { count } = await admin
       .from('pickup_locations').select('id', { count: 'exact', head: true })
       .eq('status', 'ACTIVO');
-    // Solo hay tiendas en 5 ciudades de 1.122 municipios: la gran mayoría de
-    // las obras del país cae en este caso.
+    // Hay tiendas en pocas ciudades: la mayoría de obras cae en este caso.
     expect(count ?? 0).toBeLessThan(1122);
   });
 
-  // ----------------------------------------------------------
-  // Quién puede asignar
-  // ----------------------------------------------------------
   it('solo quien administra personal puede asignar sedes', async () => {
-    // El asesor no tiene `users.manage`: no puede darse a sí mismo otra sede.
+    // Sin `users.manage` no puede darse otra sede.
     const r = await asesor.from('user_pickup_locations')
       .insert({ user_id: uidAsesor, location_id: sedes[3].id });
     expect(r.error).not.toBeNull();

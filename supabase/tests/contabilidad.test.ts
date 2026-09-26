@@ -3,17 +3,8 @@ import { readFileSync, existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 /**
- * Contabilidad en partida doble.
- *
- * Lo que se vigila, en orden de gravedad:
- *   1. Que NUNCA entre un asiento descuadrado. Es la propiedad que hace
- *      auditable un libro contable; sin ella, todo lo demás es decoración.
- *   2. Que los hechos económicos que el sistema ya conoce generen su asiento
- *      solos. Si dependieran de que alguien los teclee, la contabilidad
- *      estaría desactualizada desde el primer día ocupado.
- *   3. Que anular no borre. En contabilidad, borrar un asiento es borrar la
- *      prueba de que existió.
- *   4. Que los libros no los lea quien no debe: revelan todo el negocio.
+ * Contabilidad en partida doble: nunca entra un asiento descuadrado, los hechos
+ * conocidos se asientan solos, anular no borra y los libros no son públicos.
  */
 
 function leerEnvLocal(): Record<string, string> {
@@ -83,10 +74,8 @@ describe.skipIf(!disponible)('Contabilidad · partida doble', () => {
       login(ADMIN), login(CLIENTE), login(TECNICO),
     ]);
 
-    // Producto propio y oculto. Esta suite recibe mercancía para comprobar el
-    // asiento automático, y hacerlo sobre una referencia de la semilla movía
-    // los saldos que verifica la suite de inventario, que corre en paralelo:
-    // fallaba allá por un motivo que nada tenía que ver con el inventario.
+    // Producto propio y oculto: recibir mercancía sobre uno de la semilla alteraría
+    // los saldos que verifica la suite de inventario en paralelo.
     const sello = Date.now();
     const codigo = `TEST-CONTA-${sello}`;
     await fetch(`${API}/rest/v1/products`, {
@@ -121,9 +110,7 @@ describe.skipIf(!disponible)('Contabilidad · partida doble', () => {
     for (const id of creados) {
       await fetch(`${API}/rest/v1/journal_entries?id=eq.${id}`, { method: 'DELETE', headers: s });
     }
-    // Los comprobantes que generó la recepción de esta suite se retiran
-    // antes que la recepción: si no, quedarían huérfanos sumando en el
-    // balance del negocio.
+    // Los comprobantes de la recepción se borran antes que ella para no dejarlos huérfanos en el balance.
     for (const rec of await fetch(
       `${API}/rest/v1/purchase_receipts?select=id&document_ref=like.FV-T-*`,
       { headers: s },
@@ -148,7 +135,7 @@ describe.skipIf(!disponible)('Contabilidad · partida doble', () => {
     }).then((r) => r.json());
 
     const codigos = cuentas.map((c: { code: string }) => c.code);
-    // Códigos del Decreto 2650: los que cualquier contador colombiano espera.
+    // Códigos del PUC (Decreto 2650).
     for (const esperado of ['1105', '1110', '1305', '1435', '2205', '2408', '4135', '6135']) {
       expect(codigos, `falta la cuenta ${esperado}`).toContain(esperado);
     }
@@ -167,7 +154,7 @@ describe.skipIf(!disponible)('Contabilidad · partida doble', () => {
   });
 
   it('RECHAZA un asiento descuadrado', async () => {
-    // Es la comprobación central de todo el módulo.
+    // Comprobación central del módulo.
     const r = await asentar(tAdmin, {
       _descripcion: 'Descuadrado a propósito',
       _lineas: [
@@ -189,8 +176,7 @@ describe.skipIf(!disponible)('Contabilidad · partida doble', () => {
   });
 
   it('rechaza cargar a una cuenta de agrupación', async () => {
-    // Cargar a una cuenta mayor hace que la cifra se cuente dos veces al
-    // sumar por niveles.
+    // Cargar a una cuenta mayor duplicaría la cifra al sumar por niveles.
     const r = await asentar(tAdmin, {
       _descripcion: 'A cuenta mayor',
       _lineas: [
@@ -231,7 +217,7 @@ describe.skipIf(!disponible)('Contabilidad · partida doble', () => {
   });
 
   it('un rol interno sin permiso contable tampoco ve los libros', async () => {
-    // Los libros revelan ventas, costos y márgenes: todo el negocio.
+    // Los libros revelan ventas, costos y márgenes.
     const balance = await fetch(`${API}/rest/v1/v_balance_prueba?select=cuenta&limit=1`, {
       headers: cab(tTecnico),
     }).then((x) => x.json());
@@ -312,8 +298,7 @@ describe.skipIf(!disponible)('Contabilidad · partida doble', () => {
       { headers: cab(tAdmin) },
     ).then((r) => r.json());
 
-    // Inventario al débito contra Proveedores al crédito: la mercancía entra
-    // y queda la deuda con quien la despachó.
+    // Inventario al débito contra Proveedores al crédito.
     expect(lineas).toHaveLength(2);
     const inventario = lineas.find((l: { cuenta: string }) => l.cuenta === '1435');
     const proveedor = lineas.find((l: { cuenta: string }) => l.cuenta === '2205');
@@ -328,16 +313,14 @@ describe.skipIf(!disponible)('Contabilidad · partida doble', () => {
   });
 
   it('una factura genera su asiento con el costo real de la venta', async () => {
-    // Es la prueba que ata todo el sistema: el costo que entró con la
-    // recepción sale como Costo de mercancía vendida al facturar.
+    // El costo que entró con la recepción sale como costo de venta al facturar.
     const [linea] = await fetch(
       `${API}/rest/v1/v_libro_auxiliar?select=entry_id,cuenta,debit_cop&cuenta=eq.6135&order=entry_date.desc&limit=1`,
       { headers: cab(tAdmin) },
     ).then((r) => r.json());
 
     if (!linea) {
-      // Sin ventas facturadas todavía no hay nada que comprobar, y fingir
-      // una aquí no probaría el flujo real.
+      // Sin ventas facturadas no hay qué comprobar; fingir una no probaría el flujo real.
       expect(true).toBe(true);
       return;
     }
@@ -357,8 +340,7 @@ describe.skipIf(!disponible)('Contabilidad · partida doble', () => {
   });
 
   it('el balance respeta la naturaleza de cada cuenta', async () => {
-    // Sin esto, todos los pasivos e ingresos saldrían en negativo y cada
-    // informe tendría que corregir el signo por su cuenta.
+    // Sin ajustar el signo por naturaleza, pasivos e ingresos saldrían en negativo.
     const filas = await fetch(
       `${API}/rest/v1/v_balance_prueba?select=cuenta,naturaleza,debitos,creditos,saldo`,
       { headers: cab(tAdmin) },
@@ -374,8 +356,7 @@ describe.skipIf(!disponible)('Contabilidad · partida doble', () => {
   });
 
   it('desde el asiento se llega al documento que lo originó', async () => {
-    // Un comprobante no lleva las líneas de producto —duplicaría la factura—
-    // pero desde él hay que poder ver QUÉ se vendió o QUÉ llegó.
+    // El comprobante no duplica las líneas de producto, pero debe enlazar a lo vendido o recibido.
     const [asiento] = await fetch(
       `${API}/rest/v1/journal_entries?select=id&source=eq.RECEPCION&order=created_at.desc&limit=1`,
       { headers: cab(tAdmin) },
@@ -395,8 +376,7 @@ describe.skipIf(!disponible)('Contabilidad · partida doble', () => {
   });
 
   it('el costo de compra del documento solo lo ve quien puede ver costos', async () => {
-    // En una recepción el «valor unitario» ES el costo de compra: publicarlo
-    // a cualquier empleado revelaría el margen del negocio.
+    // En una recepción el valor unitario es el costo de compra: revelaría el margen.
     const [asiento] = await fetch(
       `${API}/rest/v1/journal_entries?select=id&source=eq.RECEPCION&order=created_at.desc&limit=1`,
       { headers: cab(tAdmin) },
@@ -422,8 +402,7 @@ describe.skipIf(!disponible)('Contabilidad · partida doble', () => {
         .filter((f: { clase: string }) => f.clase === clase)
         .reduce((a: number, f: { valor: string }) => a + Number(f.valor), 0);
 
-    // Los ingresos se muestran en positivo aunque su naturaleza sea crédito:
-    // un estado de resultados con todo en negativo es ilegible.
+    // Los ingresos se muestran en positivo aunque su naturaleza sea crédito.
     expect(suma('INGRESO')).toBeGreaterThanOrEqual(0);
     expect(suma('COSTO')).toBeGreaterThanOrEqual(0);
   });

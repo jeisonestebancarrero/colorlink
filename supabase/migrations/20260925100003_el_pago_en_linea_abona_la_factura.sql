@@ -1,30 +1,8 @@
--- ============================================================================
--- El pago en línea abona la factura del pedido
--- ============================================================================
--- Un pedido pagado por la pasarela crea solo su movimiento de tesorería
--- (`pago_en_linea_a_tesoreria`), pero ese movimiento se guardaba con el pedido
--- y SIN la factura. Como la cartera (`v_cartera`) suma los ingresos por
--- factura, el caso más común —el cliente paga en línea y después se factura—
--- dejaba la factura en cartera con todo el saldo pendiente:
---
---   * Tesorería veía una deuda que ya estaba pagada, y podía registrar el
---     mismo dinero otra vez como recaudo manual.
---   * `anular_factura` no encontraba recaudos y dejaba anular una factura ya
---     cobrada.
---
--- La contabilidad no estaba mal: la factura debita 1305 Clientes y el recaudo
--- del pago lo acredita. Faltaba solo el enlace. Salió al recorrer el portal
--- para el manual de usuario (25 de septiembre de 2026).
---
--- Se enlaza en los dos órdenes posibles:
---   1. El pago llega cuando la factura ya existe: el movimiento nace enlazado.
---   2. La factura se emite cuando el pago ya llegó: al fijarse sus totales se
---      enlazan los ingresos del pedido que venían de un pago.
--- Solo se tocan movimientos que vienen de un pago (`payment_id`) y que aún no
--- tienen factura: un recaudo manual ya trae la suya.
--- ============================================================================
+-- Enlaza el movimiento de tesorería de un pago en línea con la factura del pedido: sin
+-- el enlace, v_cartera la mostraba pendiente y anular_factura no veía el recaudo.
+-- Solo movimientos con payment_id y sin factura; el recaudo manual ya trae la suya.
 
--- 1. El movimiento nace con la factura vigente del pedido, si la hay.
+-- Pago posterior a la factura: el movimiento nace enlazado.
 create or replace function public.movimiento_hereda_factura()
 returns trigger
 language plpgsql
@@ -52,8 +30,8 @@ create trigger treasury_hereda_factura
   before insert on public.treasury_movements
   for each row execute function public.movimiento_hereda_factura();
 
--- 2. La factura recoge los pagos que ya habían entrado. Se dispara en el mismo
---    momento que su asiento: cuando los totales pasan de cero a su valor.
+-- Factura posterior al pago: recoge los ingresos del pedido cuando sus totales pasan
+-- de cero, igual que su asiento.
 create or replace function public.factura_recoge_pagos()
 returns trigger
 language plpgsql
@@ -70,8 +48,7 @@ begin
        and m.direction = 'INGRESO'
     returning m.id
   )
-  -- El comprobante del recaudo apunta también a la factura, para que el
-  -- libro diario muestre de qué documento viene.
+  -- El comprobante del recaudo también apunta a la factura en el libro diario.
   update public.journal_entries j
      set invoice_id = new.id
    where j.movement_id in (select id from enlazados)
@@ -87,7 +64,7 @@ create trigger factura_recoge_pagos
   when (old.total_cop = 0 and new.total_cop > 0 and new.order_id is not null)
   execute function public.factura_recoge_pagos();
 
--- 3. Lo que ya quedó suelto se enlaza una vez.
+-- Backfill de movimientos ya registrados sin factura.
 with sueltos as (
   update public.treasury_movements m
      set invoice_id = i.id

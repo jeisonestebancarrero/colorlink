@@ -2,14 +2,7 @@ import React from 'react';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 import { Button } from './Button';
 
-/**
- * Estados de carga y error del catálogo (MÓDULO 37).
- *
- * Reutilizan el lenguaje visual que ya existe en la aplicación: el mismo
- * spinner circular de App.tsx, la tipografía slate de las páginas y el
- * componente Button existente. No se introduce ningún estilo, color ni
- * tamaño nuevo.
- */
+/** Estados de carga y error del catálogo, con los estilos existentes de la app. */
 
 export const CatalogLoading: React.FC<{ mensaje?: string }> = ({
   mensaje = 'Cargando catálogo Pintuco...',

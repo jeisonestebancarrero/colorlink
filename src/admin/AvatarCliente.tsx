@@ -1,18 +1,8 @@
 import React, { useState } from 'react';
 
 /**
- * Foto de un cliente, con iniciales cuando no hay foto.
- *
- * En la práctica casi ningún cliente tiene foto —hoy, uno de sesenta y seis—,
- * así que el caso NORMAL es el respaldo, no la excepción. Un icono genérico
- * repetido sesenta veces convierte la vista de tarjetas en una cuadrícula
- * indistinguible; con iniciales sobre un color derivado del nombre, cada
- * cliente se reconoce de lejos y el color es siempre el mismo para el mismo
- * nombre, así que sirve de referencia visual.
- *
- * La FORMA distingue el tipo: cuadrado redondeado para una empresa, círculo
- * para una persona. Es la convención de cualquier agenda, y en una lista
- * mezclada permite ver de qué tipo es cada cliente sin leer la etiqueta.
+ * Foto del cliente o, lo habitual, iniciales sobre un color estable derivado del nombre.
+ * Cuadrado redondeado para empresa, círculo para persona.
  */
 
 interface Props {
@@ -24,19 +14,13 @@ interface Props {
   className?: string;
 }
 
-/**
- * Paleta de acompañamiento, no la de marca.
- *
- * El azul Pintuco se reserva para lo accionable —botones, enlaces—; si los
- * avatares también fueran azules, la pantalla dejaría de indicar dónde se
- * puede hacer clic. Todos con contraste suficiente para texto blanco.
- */
+/** Paleta secundaria (el azul de marca queda para lo accionable), con contraste para texto blanco. */
 const COLORES = [
   '#0F766E', '#B45309', '#9333EA', '#0369A1', '#BE123C',
   '#4D7C0F', '#7C2D12', '#1E40AF', '#86198F', '#065F46',
 ];
 
-/** Mismo nombre, mismo color, siempre. */
+/** Color determinista por nombre. */
 function colorDe(nombre: string): string {
   let h = 0;
   for (let i = 0; i < nombre.length; i += 1) {
@@ -45,14 +29,7 @@ function colorDe(nombre: string): string {
   return COLORES[h % COLORES.length];
 }
 
-/**
- * Iniciales.
- *
- * Se salta lo que no identifica: la forma jurídica («S.A.S.», «LTDA») y las
- * palabras de relleno. Sin eso, «CONSTRUCTORA HORIZONTE S.A.S.» daría «CH»
- * pero «COMERCIAL HORIZONTE S.A.» también, y en cambio «C S» para media
- * pantalla de empresas no distingue nada.
- */
+/** Iniciales sin forma jurídica («S.A.S.», «LTDA») ni palabras de relleno. */
 export function inicialesDe(nombre: string): string {
   const RELLENO = new Set([
     'SAS', 'SA', 'LTDA', 'SAC', 'EU', 'SCA', 'DE', 'DEL', 'LA', 'LAS',
@@ -60,10 +37,7 @@ export function inicialesDe(nombre: string): string {
   ]);
   const palabras = nombre
     .toUpperCase()
-    // Los puntos se QUITAN, no se cambian por espacio: «S.A.S.» tiene que
-    // quedar «SAS» para reconocerlo como forma jurídica. Partiéndolo en
-    // «S A S» ninguna de las tres letras coincide con la lista y la sigla
-    // acababa dando las iniciales.
+    // Se quitan los puntos (no se cambian por espacio) para que «S.A.S.» quede «SAS» y se reconozca.
     .replace(/\./g, '')
     .replace(/[,&()]/g, ' ')
     .split(/\s+/)

@@ -5,18 +5,8 @@ import { Modal } from '../components/common/Modal';
 import { Button } from '../components/common/Button';
 
 /**
- * Anular una factura.
- *
- * Se pide el motivo por escrito, y no es burocracia: una factura anulada sin
- * explicación es lo primero que pregunta una auditoría, y meses después nadie
- * recuerda por qué. La base rechaza un motivo de una palabra suelta.
- *
- * Se advierte de lo que pasa DESPUÉS, porque anular no es deshacer:
- *   · El número de factura NO se reutiliza. La numeración tiene que ser
- *     continua; una factura anulada sigue existiendo, marcada.
- *   · El asiento contable se REVERSA con un asiento contrario, no se borra.
- *   · El inventario no se mueve. La salida física la manda el pedido, así que
- *     si además hay que devolver la mercancía, se hace desde ahí.
+ * Anulación con motivo obligatorio (la base rechaza motivos triviales). El número no se
+ * reutiliza, el asiento se reversa y el inventario no se mueve: la devolución va por el pedido.
  */
 export const AnularFactura: React.FC<{
   factura: FacturaLista;
@@ -28,7 +18,7 @@ export const AnularFactura: React.FC<{
   const [ocupado, setOcupado] = useState(false);
   const [hecho, setHecho] = useState<{ numero: string; asientoRevertido: boolean } | null>(null);
 
-  /** El mismo mínimo que exige la base, para avisar antes de enviar. */
+  /** Mismo mínimo que exige la base. */
   const MINIMO = 10;
   const corto = motivo.trim().length > 0 && motivo.trim().length < MINIMO;
   const listo = motivo.trim().length >= MINIMO;

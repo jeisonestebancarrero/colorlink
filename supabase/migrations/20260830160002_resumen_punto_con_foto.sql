@@ -1,19 +1,5 @@
--- ============================================================
--- El resumen por punto también necesita identificar la tienda
--- ============================================================
--- El tablero de inventario muestra tarjetas por punto de venta. Para poner la
--- imagen hacen falta dos datos que la vista no devolvía: la llave estable con
--- la que la aplicación busca la imagen local, y la URL de la foto real si
--- Pintuco ya la cargó.
---
--- Las columnas nuevas van al FINAL: `create or replace view` no admite
--- renombrar ni reordenar las existentes, y recrear la vista con drop
--- obligaría a recrear también sus permisos.
---
--- Se llaman `punto_ref` y `foto_url` y no `referencia`/`image_url` a
--- propósito: la vista ya tiene una columna `referencias` que es el CONTEO de
--- productos, y dos nombres casi idénticos con significados distintos son una
--- trampa para quien lea esta consulta dentro de seis meses.
+-- Añade punto_ref y foto_url al resumen por punto. Van al final porque create or
+-- replace view no permite reordenar; los nombres evitan confusión con referencias (conteo).
 create or replace view public.v_inventario_por_punto
 with (security_invoker = true) as
 select

@@ -1,30 +1,6 @@
--- ============================================================
--- `invoices.subtotal_cop` se llamaba como lo que NO era
--- ============================================================
--- La columna guardaba la suma de las líneas **con el IVA ya incluido**, que es
--- como se vende en Colombia: el precio de góndola lo lleva dentro y la base se
--- despeja hacia atrás. La base gravable estaba —y sigue— en
--- `taxable_base_cop`.
---
--- Llamarla «subtotal» invita a exportarla a la DIAN como base imponible. Con
--- la única factura que hay hoy son $419.700 declarados como base cuando la
--- base son $352.689,08: se estaría declarando de más y pagando IVA sobre el
--- IVA. Un comentario en la columna ya lo advertía desde el 30 de agosto, y un
--- comentario no detiene a quien lee el nombre y da por hecho lo que significa.
---
--- Y la trampa era doble: en `invoice_items` la columna `subtotal_cop` guarda
--- justo lo contrario —la base SIN IVA, con el valor con IVA en `total_cop`—.
--- El mismo nombre con significado opuesto en la cabecera y en las líneas del
--- mismo documento.
---
--- La cabecera pasa a `items_total_cop`: el total de las líneas, antes de
--- descuento y envío. Lo que efectivamente guarda.
---
--- Renombrar no toca los datos: PostgreSQL actualiza solo las restricciones que
--- la nombran (`invoices_importes_no_negativos`). Lo único que había que seguir
--- a mano es `issue_pos_invoice`, la única función que la escribe, y un
--- `select` de `ReciboPOS.tsx` que la pedía sin llegar a usarla nunca.
--- ============================================================
+-- invoices.subtotal_cop pasa a items_total_cop: guardaba el total con IVA incluido y el
+-- nombre invitaba a reportarlo como base gravable (que está en taxable_base_cop).
+-- En invoice_items, subtotal_cop sí es la base sin IVA.
 
 alter table public.invoices rename column subtotal_cop to items_total_cop;
 
@@ -37,13 +13,7 @@ comment on column public.invoice_items.subtotal_cop is
   'Base de la línea SIN IVA. Convención CONTRARIA a la de la cabecera: el '
   'valor con IVA de la línea está en total_cop.';
 
--- ============================================================
--- La única función que la escribe
--- ============================================================
--- Se recrea entera con dos cambios: la columna nueva y la variable local
--- `v_subtotal`, que arrastraba el mismo nombre engañoso, ahora
--- `v_lineas_con_iva`. Todo lo demás es idéntico a lo que había.
--- ============================================================
+-- Igual que antes salvo la columna renombrada y la variable v_lineas_con_iva.
 
 create or replace function public.issue_pos_invoice(_order_id uuid)
 returns uuid
@@ -88,9 +58,7 @@ begin
     left join public.companies c on c.id = p.company_id
    where p.id = v_pedido.user_id;
 
-  -- El medio de pago real: el que el cliente eligió al pagar. Solo cuando no
-  -- hay registro de pago (venta de mostrador digitada por el vendedor) se cae
-  -- al texto genérico.
+  -- Medio de pago real; el texto genérico solo si no hay registro de pago (mostrador).
   select case pa.method
            when 'EFECTIVO'            then 'Efectivo'
            when 'PSE'                 then 'PSE'
@@ -145,15 +113,11 @@ begin
      where oi.order_id = _order_id
   loop
     v_tarifa := coalesce(r.tax_rate, 19);
-    -- En Colombia el precio de góndola ya incluye IVA: la base se despeja
-    -- hacia atrás, no se suma por encima.
+    -- El precio de góndola incluye IVA: la base se despeja hacia atrás.
     v_linea_base := round(r.subtotal_cop / (1 + v_tarifa / 100.0), 2);
     v_linea_iva  := r.subtotal_cop - v_linea_base;
 
-    -- OJO con `invoice_items.subtotal_cop`: en la LÍNEA sí es la base SIN
-    -- IVA (`v_linea_base`), y el valor con IVA va en `total_cop`. Es la
-    -- convención contraria a la que tenía la cabecera, y tenerlas las dos con
-    -- el mismo nombre en el mismo documento era la trampa entera.
+    -- En la línea, subtotal_cop es la base sin IVA y total_cop el valor con IVA.
     insert into public.invoice_items (
       invoice_id, description, code, presentation, quantity,
       unit_price_cop, tax_rate, tax_cop, subtotal_cop, total_cop

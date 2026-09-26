@@ -6,12 +6,7 @@ import { Button } from './Button';
 interface FileUploaderProps {
   photos: ProjectPhoto[];
   onChange: (photos: ProjectPhoto[]) => void;
-  /**
-   * Tope de fotos por proyecto. `CreateProjectPage` ya lo venía pasando —con
-   * otro nombre y sin que existiera—, así que el límite estaba escrito en la
-   * intención pero no se aplicaba en ninguna parte: cada foto se sube a
-   * Storage y un proyecto podía cargar las que quisiera.
-   */
+  /** Tope de fotos por proyecto (cada una se sube a Storage). */
   maxPhotos?: number;
 }
 
@@ -45,9 +40,7 @@ export const FileUploader: React.FC<FileUploaderProps> = ({ photos, onChange, ma
   const handleFiles = (files: FileList | null) => {
     if (!files || files.length === 0 || espacioLibre === 0) return;
 
-    // Se recortan las que sobren en lugar de rechazar la selección entera:
-    // quien arrastra ocho fotos prefiere que entren las seis primeras a que no
-    // entre ninguna sin explicación.
+    // Se recortan las sobrantes en vez de rechazar toda la selección.
     const newPhotos: ProjectPhoto[] = Array.from(files).slice(0, espacioLibre).map((file, idx) => {
       const url = URL.createObjectURL(file);
       const sizeMb = (file.size / (1024 * 1024)).toFixed(1);
@@ -58,11 +51,7 @@ export const FileUploader: React.FC<FileUploaderProps> = ({ photos, onChange, ma
         size: `${sizeMb} MB`,
         uploadDate: 'Hoy',
         isPrimary: photos.length === 0 && idx === 0,
-        // FASE 5: se conserva el archivo original. Antes solo se guardaba la
-        // URL `blob:` de la línea anterior, que deja de existir al recargar
-        // la página: por eso las fotos nunca llegaban a persistirse (R6).
-        // La vista previa sigue usando esa URL; el archivo solo se emplea
-        // al guardar el proyecto para subirlo a Supabase Storage.
+        // Se guarda el archivo para subirlo a Storage: la URL `blob:` solo sirve de vista previa.
         file,
       };
     });

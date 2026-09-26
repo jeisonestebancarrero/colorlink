@@ -7,15 +7,8 @@ import { AcuseDeLectura } from '../components/common/AcuseDeLectura';
 import { useMensajes } from '../context/MensajesContext';
 
 /**
- * Chatter: conversación y trazabilidad en un mismo hilo.
- *
- * Los tres tipos de entrada conviven ordenados por fecha:
- *   MENSAJE       — lo escribe el cliente o el personal, y el cliente lo ve.
- *   NOTA_INTERNA  — solo la ve el personal. La política RLS la excluye para
- *                   el cliente, no un filtro de esta pantalla.
- *   EVENTO        — lo escribe la base al cambiar un estado. Es la
- *                   trazabilidad, y vive aquí en vez de en una pestaña
- *                   aparte que nadie mira.
+ * Hilo cronológico de mensajes, notas internas y eventos de estado.
+ * Las notas internas las oculta RLS al cliente, no esta pantalla.
  */
 export const Chatter: React.FC<{
   campo: 'order_id' | 'project_id';
@@ -28,7 +21,7 @@ export const Chatter: React.FC<{
   const [interno, setInterno] = useState(false);
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState('');
-  /** Null mientras se averigua. Solo los pedidos se pueden dar por terminados. */
+  /** Null mientras carga. Solo los pedidos se pueden terminar. */
   const [abierta, setAbierta] = useState<boolean | null>(null);
 
   const cargar = async () => {
@@ -49,8 +42,7 @@ export const Chatter: React.FC<{
 
   useEffect(() => {
     void cargar();
-    // Abrir el hilo es lo que apaga el aviso, igual que del lado del cliente.
-    // Solo aplica a pedidos: la campana cuenta conversaciones de pedidos.
+    // Abrir el hilo apaga el aviso; solo en pedidos, que es lo que cuenta la campana.
     if (campo === 'order_id') void marcarLeida(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [campo, id]);
@@ -71,7 +63,7 @@ export const Chatter: React.FC<{
     }
   };
 
-  /** Iniciales para el avatar. Dos letras bastan y no desbordan el círculo. */
+  /** Dos iniciales para el avatar. */
   const iniciales = (nombre: string | null) =>
     (nombre ?? 'Sistema')
       .split(/\s+/)
@@ -98,9 +90,7 @@ export const Chatter: React.FC<{
           </span>
         )}
 
-        {/* Terminar cierra el hilo para los DOS lados. Sirve para que el
-            equipo sepa qué queda pendiente: un hilo que nunca cierra parece
-            siempre abierto. */}
+        {/* Terminar cierra el hilo para ambos lados. */}
         {campo === 'order_id' && puede('chat.reply') && abierta !== null && (
           <button
             type="button"
@@ -142,9 +132,7 @@ export const Chatter: React.FC<{
             );
           }
           const esNota = m.tipo === 'NOTA_INTERNA';
-          // El cliente a la izquierda, el equipo a la derecha. Es la
-          // convención de cualquier chat y evita tener que leer el nombre
-          // para saber quién habla.
+          // Cliente a la izquierda, equipo a la derecha.
           const mio = m.quien !== 'CLIENTE';
 
           const etiqueta =
@@ -200,10 +188,7 @@ export const Chatter: React.FC<{
                   <p className="text-sm whitespace-pre-wrap break-words">{m.cuerpo}</p>
                 </div>
 
-                {/* Acuse SOLO en lo que escribió el equipo y el cliente puede
-                    ver. En un mensaje del cliente diría cuándo lo leímos
-                    nosotros —que ya lo sabemos— y en una nota interna no
-                    significa nada: el cliente nunca la va a abrir. */}
+                {/* Acuse de lectura solo en mensajes del equipo visibles para el cliente. */}
                 {mio && !esNota && (
                   <span className="flex items-center gap-1 px-0.5 text-[10px] text-slate-400">
                     <AcuseDeLectura leidoEn={m.leidoEn} sobreAzul={false} />

@@ -1,21 +1,5 @@
--- ============================================================
--- Reabrir una vinculación rechazada
--- ============================================================
--- Al construir la pantalla de aprobación (20260904100001) quedó a la vista un
--- callejón sin salida: rechazar era DEFINITIVO. La solicitud solo la crea el
--- disparador de alta, así que quien fuera rechazado por error —o quien de
--- verdad entrara a trabajar en la empresa un mes después— no tenía forma de
--- volver a pedirlo: había que entrar a la base a vincularlo a mano.
---
--- Reabrir devuelve la solicitud a PENDIENTE en lugar de crear una nueva. Así
--- la fila conserva su fecha original y su historia: quedan en `audit_logs` el
--- rechazo, la reapertura y la decisión final, en ese orden. Crear una fila
--- nueva borraría de la vista que a esa persona ya la habían rechazado antes,
--- que es justo el contexto que necesita quien vuelve a decidir.
---
--- Quién puede: exactamente los mismos que pueden resolverla. Reabrir es un
--- paso del mismo trámite, no una potestad aparte.
--- ============================================================
+-- Reabre una solicitud RECHAZADA a PENDIENTE sin crear otra, para conservar su historia
+-- en audit_logs. Pueden hacerlo los mismos que pueden resolverla.
 
 create or replace function public.reabrir_join_request(_request_id uuid)
 returns void
@@ -31,8 +15,7 @@ begin
     raise exception 'REQUEST_NOT_FOUND: solicitud no encontrada' using errcode = 'P0002';
   end if;
 
-  -- Una APROBADA no se reabre: para sacar a alguien de la empresa está la
-  -- baja del miembro, no deshacer su vinculación por la puerta de atrás.
+  -- Una APROBADA no se reabre: la salida es dar de baja al miembro.
   if v_sol.status <> 'RECHAZADA' then
     raise exception 'NOT_REJECTED: solo se puede reabrir una solicitud rechazada'
       using errcode = '22023';
@@ -52,8 +35,7 @@ begin
       using errcode = '42501';
   end if;
 
-  -- Ya es de la empresa: reabrir no aportaría nada y dejaría una solicitud
-  -- pendiente imposible de entender en la pantalla de quien aprueba.
+  -- Si ya pertenece a la empresa, reabrir no tiene sentido.
   if exists (
     select 1 from public.company_members m
     where m.company_id = v_sol.company_id
@@ -64,9 +46,7 @@ begin
       using errcode = '23505';
   end if;
 
-  -- `solicitud_vinculacion_unica` solo deja una PENDIENTE viva por persona y
-  -- empresa. Sin esta comprobación el UPDATE reventaría con una violación de
-  -- índice en crudo en lugar de una frase que se pueda leer.
+  -- Evita que solicitud_vinculacion_unica falle con un error de índice ilegible.
   if exists (
     select 1 from public.company_join_requests o
     where o.company_id = v_sol.company_id
@@ -77,9 +57,7 @@ begin
       using errcode = '23505';
   end if;
 
-  -- La fecha de creación NO se toca: la solicitud es la misma y se pidió
-  -- cuando se pidió. `resolved_by` y `resolved_at` sí se limpian, o el
-  -- historial mostraría un rechazo que ya no está vigente.
+  -- Se conserva created_at; resolved_by y resolved_at se limpian.
   update public.company_join_requests
      set status      = 'PENDIENTE'::public.join_request_status,
          resolved_by = null,

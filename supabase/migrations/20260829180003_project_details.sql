@@ -1,19 +1,9 @@
--- ============================================================
--- FASE 5 · 03 — Superficies, patologías, diagnóstico y cronología
--- ============================================================
-
--- ------------------------------------------------------------
--- MÓDULO 10 — Superficies del proyecto
--- Un proyecto puede tener varias zonas, cada una con su área y sustrato:
---   Fachada exterior — 85 m² — concreto
---   Piso            — 120 m² — concreto
---   Muro interior   —  60 m² — drywall
--- ------------------------------------------------------------
+-- Zonas del proyecto, cada una con su área y sustrato.
 create table public.project_surfaces (
   id          uuid primary key default gen_random_uuid(),
   project_id  uuid not null references public.projects (id) on delete cascade,
   surface_id  uuid references public.surfaces (id) on delete restrict,
-  -- Nombre de la zona ("Fachada principal"). Independiente del sustrato.
+  -- Nombre de la zona, independiente del sustrato.
   label       text,
   area_m2     numeric(12,2),
   environment public.environment_type,
@@ -26,15 +16,11 @@ create table public.project_surfaces (
 
 create index project_surfaces_project_id_idx on public.project_surfaces (project_id);
 
--- ------------------------------------------------------------
--- MÓDULO 11 — Patologías detectadas en el proyecto
--- ------------------------------------------------------------
 create table public.project_pathologies (
   id            uuid primary key default gen_random_uuid(),
   project_id    uuid not null references public.projects (id)   on delete cascade,
   pathology_id  uuid not null references public.pathologies (id) on delete restrict,
-  -- Severidad observada en ESTE proyecto, que puede diferir de la severidad
-  -- por defecto de la patología en el catálogo.
+  -- Severidad observada aquí; puede diferir de la del catálogo.
   severity      public.pathology_severity,
   observations  text,
   detected_at   timestamptz not null default now(),
@@ -44,9 +30,6 @@ create table public.project_pathologies (
 
 create index project_pathologies_project_id_idx on public.project_pathologies (project_id);
 
--- ------------------------------------------------------------
--- MÓDULO 12 — Diagnóstico
--- ------------------------------------------------------------
 create table public.project_diagnoses (
   id          uuid primary key default gen_random_uuid(),
   project_id  uuid not null references public.projects (id) on delete cascade,
@@ -61,15 +44,8 @@ create table public.project_diagnoses (
   technical_summary text,
   disclaimer        text,
 
-  -- ⚠️ ALMACENAMIENTO TRANSITORIO (se normaliza en las FASES 6 y 7).
-  -- Hoy el motor que produce estos dos bloques todavía vive en el frontend
-  -- (src/services/storage.ts). Normalizarlos ahora obligaría a diseñar el
-  -- esquema de recomendaciones y de cálculo ANTES de mover el motor al
-  -- servidor, y ese orden invita a equivocarse.
-  --   FASE 6 -> tabla `recommendations` (MÓDULO 13)
-  --   FASE 7 -> tablas `calculations` / `calculation_items` (MÓDULO 14)
-  -- Mientras tanto se conservan tal cual para no perder información ni
-  -- cambiar lo que ve el usuario.
+  -- Transitorio: salida del motor que aún vive en el frontend; se normaliza cuando
+  -- recomendaciones y cálculo pasen al servidor.
   recommended_products jsonb not null default '[]'::jsonb,
   budget_summary       jsonb,
 
@@ -89,9 +65,6 @@ create trigger project_diagnoses_set_updated_at
   before update on public.project_diagnoses
   for each row execute function public.set_updated_at();
 
--- ------------------------------------------------------------
--- Cronología del proyecto (TimelineStep)
--- ------------------------------------------------------------
 create table public.project_timeline_steps (
   id          uuid primary key default gen_random_uuid(),
   project_id  uuid not null references public.projects (id) on delete cascade,
@@ -99,7 +72,7 @@ create table public.project_timeline_steps (
   title       text not null,
   description text,
   status      public.timeline_step_status not null default 'upcoming',
-  -- Texto ya formateado para mostrar, tal como lo genera hoy el frontend.
+  -- Texto ya formateado por el frontend.
   step_date   text,
   responsible text,
 
@@ -109,11 +82,7 @@ create table public.project_timeline_steps (
 
 create index project_timeline_project_id_idx on public.project_timeline_steps (project_id);
 
--- ------------------------------------------------------------
--- MÓDULO 32 — Archivos del proyecto
--- En la base solo van la RUTA y los metadatos; el binario vive en
--- Supabase Storage (MÓDULO 31).
--- ------------------------------------------------------------
+-- Solo ruta y metadatos; el binario vive en Storage.
 create table public.project_files (
   id           uuid primary key default gen_random_uuid(),
   project_id   uuid not null references public.projects (id) on delete cascade,

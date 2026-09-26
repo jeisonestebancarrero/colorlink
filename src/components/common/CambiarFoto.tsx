@@ -4,14 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useProjects } from '../../context/ProjectContext';
 import { avatarService } from '../../services/avatares';
 
-/**
- * Cambiar la foto de perfil o el logo de la empresa.
- *
- * La imagen se muestra en la cabecera y en los hilos de conversación, así que
- * al cambiarla se refresca el contexto de sesión: si solo se guardara en la
- * base, la persona vería su foto vieja hasta recargar y creería que no se
- * guardó.
- */
+/** Foto de perfil o logo de empresa; refresca la sesión para que la cabecera la muestre sin recargar. */
 
 interface Props {
   /** 'perfil' = foto de la persona; 'empresa' = logo, y exige companyId. */
@@ -31,8 +24,7 @@ export const CambiarFoto: React.FC<Props> = ({
   const { showToast } = useProjects();
   const entrada = useRef<HTMLInputElement>(null);
   const [subiendo, setSubiendo] = useState(false);
-  // Se pinta la URL nueva de inmediato, sin esperar a que el contexto se
-  // recargue: el cambio de una foto tiene que verse al instante.
+  // Vista previa inmediata, sin esperar a que el contexto recargue.
   const [urlLocal, setUrlLocal] = useState<string | null | undefined>(urlActual);
 
   const url = urlLocal ?? urlActual;
@@ -51,7 +43,6 @@ export const CambiarFoto: React.FC<Props> = ({
         nueva = await avatarService.cambiarLogoDeEmpresa(companyId, archivo);
       } else {
         nueva = await avatarService.cambiarFotoDePerfil(archivo);
-        // Sin esto la cabecera seguiría mostrando la foto anterior.
         await updateProfile({ avatar: nueva }).catch(() => undefined);
       }
       setUrlLocal(nueva);
@@ -61,7 +52,7 @@ export const CambiarFoto: React.FC<Props> = ({
       showToast(e instanceof Error ? e.message : 'No fue posible subir la imagen', 'error');
     } finally {
       setSubiendo(false);
-      // Se limpia para que volver a elegir el MISMO archivo dispare el evento.
+      // Permite volver a elegir el mismo archivo.
       if (entrada.current) entrada.current.value = '';
     }
   };

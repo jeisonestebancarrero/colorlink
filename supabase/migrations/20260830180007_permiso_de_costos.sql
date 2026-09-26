@@ -1,24 +1,5 @@
--- ============================================================
--- Quién puede ver costos: un permiso propio
--- ============================================================
--- Las dos vistas de costo quedaron inservibles: con `security_invoker` la
--- vista lee con los permisos de quien la consulta, y a ese rol acabamos de
--- revocarle justamente la columna del costo. El resultado era
--- «permission denied for table product_variants» incluso para el
--- administrador.
---
--- Para una vista cuyo propósito es exponer un dato confidencial a un grupo
--- reducido, lo correcto es al revés: que lea como su dueña —así sí alcanza la
--- columna— y que sea ELLA la que ponga la puerta, con un predicado explícito.
--- Es la misma vista de siempre, pero ahora la condición de acceso está
--- escrita a la vista de todos en el `where`, en vez de depender de un GRANT
--- que ya demostró no distinguir a un cliente de un empleado.
---
--- Y la puerta no es «ser personal interno». El costo revela el margen del
--- negocio: no tiene por qué verlo quien programa visitas técnicas ni quien
--- responde el chat. Se crea un permiso propio, que el administrador concede o
--- retira desde la misma pantalla de permisos que todo lo demás.
--- ============================================================
+-- Las vistas de costo leen como su dueña (el invocador ya no tiene la columna) y
+-- filtran con el permiso propio costs.read en el where, no con un GRANT.
 
 insert into public.permissions (code, module, action, label, description, is_critical, sort_order)
 values (
@@ -38,9 +19,6 @@ values
   ('BODEGA',        'costs.read', true)
 on conflict (role, permission_code) do update set granted = excluded.granted;
 
--- ------------------------------------------------------------
--- Costos del catálogo
--- ------------------------------------------------------------
 drop view if exists public.v_costos_catalogo;
 
 create view public.v_costos_catalogo as
@@ -53,7 +31,7 @@ select
   v.sku,
   v.price_cop,
   v.cost_cop      as costo_estandar,
-  -- Lo que de verdad se pagó, según las recepciones.
+    -- Costo real, según las recepciones.
   (select round(avg(i.avg_cost_cop), 2)
      from public.inventory i
     where i.variant_id = v.id and i.avg_cost_cop > 0) as costo_promedio,
@@ -77,9 +55,6 @@ grant select on public.v_costos_catalogo to authenticated;
 comment on view public.v_costos_catalogo is
   'Costos y margen por presentación. Lee como su dueña para alcanzar la columna confidencial; el acceso lo controla el predicado has_permission(costs.read).';
 
--- ------------------------------------------------------------
--- Ventas y margen
--- ------------------------------------------------------------
 drop view if exists public.v_ventas cascade;
 
 create view public.v_ventas as
@@ -104,8 +79,7 @@ select
     when coalesce(oi.unit_cost_cop, pv.cost_cop) is null then null::numeric
     else oi.subtotal_cop - (coalesce(oi.unit_cost_cop, pv.cost_cop) * oi.quantity)
   end                                   as margen_linea,
-  -- true cuando el costo no se capturó en la venta y se usa el estándar del
-  -- catálogo: entonces el margen es una aproximación, no una medición.
+    -- true = costo estándar del catálogo: el margen es aproximado.
   (oi.unit_cost_cop is null and pv.cost_cop is not null) as costo_estimado
 from public.orders o
 join public.order_items oi on oi.order_id = o.id

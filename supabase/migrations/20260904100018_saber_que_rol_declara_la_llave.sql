@@ -1,16 +1,6 @@
--- Distinguir la llave `service_role` de la `anon`.
---
--- Las dos son JWT y las dos empiezan por `eyJ`, así que mirar la forma no
--- alcanza. Y confundirlas produce el fallo más difícil de rastrear que tiene
--- este sistema: `send-email` compara la llave contra la suya, no coincide,
--- intenta buscar un usuario detrás, no lo encuentra y responde 401 ANTES de
--- anotar nada. Desde fuera no pasa absolutamente nada: ni correo, ni error,
--- ni registro.
---
--- Un JWT lleva su carga en claro —está firmado, no cifrado—, así que el rol se
--- puede leer sin la llave de firma y sin exponer el token. Se devuelve solo
--- ese rol: 'service_role' o 'anon'. Es un dato de configuración, no un
--- secreto; la llave anónima es pública por diseño.
+-- Lee el rol declarado en el JWT de la llave para distinguir service_role de anon:
+-- ambas empiezan por eyJ y con anon send-email responde 401 sin dejar rastro.
+-- La carga del JWT no está cifrada; solo se devuelve el rol.
 create or replace function public.estado_entorno_correo()
 returns jsonb
 language plpgsql
@@ -40,12 +30,12 @@ begin
 
   if v_formato = 'JWT' then
     begin
-      -- base64url -> base64, con el relleno que Postgres exige.
+      -- base64url a base64, con el relleno que exige Postgres.
       v_carga := translate(split_part(v.service_key, '.', 2), '-_', '+/');
       v_carga := v_carga || repeat('=', (4 - length(v_carga) % 4) % 4);
       v_rol := (convert_from(decode(v_carga, 'base64'), 'utf8')::jsonb) ->> 'role';
     exception when others then
-      -- Una carga ilegible es informativa por sí sola: no es un JWT de Supabase.
+      -- Carga ilegible: no es un JWT de Supabase.
       v_rol := null;
     end;
   end if;

@@ -1,12 +1,6 @@
 /**
- * Alta de personal interno — Edge Function
- * ============================================================
- * Crear un usuario en Supabase Auth exige la clave `service_role`, que jamás
- * puede estar en el navegador. Por eso el alta pasa por aquí.
- *
- * El personal interno NO se autorregistra: lo crea un administrador, que
- * define sus roles en el mismo acto. Al usuario se le envía un enlace para
- * que fije su propia contraseña, de modo que ni el administrador la conoce.
+ * Alta de personal interno por un administrador. Va en servidor porque crear usuarios
+ * exige service_role; el usuario fija su contraseña por enlace.
  */
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { CORS } from '../_shared/cors.ts';
@@ -17,14 +11,11 @@ interface Peticion {
   lastName?: string;
   phone?: string;
   city?: string;
-  /** Código DIVIPOLA. El disparador de alta deriva de aquí la ciudad. */
+  /** Código DIVIPOLA; el trigger de alta deriva la ciudad de aquí. */
   municipalityCode?: string;
   countryCode?: string;
   roles: string[];
-  /**
-   * Si no se envía, se genera una temporal, se marca la cuenta para que la
-   * cambie al entrar y se le manda un correo para que ponga la suya.
-   */
+  /** Si falta, se genera una temporal que el usuario debe cambiar al entrar. */
   password?: string;
 }
 
@@ -51,7 +42,7 @@ Deno.serve(async (req: Request) => {
     return respuesta({ success: false, error: { code: 'UNAUTHENTICATED', message: 'Sesión requerida' } }, 401);
   }
 
-  // La comprobación de administrador la hace la base, no este código.
+  // El rol de administrador lo decide la base.
   const { data: esAdmin } = await comoUsuario.rpc('is_admin');
   if (!esAdmin) {
     return respuesta(
@@ -81,9 +72,7 @@ Deno.serve(async (req: Request) => {
   }
   const admin = createClient(url, service);
 
-  // Los roles válidos salen del catálogo, no de una lista escrita aquí: así un
-  // rol creado desde Permisos se puede asignar al dar de alta, y uno archivado
-  // ya no.
+  // Roles válidos desde el catálogo activo, no una lista fija.
   const { data: catalogo } = await admin.from('role_meta').select('role').eq('activo', true);
   const rolesValidos = new Set(((catalogo ?? []) as { role: string }[]).map((r) => r.role));
   const invalidos = p.roles.filter((r) => !rolesValidos.has(r));
@@ -94,8 +83,7 @@ Deno.serve(async (req: Request) => {
     );
   }
 
-  // Contraseña temporal robusta si el administrador no fija una: es
-  // preferible a una previsible, y de todos modos el usuario la cambiará.
+  // Temporal aleatoria si el administrador no fija una.
   const temporal =
     p.password?.trim() ||
     `Pint-${crypto.randomUUID().replace(/-/g, '').slice(0, 12)}`;
@@ -108,15 +96,12 @@ Deno.serve(async (req: Request) => {
       first_name: p.firstName.trim(),
       last_name: p.lastName?.trim() ?? '',
       phone: p.phone?.trim() ?? '',
-      // Con el código, `handle_new_user` valida contra el diccionario y escribe
-      // la ciudad con su NOMBRE OFICIAL, ignorando el texto suelto. Sin él se
-      // guarda lo que venga, que es como se llenaba antes la tabla de
-      // «medellin», «Medellín » y «Mede».
+      // Con municipality_code, handle_new_user usa el nombre oficial y descarta este texto.
       city: p.city?.trim() ?? '',
       ...(p.municipalityCode?.trim() ? { municipality_code: p.municipalityCode.trim() } : {}),
       ...(p.countryCode?.trim() ? { country_code: p.countryCode.trim() } : {}),
       client_type: 'Profesional',
-      // Sin `company`: el personal interno no genera empresa propia.
+      // Sin company: el personal interno no crea empresa.
     },
   });
 
@@ -140,7 +125,7 @@ Deno.serve(async (req: Request) => {
 
   const nuevoId = creado.user.id;
 
-  // El trigger handle_new_user ya otorgó CLIENTE. Se añaden los del alta.
+  // handle_new_user ya otorgó CLIENTE; se añaden los demás.
   const filas = p.roles
     .filter((r) => r !== 'CLIENTE')
     .map((r) => ({ user_id: nuevoId, role: r, granted_by: solicitante.id }));
@@ -148,8 +133,7 @@ Deno.serve(async (req: Request) => {
   if (filas.length > 0) {
     const { error: errorRoles } = await admin.from('user_roles').insert(filas);
     if (errorRoles) {
-      // Un usuario sin sus roles no sirve de nada: se revierte el alta para
-      // no dejar una cuenta a medias.
+      // Se revierte el alta para no dejar una cuenta sin roles.
       console.error('[admin-create-user] roles', errorRoles.message);
       await admin.auth.admin.deleteUser(nuevoId);
       return respuesta(
@@ -159,33 +143,19 @@ Deno.serve(async (req: Request) => {
     }
   }
 
-  // La cuenta nace con contraseña provisional y hay que cambiarla al entrar.
-  //
-  // Antes el comentario de arriba decía «y se pide cambiarla», pero nada la
-  // pedía: quien entraba con la temporal se quedaba con ella indefinidamente.
-  // Y como esa contraseña se entrega de viva voz o por chat, seguía siendo
-  // válida meses después en manos de quien hubiera visto el mensaje.
+  // Obliga a cambiar la temporal al entrar: se entrega por chat y no debe seguir vigente.
   if (!p.password?.trim()) {
     const { error: errorMarca } = await admin
       .from('profiles')
       .update({ must_change_password: true })
       .eq('id', nuevoId);
     if (errorMarca) {
-      // No se revierte el alta por esto: la cuenta sirve igual, solo que sin
-      // la obligación. Se deja constancia para poder corregirlo.
+      // No se revierte: la cuenta funciona, solo queda sin la obligación.
       console.error('[admin-create-user] marca de clave temporal', errorMarca.message);
     }
   }
 
-  // Correo de bienvenida con enlace para poner su propia contraseña.
-  //
-  // Antes no se enviaba NINGÚN correo: la temporal se mostraba una sola vez en
-  // pantalla, y si el administrador la perdía antes de entregarla había que
-  // reiniciar el acceso. Con el enlace, la persona puede entrar aunque nadie
-  // le haya dicho nunca la contraseña.
-  //
-  // El enlace NO lleva la contraseña. Mandar una contraseña por correo la deja
-  // escrita para siempre en un buzón que no controlamos.
+  // Bienvenida con enlace para fijar contraseña; nunca se envía la contraseña por correo.
   let correoEnviado = false;
   try {
     const { error: errorEnlace } = await admin.auth.resetPasswordForEmail(
@@ -196,8 +166,7 @@ Deno.serve(async (req: Request) => {
       console.error('[admin-create-user] correo de bienvenida', errorEnlace.message);
     }
   } catch (e) {
-    // Si el correo saliente no está configurado, el alta NO debe fallar: el
-    // administrador todavía tiene la contraseña temporal en pantalla.
+    // Sin SMTP el alta sigue: el administrador tiene la temporal en pantalla.
     console.error('[admin-create-user] correo de bienvenida', e);
   }
 
@@ -220,10 +189,8 @@ Deno.serve(async (req: Request) => {
       id: nuevoId,
       email: p.email,
       roles: p.roles,
-      // Solo se devuelve si la generó el sistema, para que el administrador
-      // pueda entregarla. Si el admin fijó una, no se hace eco de ella.
+      // Solo si la generó el sistema; la fijada por el admin no se devuelve.
       temporaryPassword: p.password?.trim() ? null : temporal,
-      // Para que la pantalla diga la verdad sobre lo que pasó.
       correoEnviado,
       debeCambiarla: !p.password?.trim(),
     },

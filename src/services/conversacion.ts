@@ -1,40 +1,20 @@
 import { supabase } from '../lib/supabase';
 
 /**
- * Conversación de un pedido, del lado del CLIENTE.
- *
- * Existe aparte de `services/backoffice.ts` a propósito: ese módulo es el del
- * portal interno y no puede entrar en el paquete de la tienda. Los dos
- * despliegues son independientes —así está montado el Dockerfile— y el cliente
- * no debe recibir ni una línea del back-office.
- *
- * NO HAY NADA NUEVO EN LA BASE. Lo que faltaba era la pantalla: la política
- * `mensajes_cliente` ya dejaba al cliente LEER los mensajes de su pedido
- * (excluyendo las notas internas, que quedan fuera por RLS y no por un filtro
- * de aquí), y `post_message` ya contemplaba que escribiera —comprueba que el
- * pedido sea suyo o de su empresa—. El personal escribía y el cliente nunca lo
- * veía.
- *
- * Si un cliente intentara marcar su mensaje como nota interna, la función lo
- * degrada a mensaje normal en lugar de rechazarlo, para no perder lo que
- * escribió. Aquí ni siquiera se ofrece la opción.
+ * Conversación de un pedido del lado del cliente; separado de backoffice.ts para no
+ * empaquetar el portal en la tienda. Las notas internas las excluye RLS y
+ * `post_message` valida que el pedido sea del cliente.
  */
 
 export interface MensajePedido {
   id: string;
   cuerpo: string;
   creadoEn: string;
-  /**
-   * Cuándo lo leyó el destinatario. Null = entregado pero sin abrir.
-   *
-   * Solo tiene sentido en los mensajes PROPIOS: `read_at` lo escribe quien
-   * abre la conversación, así que en un mensaje ajeno diría cuándo lo leí yo,
-   * que ya lo sé.
-   */
+  /** Null = entregado sin abrir. Solo aplica a mensajes propios: `read_at` lo escribe quien abre. */
   leidoEn: string | null;
-  /** MENSAJE lo escribe una persona; EVENTO lo escribe la base al cambiar de estado. */
+  /** MENSAJE lo escribe una persona; EVENTO, la base al cambiar de estado. */
   tipo: 'MENSAJE' | 'EVENTO';
-  /** Quién lo escribió, desde el punto de vista del cliente. */
+  /** Autor desde el punto de vista del cliente. */
   quien: 'YO' | 'PINTUCO' | 'SISTEMA';
   autor: string | null;
 }
@@ -61,12 +41,8 @@ function fallo(contexto: string, mensaje: string): Error {
 
 export const conversacionPedidoService = {
   async mensajes(orderId: string): Promise<MensajePedido[]> {
-    // Se lee por función y no por la tabla porque el JOIN con `profiles`
-    // devolvía el nombre en NULO: el cliente no puede leer el perfil de otra
-    // persona —RLS se lo impide, y hace bien—, así que todos los mensajes del
-    // equipo aparecían como «Pintuco» y quien compra no sabía con quién
-    // hablaba. La función devuelve solo el NOMBRE DE PILA de quien escribió en
-    // un pedido suyo; ni apellido, ni correo, ni teléfono.
+    // Por función: RLS impide al cliente leer `profiles` ajenos; la función devuelve solo
+    // el nombre de pila de quien escribió en su pedido.
     const [{ data, error }, sesion] = await Promise.all([
       supabase.rpc('mensajes_del_pedido', { _order_id: orderId }),
       supabase.auth.getUser(),
@@ -85,8 +61,7 @@ export const conversacionPedidoService = {
       cuerpo: m.body,
       creadoEn: m.created_at,
       leidoEn: m.read_at,
-      // Las notas internas no llegan hasta aquí: las excluye la política de la
-      // base. Lo que queda son mensajes y eventos de trazabilidad.
+      // Las notas internas ya las excluye la política de la base.
       tipo: m.kind === 'EVENTO' ? 'EVENTO' : 'MENSAJE',
       quien: !m.author_id ? 'SISTEMA' : m.author_id === yo ? 'YO' : 'PINTUCO',
       autor: m.autor ?? null,
@@ -94,16 +69,8 @@ export const conversacionPedidoService = {
   },
 
   /**
-   * Estado de la conversación.
-   *
-   * `sePuedeEscribir` depende del PEDIDO, no de que alguien haya pulsado
-   * «terminar»: mientras el pedido siga en curso, el cliente tiene que poder
-   * escribir. Lo que cierra el hilo de verdad es que el pedido llegue a
-   * entregado o cancelado.
-   *
-   * `atendida` es otra cosa: alguien la dio por resuelta. No bloquea nada;
-   * sirve para saber qué queda pendiente y para que la burbuja vuelva al
-   * asistente.
+   * `sePuedeEscribir` depende del estado del pedido (entregado o cancelado cierra).
+   * `atendida` solo marca el asunto como resuelto; no bloquea.
    */
   async estado(orderId: string): Promise<{
     sePuedeEscribir: boolean; atendida: boolean; numero: string; estadoPedido: string;
@@ -119,22 +86,13 @@ export const conversacionPedidoService = {
     };
   },
 
-  /**
-   * Da por terminada la conversación.
-   *
-   * Lo puede hacer cualquiera de los dos lados: los dos pueden considerar
-   * resuelto el asunto. No borra nada; solo impide escribir mensajes nuevos.
-   */
+  /** Cualquiera de los dos lados puede cerrar; no borra, solo impide mensajes nuevos. */
   async cerrar(orderId: string): Promise<void> {
     const { error } = await supabase.rpc('cerrar_conversacion', { _order_id: orderId });
     if (error) throw fallo('cerrar', error.message);
   },
 
-  /**
-   * Pide una persona: reabre el hilo si estaba cerrado y escribe, en una sola
-   * operación. Si fueran dos llamadas, un fallo entre medias dejaría la
-   * conversación abierta sin el mensaje que explica por qué.
-   */
+  /** Reabre y escribe en una sola operación para no dejar el hilo abierto sin mensaje. */
   async escalar(orderId: string, texto: string): Promise<void> {
     const { error } = await supabase.rpc('escalar_conversacion', {
       _order_id: orderId, _texto: texto,
@@ -153,13 +111,7 @@ export const conversacionPedidoService = {
     if (error) throw fallo('escribir', error.message);
   },
 
-  /**
-   * Avisa cuando llega un mensaje nuevo.
-   *
-   * `conversation_messages` ya está en la publicación de tiempo real, y RLS
-   * sigue aplicando: solo llegan los mensajes del propio pedido, y nunca una
-   * nota interna.
-   */
+  /** Tiempo real sobre `conversation_messages`; RLS sigue filtrando pedido y notas internas. */
   suscribir(orderId: string, alLlegar: () => void): () => void {
     const canal = supabase
       .channel(`pedido-${orderId}`)

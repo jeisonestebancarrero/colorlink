@@ -1,15 +1,5 @@
--- ============================================================
--- Registrar asientos, y que se registren solos
--- ============================================================
--- Un asiento se crea SIEMPRE por esta función, nunca con un INSERT suelto:
--- así no puede quedar una cabecera sin líneas, ni un asiento descuadrado, ni
--- un cargo a una cuenta de agrupación.
---
--- La parte que de verdad importa es la de abajo: los hechos económicos que el
--- sistema ya conoce —una factura emitida, una recepción confirmada, un
--- recaudo— generan su asiento solos. Si dependieran de que alguien los
--- teclee, la contabilidad estaría desactualizada desde el primer día ocupado.
--- ============================================================
+-- Registro de asientos solo por función (cuadrados, con líneas, en cuentas de
+-- movimiento) y asientos automáticos de facturas, recepciones y recaudos.
 
 create or replace function public.post_journal_entry(
   _descripcion text,
@@ -34,9 +24,7 @@ declare
   v_cuenta  uuid;
   v_orden   integer := 0;
 begin
-  -- Los asientos automáticos los dispara el propio servidor desde dentro de
-  -- otra operación ya autorizada (emitir factura, confirmar recepción), así
-  -- que el permiso solo se exige a los manuales.
+    -- Los automáticos corren dentro de operaciones ya autorizadas; el permiso aplica a los manuales.
   if _origen = 'MANUAL' and not public.has_permission('accounting.write') then
     raise exception 'FORBIDDEN: no tienes permiso para registrar comprobantes'
       using errcode = '42501';
@@ -77,8 +65,7 @@ begin
         using errcode = '22023';
     end if;
 
-    -- Cargar a una cuenta de agrupación descuadra cualquier informe que sume
-    -- por niveles: la cifra aparecería dos veces.
+      -- Una cuenta de agrupación duplicaría la cifra en informes por niveles.
     if not (select is_postable from public.accounts where id = v_cuenta) then
       raise exception 'CUENTA_NO_IMPUTABLE: % es una cuenta de agrupación y no recibe asientos', r.dato ->> 'cuenta'
         using errcode = '22023';
@@ -119,12 +106,7 @@ $$;
 revoke all on function public.post_journal_entry(text, jsonb, date, text, uuid, uuid, uuid) from public, anon;
 grant execute on function public.post_journal_entry(text, jsonb, date, text, uuid, uuid, uuid) to authenticated;
 
--- ------------------------------------------------------------
--- Anular un comprobante
--- ------------------------------------------------------------
--- No se borra: se marca anulado y se registra el contrario. En contabilidad
--- borrar un asiento equivale a borrar la prueba de que existió, y eso rompe
--- la trazabilidad que hace auditable el libro.
+-- Anular no borra: marca el comprobante y registra el contrario, para conservar la trazabilidad.
 create or replace function public.void_journal_entry(_entry_id uuid, _motivo text)
 returns uuid
 language plpgsql
@@ -153,7 +135,6 @@ begin
     raise exception 'YA_ANULADO: ese comprobante ya está anulado' using errcode = '23505';
   end if;
 
-  -- El reverso invierte débitos y créditos línea por línea.
   select jsonb_agg(jsonb_build_object(
            'cuenta',  a.code,
            'detalle', l.description,
@@ -187,17 +168,8 @@ $$;
 revoke all on function public.void_journal_entry(uuid, text) from public, anon;
 grant execute on function public.void_journal_entry(uuid, text) to authenticated;
 
--- ============================================================
--- Asientos automáticos
--- ============================================================
-
--- ------------------------------------------------------------
--- 1. Factura emitida
--- ------------------------------------------------------------
--- Débito a Clientes (o Caja si se pagó en tienda) por el total;
--- crédito a Ingresos por la base gravable y a IVA por pagar por el impuesto.
--- Y en el mismo comprobante, el costo: débito a Costo de mercancía vendida y
--- crédito a Inventarios, usando el costo CONGELADO en la venta.
+-- Factura: débito a Clientes o Caja; crédito a Ingresos e IVA. En el mismo
+-- comprobante, costo de venta contra Inventarios con el costo congelado.
 create or replace function public.asentar_factura()
 returns trigger
 language plpgsql
@@ -209,7 +181,6 @@ declare
   v_costo numeric(16,2);
   v_lineas jsonb;
 begin
-  -- Pago en tienda entra a Caja; a crédito queda en Clientes.
   v_cuenta_cobro := case when new.payment_method ilike '%tienda%' then '1105' else '1305' end;
 
   select coalesce(sum(oi.quantity * oi.unit_cost_cop), 0)
@@ -226,8 +197,7 @@ begin
                        'debito', 0, 'credito', new.tax_cop)
   );
 
-  -- El descuento y el envío alteran el total sin tocar la base ni el IVA, así
-  -- que se cuadra con la cuenta que corresponde en vez de forzar los números.
+    -- Descuento y envío alteran el total sin tocar base ni IVA; se cuadran en su cuenta.
   if new.discount_cop > 0 then
     v_lineas := v_lineas || jsonb_build_array(
       jsonb_build_object('cuenta', '4175', 'detalle', 'Descuento comercial',
@@ -239,8 +209,7 @@ begin
                          'debito', 0, 'credito', new.shipping_cop));
   end if;
 
-  -- El costo solo se asienta si se conoce. Meter un cero fingiría un margen
-  -- del 100 % en los libros, que es peor que no registrarlo.
+    -- Sin costo conocido no se asienta: un cero fingiría margen del 100 %.
   if v_costo > 0 then
     v_lineas := v_lineas || jsonb_build_array(
       jsonb_build_object('cuenta', '6135', 'detalle', 'Costo de ' || new.invoice_number,
@@ -264,12 +233,8 @@ create trigger factura_genera_asiento
   after insert on public.invoices
   for each row execute function public.asentar_factura();
 
--- ------------------------------------------------------------
--- 2. Recepción confirmada
--- ------------------------------------------------------------
--- Débito a Inventarios por el costo de la mercancía y crédito a Proveedores.
--- El IVA descontable no se registra porque la recepción captura el costo SIN
--- IVA: inventarlo aquí produciría un impuesto que nadie pagó.
+-- Recepción: Inventarios contra Proveedores. Sin IVA descontable porque el costo
+-- se captura sin IVA.
 create or replace function public.asentar_recepcion()
 returns trigger
 language plpgsql
@@ -316,11 +281,7 @@ create trigger recepcion_genera_asiento
   after update on public.purchase_receipts
   for each row execute function public.asentar_recepcion();
 
--- ------------------------------------------------------------
--- 3. Recaudo de tesorería
--- ------------------------------------------------------------
--- Entra plata: débito a Bancos o Caja y crédito a Clientes, que es lo que
--- deja de deberse.
+-- Recaudo: Bancos o Caja contra Clientes.
 create or replace function public.asentar_recaudo()
 returns trigger
 language plpgsql
@@ -331,8 +292,7 @@ declare
   v_cuenta text;
   v_tipo   text;
 begin
-  -- Solo los ingresos generan este asiento. Un egreso tiene otra contrapartida
-  -- —depende de qué se pagó— y forzarlo aquí inventaría el hecho económico.
+    -- Solo ingresos: la contrapartida de un egreso depende de qué se pagó.
   if new.direction <> 'INGRESO' then
     return new;
   end if;

@@ -2,17 +2,8 @@ import { supabase } from '../lib/supabase';
 export { formatearFecha, hoyISO } from './backoffice';
 
 /**
- * Proyectos y visitas técnicas del back-office.
- *
- * Ninguna decisión de permisos vive aquí: las políticas RLS filtran las filas
- * y las funciones del servidor validan cada acción. Este archivo consulta y
- * presenta.
- *
- * Un detalle que condiciona todo el módulo: lo que ve cada persona depende de
- * su rol. Administración y quien tenga el permiso `projects.read` ven todos
- * los proyectos; un técnico ve únicamente aquellos a los que está asignado.
- * No es una limitación de esta pantalla, es la regla del negocio: el técnico
- * de Barranquilla no tiene por qué leer la obra de Medellín.
+ * Proyectos y visitas técnicas del back-office. RLS decide la visibilidad: con
+ * `projects.read` se ven todos; un técnico solo los asignados.
  */
 
 function errorLegible(contexto: string, error: { message: string }): Error {
@@ -31,9 +22,7 @@ function errorLegible(contexto: string, error: { message: string }): Error {
   return new Error('No fue posible completar la operación. Inténtalo nuevamente.');
 }
 
-// ============================================================
-// PROYECTOS
-// ============================================================
+// Proyectos
 export const ESTADOS_PROYECTO = [
   'PENDIENTE', 'EN_ANALISIS', 'EN_PROCESO', 'REQUIERE_INFORMACION',
   'COMPLETADO', 'CANCELADO',
@@ -136,7 +125,7 @@ function aProyecto(f: FilaProyecto): ProyectoLista {
         nombre: `${a.profiles!.first_name} ${a.profiles!.last_name}`.trim(),
         rol: a.assignment_role,
       })),
-    // "Pendiente" es todo lo que aún exige que alguien vaya a la obra.
+    // Pendiente = aún exige ir a la obra.
     visitasPendientes: (f.technical_visits ?? []).filter((v) =>
       ['PROGRAMADA', 'CONFIRMADA', 'EN_CURSO', 'REPROGRAMADA'].includes(v.status),
     ).length,
@@ -201,8 +190,7 @@ export const proyectoService = {
           .select('id, kind, attention_level, requires_technical_visit, ai_summary, technical_summary, created_at')
           .eq('project_id', id)
           .order('created_at', { ascending: false }),
-        // El nombre de la patología vive en el catálogo `pathologies`, no en
-        // la tabla del proyecto: aquí solo se guarda la referencia.
+        // El nombre de la patología vive en el catálogo `pathologies`.
         supabase
           .from('project_pathologies')
           .select('severity, observations, pathologies:pathology_id ( name )')
@@ -236,10 +224,7 @@ export const proyectoService = {
       proximaAccion: f.next_recommended_action,
       correoCliente: f.profiles?.email ?? null,
       telefonoCliente: f.profiles?.phone ?? null,
-      // Al crear el proyecto se abre un diagnóstico PRELIMINAR vacío, que se
-      // llena cuando el cliente pasa por el diagnosticador. Mostrarlo sin
-      // contenido pinta una tarjeta hueca que parece un fallo, así que se
-      // marca como vacío y la pantalla decide.
+      // El diagnóstico PRELIMINAR nace vacío; se marca para que la pantalla no pinte una tarjeta hueca.
       diagnosticos: (diagnosticos.data ?? []).map((d: Record<string, unknown>) => ({
         id: String(d.id),
         tipo: String(d.kind ?? ''),
@@ -302,9 +287,7 @@ export const proyectoService = {
   },
 };
 
-// ============================================================
-// VISITAS TÉCNICAS
-// ============================================================
+// Visitas técnicas
 export const ESTADOS_VISITA = [
   'PROGRAMADA', 'CONFIRMADA', 'EN_CURSO', 'REALIZADA', 'CANCELADA', 'REPROGRAMADA',
 ] as const;
@@ -329,12 +312,7 @@ export const COLOR_VISITA: Record<EstadoVisita, string> = {
   REPROGRAMADA: 'bg-slate-100 text-slate-700 border-slate-200',
 };
 
-/**
- * Qué se puede hacer con una visita según cómo esté.
- *
- * Es una COPIA de lo que valida el servidor, usada solo para no ofrecer
- * botones que van a ser rechazados. La verdad sigue estando en la base.
- */
+/** Copia de lo que valida el servidor, solo para no ofrecer botones inválidos. */
 export const TRANSICIONES_VISITA: Record<EstadoVisita, EstadoVisita[]> = {
   PROGRAMADA: ['CONFIRMADA', 'EN_CURSO', 'REPROGRAMADA', 'CANCELADA'],
   CONFIRMADA: ['EN_CURSO', 'REPROGRAMADA', 'CANCELADA'],
@@ -360,11 +338,7 @@ export interface VisitaLista {
   resultado: string | null;
   observaciones: string | null;
   assistanceId: string | null;
-  /**
-   * Sede que atiende la visita. Hoy siempre null: una visita cuelga de un
-   * proyecto y los proyectos no tienen sede, así que no se puede derivar y no
-   * se inventa. La columna existe para cuando la programación decida la sede.
-   */
+  /** Hoy siempre null: los proyectos no tienen sede y no se inventa. */
   locationId: string | null;
 }
 
@@ -424,8 +398,7 @@ export const visitaService = {
     let q = supabase.from('technical_visits').select(SELECT_VISITA);
     if (projectId) q = q.eq('project_id', projectId);
 
-    // Sin fecha primero: una visita sin programar es justo la que hay que
-    // atender, y enterrarla al final de la lista es como no tenerla.
+    // Sin fecha primero: son las que hay que programar.
     const { data, error } = await q
       .order('scheduled_date', { ascending: true, nullsFirst: true })
       .order('scheduled_time', { ascending: true, nullsFirst: true });
@@ -441,11 +414,7 @@ export const visitaService = {
     tecnicoId?: string;
     direccion?: string;
     assistanceId?: string;
-    /**
-     * Sede que atiende la visita. Opcional: si no se indica, el servidor la
-     * deduce de la ciudad del proyecto, y si esa ciudad no tiene tienda la
-     * deja sin sede en lugar de asignar «la más cercana».
-     */
+    /** Opcional: si falta, el servidor la deduce de la ciudad o la deja vacía, sin asignar «la más cercana». */
     locationId?: string | null;
   }): Promise<string> {
     const { data, error } = await supabase.rpc('schedule_technical_visit', {
@@ -487,9 +456,7 @@ export const visitaService = {
       .select('user_id, role, profiles:user_id ( first_name, last_name )')
       .in('role', ['TECNICO', 'ASESOR']);
 
-    // El error se propaga a propósito. Antes se atrapaba y la pantalla
-    // mostraba un desplegable vacío, que se lee como "no hay técnicos" cuando
-    // en realidad la consulta había fallado.
+    // Se propaga a propósito: un desplegable vacío se leería como "no hay técnicos".
     if (error) throw errorLegible('tecnicos', error);
 
     const vistos = new Set<string>();

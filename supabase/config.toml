@@ -242,9 +242,7 @@ otp_expiry = 3600
 # admin_email = "admin@email.com"
 # sender_name = "Admin"
 
-# Recuperación de contraseña por CÓDIGO de 6 dígitos.
-# La plantilla por defecto de Supabase manda un enlace; se reemplaza para que
-# lleve {{ .Token }}, que es lo que la aplicación pide en pantalla.
+# Recuperación por código ({{ .Token }}) en vez del enlace por defecto: la app pide el código.
 [auth.email.template.recovery]
 subject = "Tu código para restablecer la contraseña · ColorLink"
 content_path = "./supabase/templates/recovery.html"
@@ -254,9 +252,7 @@ content_path = "./supabase/templates/recovery.html"
 # subject = "You have been invited"
 # content_path = "./supabase/templates/invite.html"
 
-# Aviso automático de cambio de contraseña.
-# Es el control que permite a alguien enterarse de que le tomaron la cuenta,
-# así que va activado siempre, no solo para los cambios sospechosos.
+# Aviso de cambio de contraseña siempre activo: permite detectar una cuenta tomada.
 [auth.email.notification.password_changed]
 enabled = true
 subject = "Tu contraseña de ColorLink fue cambiada"
@@ -312,10 +308,7 @@ auth_token = "env(SUPABASE_AUTH_SMS_TWILIO_AUTH_TOKEN)"
 # Control how many MFA factors can be enrolled at once per user.
 max_enrolled_factors = 10
 
-# Segundo factor por aplicación de códigos (TOTP: Google Authenticator,
-# Authy, 1Password...). Se eligió TOTP y no SMS porque el SMS depende de un
-# proveedor con costo por mensaje y de la cobertura en obra, y porque un
-# código por SMS se puede interceptar con un cambio de SIM.
+# MFA por TOTP y no SMS: sin costo por mensaje y sin riesgo de cambio de SIM.
 [auth.mfa.totp]
 enroll_enabled = true
 verify_enabled = true
@@ -336,21 +329,8 @@ max_frequency = "5s"
 # Use an external OAuth provider. The full list of providers are: `apple`, `azure`, `bitbucket`,
 # `discord`, `facebook`, `github`, `gitlab`, `google`, `keycloak`, `linkedin_oidc`, `notion`, `twitch`,
 # `twitter`, `x`, `slack`, `spotify`, `workos`, `zoom`.
-# ============================================================
-# ACCESO CON GOOGLE
-# ============================================================
-# `enabled` se lee de una variable de entorno para que el stack arranque
-# igual aunque todavía no haya credenciales: sin ellas queda simplemente
-# desactivado, en lugar de impedir que el contenedor de auth levante.
-#
-# Para activarlo, en COLOR-LINK/.env.local:
-#   SUPABASE_AUTH_GOOGLE_ENABLED=true
-#   SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID=<id de Google Cloud>
-#   SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET=<secreto de Google Cloud>
-# y reiniciar con `npm run db:stop && npm run db:start`.
-#
-# En Google Cloud Console, la URI de redirección autorizada debe ser:
-#   http://127.0.0.1:54321/auth/v1/callback
+# Google se activa por variables de .env.local para que auth arranque sin credenciales.
+# Redirección autorizada en Google: http://127.0.0.1:54321/auth/v1/callback
 [auth.external.google]
 enabled = "env(SUPABASE_AUTH_GOOGLE_ENABLED)"
 client_id = "env(SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID)"
@@ -454,18 +434,7 @@ enabled = true
 # JSON string passed through to pg-delta SQL formatting.
 # format_options = "{\"keywordCase\":\"upper\",\"indent\":2,\"maxWidth\":80,\"commaStyle\":\"trailing\"}"
 
-# ============================================================
-# El webhook de Wompi entra SIN token de Supabase
-# ============================================================
-# Wompi es un tercero: no tiene ni puede tener una sesión de Supabase. Con la
-# verificación de JWT activa —que es lo que hay por defecto— la pasarela
-# rechazaba sus llamadas con 401 ANTES de que la función se ejecutara. El pago
-# se aprobaba en Wompi y nunca se confirmaba en el sistema.
-#
-# Que entre sin token NO lo deja abierto: la función verifica la FIRMA del
-# evento (`sha256` de las propiedades que lista `signature.properties` más el
-# secreto de eventos) y responde 401 si no coincide. Esa firma es lo único que
-# convierte una petición en una venta, y es una barrera más fuerte que un JWT
-# que Wompi no podría presentar de todos modos.
+# Wompi no tiene JWT de Supabase: sin esto el gateway lo rechaza con 401.
+# La función valida la firma sha256 del evento y rechaza lo que no coincida.
 [functions.wompi-webhook]
 verify_jwt = false

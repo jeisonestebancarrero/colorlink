@@ -7,19 +7,8 @@ import { Button } from '../components/common/Button';
 import { Input } from '../components/common/Input';
 
 /**
- * Asistente de la tienda: con reglas o con un modelo de lenguaje.
- *
- * Lo que hay que dejar claro en pantalla, porque cuesta dinero real:
- *
- *   · **ChatGPT Plus no sirve.** Plus es la suscripción para usar el chat en
- *     el navegador; no da acceso a la API. Hace falta una llave de
- *     `platform.openai.com`, que se factura aparte y por uso. Es la confusión
- *     más común y descubrirla después de montar todo es una pérdida de tiempo.
- *   · **Se paga por consulta.** No es una tarifa plana. Por eso se puede
- *     apagar sin desmontar nada.
- *   · **Sin IA el asistente sigue funcionando.** Responde con reglas: consulta
- *     pedidos, catálogo y tiendas. La IA mejora la redacción y entiende
- *     preguntas escritas de cualquier forma; no es de lo que depende.
+ * Asistente por reglas o con modelo de lenguaje. La IA requiere llave de API de pago por uso
+ * (ChatGPT Plus no sirve) y es opcional: sin ella responde con reglas.
  */
 
 const AYUDA_LLAVE = 'https://platform.openai.com/api-keys';
@@ -107,7 +96,7 @@ export const AsistentePanel: React.FC = () => {
         </div>
       )}
 
-      {/* El malentendido que hay que evitar de entrada. */}
+      {/* Aclara que Plus no da acceso a la API. */}
       <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 flex items-start gap-2.5">
         <AlertTriangle className="w-4 h-4 text-amber-700 shrink-0 mt-px" />
         <div className="text-xs text-amber-900 font-medium leading-snug space-y-1">

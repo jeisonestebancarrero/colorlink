@@ -14,30 +14,18 @@ import { Button } from '../components/common/Button';
 import { AvatarCliente } from './AvatarCliente';
 
 /**
- * Ficha editable de un cliente, persona o empresa.
- *
- * Antes esta pantalla solo dejaba mirar: corregir un teléfono mal escrito
- * había que pedírselo al cliente, y mientras tanto el despacho salía con el
- * dato malo.
- *
- * EL AVISO AL CLIENTE NO SE MANDA DESDE AQUÍ. Lo inserta la propia función de
- * base, en la misma transacción que el cambio, así que no hay forma de
- * actualizar sin notificar: o pasan las dos cosas, o no pasa ninguna. Esta
- * pantalla solo muestra a cuánta gente se avisó.
- *
- * Lo que se guarda es lo que CAMBIÓ: los campos que no se tocan no se mandan,
- * y si no cambia nada la base no manda aviso. Abrir la ficha, mirarla y
- * cerrarla no le llega al cliente como una alerta.
+ * Ficha editable de cliente. Solo se envían los campos cambiados; el aviso al cliente lo
+ * inserta la función de base en la misma transacción.
  */
 
 interface Props {
   tipo: 'PERSONA' | 'EMPRESA';
   id: string;
-  /** Para el avatar mientras carga la ficha. */
+  /** Para el avatar mientras carga. */
   nombre: string;
   fotoUrl?: string | null;
   onCerrar: () => void;
-  /** Se llama tras guardar, para refrescar la lista de atrás. */
+  /** Tras guardar, para refrescar la lista. */
   onGuardado: () => void;
 }
 
@@ -55,7 +43,7 @@ export const FormularioCliente: React.FC<Props> = ({
   const [persona, setPersona] = useState<FichaPersona | null>(null);
   const [empresa, setEmpresa] = useState<FichaEmpresa | null>(null);
   const [ubicacion, setUbicacion] = useState<ValorUbicacion>(UBICACION_VACIA);
-  /** Copia de lo que se cargó, para mandar solo lo que cambió. */
+  /** Estado original, para enviar solo el diff. */
   const [original, setOriginal] = useState<Record<string, string>>({});
   const [campos, setCampos] = useState<Record<string, string>>({});
 
@@ -123,9 +111,7 @@ export const FormularioCliente: React.FC<Props> = ({
     setError('');
     setGuardando(true);
     try {
-      // Solo lo que cambió. Mandar todo haría que la base comparase valores
-      // idénticos y, sobre todo, obligaría a acertar con campos que este
-      // formulario ni siquiera muestra.
+      // Solo lo cambiado, para no pisar campos que este formulario no muestra.
       const datos: Record<string, string> = {};
       for (const clave of Object.keys(campos)) {
         const valor = campos[clave] ?? '';
@@ -135,10 +121,7 @@ export const FormularioCliente: React.FC<Props> = ({
       if (ubicacion.municipalityCode && ubicacion.municipalityCode !== municipioOriginal) {
         datos.municipality_code = ubicacion.municipalityCode;
         datos.country_code = ubicacion.countryCode || 'CO';
-        // `city` se guarda ADEMÁS como texto porque la factura y los
-        // documentos impresos lo leen de ahí y no resuelven el código
-        // DIVIPOLA. Si solo se guardara el código, la ciudad de la factura se
-        // quedaría con la anterior.
+        // `city` también como texto: facturas e impresos la leen de ahí, no del código DIVIPOLA.
         const municipios = await ubicacionService.getMunicipios(ubicacion.departmentCode);
         const m = municipios.find((x) => x.code === ubicacion.municipalityCode);
         if (m) datos.city = m.name;
@@ -189,7 +172,7 @@ export const FormularioCliente: React.FC<Props> = ({
           <Loader2 className="w-4 h-4 animate-spin" /> Cargando ficha…
         </p>
       ) : hecho ? (
-        // ── Confirmación ────────────────────────────────────────────────
+        // Confirmación
         <div className="space-y-4">
           {hecho.cambios === 0 ? (
             <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 text-sm text-slate-600">
@@ -226,7 +209,7 @@ export const FormularioCliente: React.FC<Props> = ({
           </div>
         </div>
       ) : (
-        // ── Formulario ──────────────────────────────────────────────────
+        // Formulario
         <form onSubmit={guardar} className="space-y-4">
           <div className="flex items-center gap-3 pb-3 border-b border-slate-100">
             <AvatarCliente
@@ -301,9 +284,7 @@ export const FormularioCliente: React.FC<Props> = ({
                 </label>
               </div>
 
-              {/* El correo es la cuenta de acceso: cambiarlo solo en el perfil
-                  lo desincronizaría de la contraseña y el cliente no podría
-                  entrar. Se muestra, no se edita. */}
+              {/* Solo lectura: es la cuenta de acceso y cambiarlo en el perfil la desincroniza. */}
               <div>
                 <Input
                   label="Correo de acceso"

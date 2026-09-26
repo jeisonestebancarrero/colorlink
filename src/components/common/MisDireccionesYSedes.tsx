@@ -13,19 +13,7 @@ import {
 } from './SelectorUbicacion';
 import { Button } from './Button';
 
-/**
- * Mis direcciones y las sedes de mi empresa.
- *
- * Sin esta pantalla el cliente no podía cambiar su dirección ni agregar una
- * segunda: la única que existía era la del registro. Y sin poder registrar más
- * de una sede, la pregunta del carrito «¿a cuál sede va este pedido?» nunca
- * llegaba a aparecer.
- *
- * Las sedes solo las administra el OWNER o el ADMIN de la empresa. Un MEMBER
- * cualquiera las ve para poder elegir a cuál despachar, pero no las cambia;
- * eso lo decide RLS, y aquí solo se oculta el botón para no ofrecer algo que
- * el servidor va a rechazar.
- */
+/** Direcciones del cliente y sedes de su empresa (estas alimentan la elección de sede en el carrito). */
 
 const claseInput =
   'w-full px-3 py-2.5 rounded-lg border border-slate-300 bg-white text-sm text-slate-800 ' +
@@ -44,15 +32,7 @@ interface Borrador {
   ubicacion: ValorUbicacion;
 }
 
-/**
- * Reconstruye la ubicación de un registro guardado.
- *
- * El departamento se saca de los dos primeros dígitos del código DIVIPOLA del
- * municipio ('05001' → '05'), que es cómo está construida la nomenclatura del
- * DANE. Sin esto, al abrir una dirección para editarla el departamento salía
- * vacío y la ciudad quedaba deshabilitada: se veía como si el dato guardado se
- * hubiera perdido.
- */
+/** Reconstruye la ubicación guardada; el departamento son los dos primeros dígitos DIVIPOLA ('05001' → '05'). */
 function ubicacionDeGuardado(
   municipalityCode: string,
   neighborhoodId: string | null
@@ -83,8 +63,7 @@ export const MisDireccionesYSedes: React.FC = () => {
   const [guardando, setGuardando] = useState(false);
 
   const esEmpresa = access.companyIds.length > 0;
-  // Administrar sedes es de OWNER/ADMIN. RLS es quien manda; esto solo evita
-  // mostrar un botón que el servidor va a rechazar.
+  // Sedes: solo OWNER/ADMIN. RLS lo impone; esto solo oculta el botón.
   const [puedeAdministrarSedes, setPuedeAdministrarSedes] = useState(false);
 
   const recargar = useCallback(async () => {
@@ -214,7 +193,7 @@ export const MisDireccionesYSedes: React.FC = () => {
 
   return (
     <div className="space-y-4">
-      {/* ---------- Mis direcciones ---------- */}
+      {/* Mis direcciones */}
       <section className="bg-white border border-slate-200 rounded-2xl p-5 space-y-3">
         <header className="flex items-center justify-between gap-2">
           <div>
@@ -281,7 +260,7 @@ export const MisDireccionesYSedes: React.FC = () => {
         )}
       </section>
 
-      {/* ---------- Sedes de la empresa ---------- */}
+      {/* Sedes de la empresa */}
       {esEmpresa && (
         <section className="bg-white border border-slate-200 rounded-2xl p-5 space-y-3">
           <header className="flex items-center justify-between gap-2">
@@ -361,12 +340,8 @@ export const MisDireccionesYSedes: React.FC = () => {
         </section>
       )}
 
-      {/* ---------- Formulario ----------
-           En PORTAL: esta pantalla vive dentro del perfil, que se dibuja en
-           `<main class="relative z-10">`. Ese contenedor crea un contexto de
-           apilamiento y el diálogo, por alto que tenga el `z`, quedaba debajo
-           de la cabecera del sitio. Es el mismo fallo que se vio en el carrito
-           y en la ficha de producto. */}
+      {/* Formulario en portal: `<main class="relative z-10">` crea un contexto de apilamiento
+          que dejaría el diálogo bajo la cabecera. */}
       {modo && createPortal(
         <div className="fixed inset-0 z-60 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl my-8">

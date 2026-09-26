@@ -4,18 +4,8 @@ import { resolve } from 'node:path';
 import { limpiarCuentasDePrueba, clienteDeServicio } from './limpieza';
 
 /**
- * El pago en línea entra solo a tesorería.
- *
- * El cliente pagaba desde el carrito, el pedido quedaba cobrado y el pago
- * registrado… y en tesorería no aparecía nada: alguien tenía que entrar a
- * «asociar pago» a mano. Eso hace que el dinero que sí entró no figure hasta
- * que alguien se acuerde, y que la caja del día nunca cuadre.
- *
- * Lo que se vigila aquí:
- *   1. Que confirmar un pago cree su movimiento de INGRESO.
- *   2. Que NO se duplique si la pasarela reenvía el evento. Un ingreso
- *      duplicado en la caja es de los errores más caros de rastrear.
- *   3. Que una venta a CRÉDITO no infle la caja: esa plata todavía no entró.
+ * Un pago en línea confirmado debe crear su ingreso en tesorería, una sola vez
+ * aunque la pasarela reenvíe el evento; la venta a crédito no toca la caja.
  */
 
 function leerEnvLocal(): Record<string, string> {
@@ -86,7 +76,7 @@ describe.skipIf(!disponible)('Pago en línea · llega solo a tesorería', () => 
     }).then((r) => r.json());
     pedidoId = o[0].id;
 
-    // Un pago en línea NACE pendiente, como lo crea el carrito.
+    // Un pago en línea nace pendiente, como lo crea el carrito.
     const p = await fetch(`${API}/rest/v1/payments`, {
       method: 'POST', headers: { ...admin(), Prefer: 'return=representation' },
       body: JSON.stringify({

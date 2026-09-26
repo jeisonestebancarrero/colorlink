@@ -1,18 +1,5 @@
--- ============================================================
--- FASE 3 · 06 — Soluciones y kits
--- ============================================================
--- MÓDULO 8: "solutions" + "solution_products", y "debe poder generarse un
--- KIT DE SOLUCIÓN".
---
--- DECISIÓN DE MODELADO:
--- El frontend maneja hoy DOS tipos separados: `SolutionCatalogItem` (los 7
--- sistemas técnicos del catálogo) y `SolutionKit` (los 4 kits comprables con
--- pasos y descuento). Se unifican en UNA tabla con el discriminador `is_kit`
--- porque comparten identidad de negocio: un kit ES una solución que además
--- se puede comprar. Así "una solución contiene múltiples productos" se
--- cumple para ambos con una única relación, en vez de duplicar el concepto.
--- Las columnas específicas de cada forma quedan anulables.
--- ============================================================
+-- Soluciones y kits en una tabla con discriminador is_kit: un kit es una solución
+-- comprable y comparte la misma relación con productos.
 
 create table public.solutions (
   id           uuid primary key default gen_random_uuid(),
@@ -25,7 +12,7 @@ create table public.solutions (
   image_url    text,
   badge        text,
 
-  -- --- Campos del catálogo técnico (SolutionCatalogItem) ---
+  -- Catálogo técnico (SolutionCatalogItem).
   application        text,
   surface_summary    text,
   features           text[] not null default '{}',
@@ -34,12 +21,10 @@ create table public.solutions (
   spread_rate_info   text,
   packagings         text[] not null default '{}',
   step_by_step_guide text[] not null default '{}',
-  -- Muestras cromáticas [{name, hex}] sin código de color: se guardan como
-  -- jsonb porque no siempre corresponden a una fila de `colors`. Forzar una
-  -- FK aquí inventaría datos que el negocio no tiene.
+  -- jsonb y no FK: las muestras no siempre existen en colors.
   color_swatches     jsonb not null default '[]'::jsonb,
 
-  -- --- Campos propios del kit comprable (SolutionKit) ---
+  -- Kit comprable (SolutionKit).
   subtitle         text,
   problem_target   text,
   ideal_for        text,
@@ -53,8 +38,6 @@ create table public.solutions (
 
   constraint solutions_descuento_valido
     check (discount_percent >= 0 and discount_percent <= 100),
-  -- Coherencia: si es kit, el descuento y la garantía tienen sentido;
-  -- si no lo es, el descuento debe ser 0.
   constraint solutions_descuento_solo_en_kits
     check (is_kit or discount_percent = 0)
 );
@@ -63,24 +46,18 @@ create index solutions_category_id_idx on public.solutions (category_id);
 create index solutions_is_kit_idx      on public.solutions (is_kit);
 create index solutions_status_idx      on public.solutions (status);
 
--- ------------------------------------------------------------
--- Productos que componen una solución / los pasos de un kit
--- ------------------------------------------------------------
 create table public.solution_products (
   id          uuid primary key default gen_random_uuid(),
   solution_id uuid not null references public.solutions (id)        on delete cascade,
   product_id  uuid not null references public.products (id)         on delete restrict,
-  -- Presentación concreta recomendada. Anulable: algunos pasos usan
-  -- etiquetas comerciales que no corresponden a una variante existente.
+  -- Anulable: algunos pasos citan etiquetas que no son una variante existente.
   variant_id  uuid references public.product_variants (id)          on delete set null,
   presentation_label text,
 
   step_number int not null,
   phase       public.solution_phase,
   role_description text,
-  -- Cantidad de referencia para el proyecto tipo de 85 m² del caso de
-  -- prueba. NO es el resultado del motor de cálculo: es el dato comercial
-  -- del kit preempaquetado.
+  -- Cantidad comercial del kit para 85 m², no un resultado del motor de cálculo.
   quantity_for_85m2 numeric(10,2),
   image_url   text,
   sort_order  int not null default 0,

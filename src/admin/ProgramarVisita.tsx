@@ -7,14 +7,7 @@ import { Select } from '../components/common/Select';
 import { Button } from '../components/common/Button';
 import { useSedes } from './SedeContext';
 
-/**
- * Programar una visita a la obra.
- *
- * Asignar un técnico aquí hace dos cosas a la vez, y la segunda es la que
- * importa: además de dejar constancia de quién va, lo asigna al proyecto. Sin
- * eso el técnico no podría ni abrir la obra a la que lo mandaron, porque las
- * políticas de la base solo le muestran los proyectos que tiene asignados.
- */
+/** Programar visita. Asignar técnico también lo asigna al proyecto: RLS solo le muestra sus proyectos. */
 export const ProgramarVisita: React.FC<{
   projectId: string;
   direccionSugerida?: string | null;
@@ -28,11 +21,7 @@ export const ProgramarVisita: React.FC<{
   const [tecnicoId, setTecnicoId] = useState('');
   const [direccion, setDireccion] = useState(direccionSugerida ?? '');
   const [assistanceId, setAssistanceId] = useState('');
-  /**
-   * Sede que atiende la visita. Vacío = que la deduzca el servidor por la
-   * ciudad del proyecto; si esa ciudad no tiene tienda, la visita queda sin
-   * sede y la ve todo el mundo, que es lo correcto mientras nadie decida.
-   */
+  /** Vacío: el servidor la deduce por la ciudad del proyecto; si no hay tienda allí, queda visible para todas. */
   const [locationId, setLocationId] = useState('');
   const [tecnicos, setTecnicos] = useState<Array<{ id: string; nombre: string; rol: string }>>([]);
   const [error, setError] = useState('');
@@ -42,8 +31,7 @@ export const ProgramarVisita: React.FC<{
     visitaService
       .tecnicos()
       .then(setTecnicos)
-      // Un desplegable vacío se lee como "no hay nadie". Si lo que pasó fue
-      // que la consulta falló, hay que decirlo.
+      // Distingue un error de carga de una lista vacía.
       .catch((e) =>
         setError(e instanceof Error ? e.message : 'No fue posible cargar el personal técnico.'),
       );
@@ -134,8 +122,7 @@ export const ProgramarVisita: React.FC<{
           lo envías.
         </p>
 
-        {/* Sede que atiende. Sin esto la visita quedaba sin sede y aparecía en
-            la agenda de todas las tiendas. Solo se ofrecen las permitidas. */}
+        {/* Solo sedes permitidas; sin sede la visita aparece en todas las agendas. */}
         <Select
           label="Sede que atiende"
           options={[

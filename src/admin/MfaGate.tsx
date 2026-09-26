@@ -7,19 +7,8 @@ import { Button } from '../components/common/Button';
 import { Input } from '../components/common/Input';
 
 /**
- * Segundo factor del personal interno.
- *
- * Cubre los dos momentos: registrar la aplicación de códigos la primera vez,
- * y escribir el código en cada inicio de sesión posterior.
- *
- * Es una pantalla completa y sin salida —solo se puede cerrar sesión— porque
- * el portal interno mueve inventario, factura y mueve dinero. Un modal que se
- * pudiera esquivar con Escape no sería una barrera.
- *
- * Vale la pena insistir: esto NO es lo que protege el sistema. Lo que protege
- * es que `is_admin`, `is_staff` y `has_permission` devuelvan false en el
- * servidor mientras la sesión no haya superado el factor. Esta pantalla solo
- * lo explica y lo hace usable.
+ * Registro y verificación del segundo factor; pantalla completa sin salida salvo cerrar sesión.
+ * La barrera real es el servidor: `is_admin`, `is_staff` y `has_permission` dan false sin AAL2.
  */
 export const MfaGate: React.FC<{ modo: 'registro' | 'codigo' }> = ({ modo }) => {
   const { email, revisar, salir } = useAdminAuth();
@@ -31,8 +20,7 @@ export const MfaGate: React.FC<{ modo: 'registro' | 'codigo' }> = ({ modo }) => 
   const [copiado, setCopiado] = useState(false);
   const iniciado = useRef(false);
 
-  // El QR se pide una sola vez: cada llamada crea un factor nuevo en el
-  // servidor, y en modo estricto de React el efecto corre dos veces.
+  // Una sola vez: cada llamada crea un factor y StrictMode ejecuta el efecto dos veces.
   useEffect(() => {
     if (modo !== 'registro' || iniciado.current) return;
     iniciado.current = true;

@@ -18,10 +18,7 @@ import { IconoModulo } from '../IconosDeModulo';
 
 /** Gestión de pedidos: listado, detalle, estados, factura y conversación. */
 interface PedidosPageProps {
-  /**
-   * Pedido que pide la URL (`/pedidos/ORD-PNT-000045`). Se abre solo al
-   * entrar, para que recargar o compartir el enlace lleve al mismo pedido.
-   */
+  /** Pedido de la URL (`/pedidos/ORD-PNT-000045`), para recargar o compartir el enlace. */
   idAbierto?: string | null;
   /** Escribe el id en la URL al abrir un pedido. */
   onAbrir?: (id: string) => void;
@@ -57,13 +54,7 @@ export const PedidosPage: React.FC<PedidosPageProps> = ({
 
   useEffect(() => { void cargar(); }, [estado]);
 
-  /**
-   * Abre el pedido que pide la URL, una sola vez.
-   *
-   * `abrio` evita que volver al listado lo reabra de inmediato: sin esa
-   * guarda, el efecto vería el id todavía en la URL y no habría forma de
-   * cerrar el detalle.
-   */
+  /** Abre el pedido de la URL una sola vez; `abrio` evita reabrirlo al volver al listado. */
   const [abrio, setAbrio] = useState<string | null>(null);
   useEffect(() => {
     if (!idAbierto || abrio === idAbierto) return;
@@ -81,8 +72,7 @@ export const PedidosPage: React.FC<PedidosPageProps> = ({
 
   const filtrados = useMemo(() => {
     const q = busqueda.trim().toLowerCase();
-    // La sede activa se aplica ANTES del texto: es un dominio, no una
-    // búsqueda, y tiene que valer aunque el buscador esté vacío.
+    // La sede es un dominio: aplica aunque el buscador esté vacío.
     const deSede = pedidos.filter((p) => sedeVisible(p.locationId, filtroEfectivo));
     if (!q) return deSede;
     return deSede.filter(
@@ -97,8 +87,7 @@ export const PedidosPage: React.FC<PedidosPageProps> = ({
     try {
       const d = await pedidoService.detalle(id);
       setDetalle(d);
-      // La URL usa el NÚMERO de pedido, no el uuid: es lo que la persona
-      // reconoce y lo que va a pegar en un chat.
+      // La URL usa el número de pedido, no el uuid.
       if (d) onAbrir?.(d.numero);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'No fue posible abrir el pedido.');
@@ -137,7 +126,7 @@ export const PedidosPage: React.FC<PedidosPageProps> = ({
   const fecha = (iso: string) =>
     new Date(iso).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' });
 
-  // ---------- Detalle ----------
+  // Detalle
   if (detalle) {
     const siguientes = TRANSICIONES[detalle.estado] ?? [];
     return (
@@ -279,9 +268,8 @@ export const PedidosPage: React.FC<PedidosPageProps> = ({
     );
   }
 
-  // ---------- Listado ----------
-  // Los contadores se calculan sobre la selección GLOBAL, no sobre lo ya
-  // aislado: si no, al entrar a una sede las demás mostrarían 0.
+  // Listado
+  // Contadores sobre la selección global, no sobre la sede aislada.
   const porSede = pedidos.filter((x) => sedeVisible(x.locationId, filtroSedes));
   return (
     <div className="space-y-5">
@@ -294,8 +282,7 @@ export const PedidosPage: React.FC<PedidosPageProps> = ({
         </p>
       </div>
 
-      {/* Exporta EXACTAMENTE lo que se ve: los filtros y la sede activa ya
-          están aplicados en la lista. */}
+      {/* Exporta lo visible, con filtros y sede ya aplicados. */}
       <div className="flex justify-end">
         <ExportarBoton<PedidoLista>
           filas={filtrados}
@@ -315,8 +302,7 @@ export const PedidosPage: React.FC<PedidosPageProps> = ({
         />
       </div>
 
-      {/* Con varias sedes activas, un total no dice cómo se reparte: la
-          comparación entre sedes es lo que se busca al activar varias. */}
+      {/* Con varias sedes activas, desglose por sede. */}
       <ContadorPorSede
         sedeAislada={sedeAislada}
         onAislar={aislar}

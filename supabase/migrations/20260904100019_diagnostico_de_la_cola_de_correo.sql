@@ -1,15 +1,5 @@
--- Ver qué contestó realmente la llamada que hace la base.
---
--- `enviar_correo` encola con pg_net y no espera respuesta: si la llamada
--- vuelve con 401, con 404 o no vuelve, la base no se entera y no queda nada
--- escrito en ninguna parte. Eso deja un fallo sin síntoma —ni correo, ni
--- error— y sin forma de avanzar salvo adivinando.
---
--- pg_net guarda la respuesta en `net._http_response`. Esto la expone al
--- administrador, que es quien está intentando poner el correo en marcha.
---
--- Se escribe con SQL dinámico a propósito: la extensión no está instalada en
--- el entorno local, y una referencia directa impediría hasta crear la función.
+-- Expone al admin las respuestas de pg_net (net._http_response): enviar_correo no espera
+-- respuesta y un 401 o 404 pasa sin síntoma. SQL dinámico porque en local no está pg_net.
 create or replace function public.diagnostico_cola_correo()
 returns jsonb
 language plpgsql

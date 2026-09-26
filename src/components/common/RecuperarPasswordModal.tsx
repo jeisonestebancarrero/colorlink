@@ -6,20 +6,8 @@ import { Input } from './Input';
 import { Button } from './Button';
 
 /**
- * Recuperar la contraseña en tres pasos: correo → código → contraseña nueva.
- *
- * Se usa igual en el portal del cliente y en el interno; lo único que cambia
- * es el texto del encabezado, porque el mecanismo de identidad es el mismo.
- *
- * Por qué un código y no un enlace: el enlace solo funciona en el navegador
- * donde se abre el correo. En obra la gente pide el cambio desde el
- * computador de la oficina y lee el correo en el celular, y el enlace las
- * deja atrapadas. El código se puede leer en cualquier parte y escribir donde
- * se necesite.
- *
- * Nunca se dice si un correo existe o no: responder "esa cuenta no existe"
- * convierte el formulario en una lista de clientes de Pintuco para cualquiera
- * que quiera probar correos.
+ * Recuperación en tres pasos: correo → código → clave. Código y no enlace porque el enlace
+ * solo sirve en el navegador donde se abre el correo. Nunca revela si un correo existe.
  */
 export const RecuperarPasswordModal: React.FC<{
   abierto: boolean;
@@ -38,8 +26,7 @@ export const RecuperarPasswordModal: React.FC<{
   const [segundos, setSegundos] = useState(0);
   const temporizador = useRef<number | null>(null);
 
-  // Al abrir se parte de cero: reabrir el modal no debe mostrar el código
-  // que alguien escribió antes.
+  // Al reabrir se parte de cero.
   useEffect(() => {
     if (abierto) {
       setPaso('correo');
@@ -52,7 +39,6 @@ export const RecuperarPasswordModal: React.FC<{
     }
   }, [abierto, correoInicial]);
 
-  // Cuenta regresiva para poder reenviar el código.
   useEffect(() => {
     if (segundos <= 0) return;
     temporizador.current = window.setTimeout(() => setSegundos((s) => s - 1), 1000);
@@ -71,8 +57,7 @@ export const RecuperarPasswordModal: React.FC<{
     try {
       await authService.requestPasswordReset(correo.trim());
     } catch (err) {
-      // Se sigue adelante pase lo que pase. Distinguir entre "correo enviado"
-      // y "ese correo no existe" permitiría averiguar quién es cliente.
+      // Siempre se avanza: distinguir respuestas permitiría enumerar clientes.
       console.error('[recuperar] solicitud de código', err);
     } finally {
       setOcupado(false);

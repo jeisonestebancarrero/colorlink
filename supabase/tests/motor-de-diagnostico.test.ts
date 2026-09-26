@@ -3,18 +3,8 @@ import { readFileSync, existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 /**
- * El motor de diagnóstico, ya en la base.
- *
- * Lo que se vigila, en orden de gravedad:
- *
- *   1. Que **no invente catálogo**. El motor viejo, en el navegador, tenía 8
- *      códigos escritos a mano (`PNT-20100`, `PNT-10520`…) y ninguno existía
- *      en `products`: el cliente terminaba con una lista de materiales que no
- *      podía comprar. Cada línea que salga de aquí tiene que resolver contra
- *      una fila real de `product_variants`.
- *   2. Que el precio y el rendimiento **salgan de la base**, no de una copia.
- *   3. Que cuando el catálogo no tenga con qué resolver un caso, el motor
- *      diga que no sabe y pida visita, en vez de rellenar el hueco.
+ * Motor de diagnóstico en la base: cada línea resuelve contra un `product_variants`
+ * real, precio y rendimiento salen de la base, y sin catálogo aplicable pide visita.
  */
 
 function leerEnvLocal(): Record<string, string> {
@@ -93,8 +83,7 @@ describe.skipIf(!disponible)('Motor de diagnóstico · solo catálogo real', () 
   });
 
   it('LO QUE IMPORTA: todo producto recomendado existe en el catálogo', async () => {
-    // Se barren todas las combinaciones que el motor sabe distinguir. Si
-    // alguna devolviera un código inventado, aquí se cae.
+    // Se barren todas las combinaciones que el motor distingue: ninguna puede devolver un código inventado.
     const casos = [
       { surface: 'Concreto', environment: 'Exterior', conditions: ['Humedad', 'Fisuras'] },
       { surface: 'Concreto', environment: 'Exterior', conditions: [] },
@@ -143,9 +132,8 @@ describe.skipIf(!disponible)('Motor de diagnóstico · solo catálogo real', () 
   });
 
   it('la cantidad sale del rendimiento real de la ficha', async () => {
-    // Koraza rinde 22 m²/galón. 85 m² a 2 manos = 7.73 gal = 29.25 L.
-    // El cuñete son 18.9 L: 2 cuñetes ($1.259.800) contra 8 galones
-    // ($1.143.200). Gana el galón, y esa es la gracia de elegir por costo.
+    // Koraza rinde 22 m²/gal: 85 m² a 2 manos = 29.25 L. 8 galones ($1.143.200)
+    // salen más baratos que 2 cuñetes ($1.259.800): se elige por costo.
     const d = await diagnosticar({
       area_m2: '85', surface: 'Concreto', environment: 'Exterior', conditions: [],
     });
@@ -156,9 +144,7 @@ describe.skipIf(!disponible)('Motor de diagnóstico · solo catálogo real', () 
   });
 
   it('sin área no inventa una obra de 85 m²', async () => {
-    // El motor viejo caía a 85 en silencio («Number(data.areaM2) || 85»), así
-    // que un formulario incompleto salía con el presupuesto de una obra que
-    // nadie había medido.
+    // Sin área no se asume un valor por defecto: presupuestaría una obra no medida.
     const d = await diagnosticar({ surface: 'Concreto', environment: 'Exterior', conditions: [] });
     expect(d.recommended_products).toEqual([]);
     expect(d.requires_technical_visit).toBe(true);
@@ -167,8 +153,7 @@ describe.skipIf(!disponible)('Motor de diagnóstico · solo catálogo real', () 
   });
 
   it('la madera deja de recibir vinilo de interior', async () => {
-    // El motor viejo no tenía rama de madera: caía en el «else» y recomendaba
-    // Viniltex sobre madera a la intemperie.
+    // La madera tiene rama propia; no debe caer en Viniltex.
     const d = await diagnosticar({
       area_m2: '40', surface: 'Madera', environment: 'Exterior', conditions: [],
     });

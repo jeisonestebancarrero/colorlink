@@ -1,19 +1,5 @@
--- ============================================================
--- FASE 2 · 03 — Perfiles de usuario
--- ============================================================
--- MÓDULO 1: las credenciales las gestiona EXCLUSIVAMENTE Supabase Auth
--- (auth.users). Esta tabla NO almacena contraseñas ni hashes.
---
--- `id` es a la vez PK y FK a auth.users: relación 1:1 estricta, y el borrado
--- del usuario arrastra su perfil.
---
--- SOBRE `email` (MÓDULO 52 — fuente única de verdad):
--- La autoridad del email es auth.users.email. La columna de aquí es una
--- PROYECCIÓN sincronizada por trigger, no una segunda fuente de verdad.
--- Existe porque el frontend (`User.email` en src/types/index.ts) y los
--- listados de asesores/administradores la necesitan, y el cliente no puede
--- leer auth.users directamente con la anon key.
--- ============================================================
+-- Perfil 1:1 con auth.users; las credenciales viven solo en Supabase Auth.
+-- email es una proyección sincronizada por trigger: el cliente no puede leer auth.users.
 
 create table public.profiles (
   id          uuid primary key references auth.users (id) on delete cascade,
@@ -45,9 +31,7 @@ create trigger profiles_set_updated_at
   before update on public.profiles
   for each row execute function public.set_updated_at();
 
--- ------------------------------------------------------------
--- Sincronización de la proyección `email` cuando cambia en Auth.
--- ------------------------------------------------------------
+-- Mantiene la proyección de email al día cuando cambia en Auth.
 create or replace function public.sync_profile_email()
 returns trigger
 language plpgsql

@@ -1,20 +1,5 @@
--- ============================================================
--- El pedido resuelve su destino en el servidor
--- ============================================================
--- `create_order_from_cart` recibía la dirección y la ciudad como texto libre
--- desde el navegador. Ahora, cuando el cliente elige una dirección guardada o
--- una sede de su empresa, **manda el id y el servidor lee la dirección**. Es el
--- mismo principio que ya se aplica a los precios: si el navegador pudiera
--- enviar la dirección junto con el id de la sede, podría enviar una que no es
--- la de esa sede, y el despacho saldría hacia donde dijera la pestaña.
---
--- La dirección escrita a mano sigue existiendo, y es necesaria: una obra no es
--- una sede registrada. Lo que se valida es que la sede sea de SU empresa y que
--- la dirección guardada sea SUYA.
---
--- `shipping_city` se sigue llenando con el nombre del municipio para no romper
--- las vistas del portal ni `shipments.city`, pero la verdad ahora está en
--- `shipping_municipality_code`.
+-- El servidor resuelve la dirección a partir del id de dirección o sede y valida
+-- que sean del comprador. shipping_city se sigue llenando por compatibilidad.
 
 drop function if exists public.create_order_from_cart(text, uuid, text, text, uuid, text);
 
@@ -47,7 +32,6 @@ declare
   v_envio      numeric := 0;
   v_items      int := 0;
   v_metodo     public.delivery_method;
-  -- Destino resuelto por el servidor.
   v_direccion  text;
   v_mun_code   text;
   v_ciudad     text;
@@ -67,13 +51,9 @@ begin
 
   select p.company_id into v_company_id from public.profiles p where p.id = v_user_id;
 
-  -- ----------------------------------------------------------
-  -- Destino
-  -- ----------------------------------------------------------
   if v_metodo = 'ENVIO' then
     if _company_branch_id is not null then
-      -- La sede tiene que ser de la empresa de quien compra. Si no, es la sede
-      -- de otro cliente y el pedido saldría hacia una dirección ajena.
+        -- La sede debe ser de la empresa del comprador.
       select b.address_line, b.municipality_code into v_direccion, v_mun_code
       from public.company_branches b
       where b.id = _company_branch_id
@@ -96,7 +76,7 @@ begin
       end if;
 
     else
-      -- Dirección escrita a mano: el caso de la obra.
+        -- Dirección escrita a mano, p. ej. una obra.
       v_direccion := btrim(_shipping_address);
       v_mun_code  := _shipping_municipality_code;
 
@@ -117,10 +97,7 @@ begin
     end if;
   end if;
 
-  -- ----------------------------------------------------------
-  -- Quién recibe. Obligatorio también al retirar en tienda: el punto de venta
-  -- tiene que saber a quién le entrega y con qué documento verificarlo.
-  -- ----------------------------------------------------------
+    -- Quién recibe es obligatorio también al retirar en tienda.
   if coalesce(btrim(_recipient_name), '') = '' then
     raise exception 'VALIDATION: indica el nombre de quien recibe el pedido'
       using errcode = '22023';
@@ -141,9 +118,6 @@ begin
       using errcode = '22023';
   end;
 
-  -- ----------------------------------------------------------
-  -- Carrito
-  -- ----------------------------------------------------------
   select c.id into v_cart_id
   from public.carts c
   where c.user_id = v_user_id and c.is_active
@@ -177,7 +151,7 @@ begin
   )
   returning id into v_order_id;
 
-  -- Líneas: el precio se toma de la variante EN ESTE INSTANTE y se congela.
+    -- El precio se toma de la variante en este instante y se congela.
   for r in
     select ci.quantity,
            v.id as variant_id, v.label, v.price_cop,
@@ -202,8 +176,7 @@ begin
     ) values (
       v_order_id, r.variant_id, r.product_name, r.product_code, r.label,
       r.color_name, r.price_cop, r.quantity, r.price_cop * r.quantity, r.image_url,
-      -- El costo se congela junto con el precio. Si se dejara para después,
-      -- la utilidad de este pedido cambiaría cada vez que suba un proveedor.
+        -- El costo se congela con el precio para que la utilidad no cambie después.
       public.costo_vigente(r.variant_id, _pickup_location_id)
     );
 

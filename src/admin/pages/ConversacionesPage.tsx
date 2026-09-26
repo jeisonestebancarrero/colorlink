@@ -6,14 +6,8 @@ import { ExportarBoton } from '../ExportarBoton';
 import { IconoModulo } from '../IconosDeModulo';
 
 /**
- * Bandeja de conversaciones.
- *
- * Reúne en un solo sitio los hilos de pedidos y de proyectos, porque quien
- * atiende al cliente no piensa en "pedidos" y "proyectos" por separado:
- * piensa en personas esperando respuesta.
- *
- * Se distingue lo que solo tiene EVENTOS automáticos de lo que tiene
- * mensajes de una persona: lo segundo es lo que exige respuesta.
+ * Bandeja única de hilos de pedidos y proyectos. Solo los mensajes de personas
+ * cuentan como pendientes de respuesta; los eventos automáticos no.
  */
 export const ConversacionesPage: React.FC = () => {
   const [hilos, setHilos] = useState<HiloConversacion[]>([]);
@@ -94,10 +88,7 @@ export const ConversacionesPage: React.FC = () => {
         </button>
 
         <div className="ml-auto">
-          {/* No se exporta la conversación, se exporta la BANDEJA: quién está
-              esperando respuesta y desde cuándo. Es lo que se revisa para
-              repartir la atención, y lo único de esta pantalla que sirve fuera
-              de ella. */}
+          {/* Se exporta la bandeja (quién espera y desde cuándo), no los mensajes. */}
           <ExportarBoton<HiloConversacion>
             filas={filtrados}
             nombre="conversaciones"

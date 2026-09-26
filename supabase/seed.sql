@@ -1,23 +1,7 @@
--- ============================================================
--- SEED DEMO — FASE 2 (identidad)
--- ============================================================
--- MÓDULO 40: datos de demostración claramente identificados y separados.
--- Este archivo SOLO se ejecuta en el entorno local, al hacer `db reset`.
--- Nunca forma parte de las migraciones ni viaja a un entorno productivo.
---
--- Las contraseñas aquí son de demostración pública (LoginPage.tsx ya las
--- muestra prellenadas en el formulario). No representan credenciales reales.
---
--- El caso de prueba del MÓDULO 39 se reproduce tal cual: Carlos Mendoza,
--- Constructora Horizonte S.A.S., Medellín — los mismos datos que hoy están
--- en src/data/mockData.ts (INITIAL_USER), para que nada cambie visualmente.
--- ============================================================
+-- Usuarios de demostración; solo corre en local con `db reset`, nunca en producción.
+-- Contraseñas públicas de demo; el cliente principal replica INITIAL_USER de src/data/mockData.ts.
 
--- ------------------------------------------------------------
--- Helper: alta de usuario en Supabase Auth.
--- Al insertar en auth.users se dispara public.handle_new_user(), que crea
--- el perfil, el rol CLIENTE y —si se indica empresa— la empresa propia.
--- ------------------------------------------------------------
+-- Alta en auth.users; handle_new_user() crea perfil, rol CLIENTE y, si hay company, la empresa.
 create or replace function pg_temp.seed_user(
   _email      text,
   _password   text,
@@ -91,32 +75,21 @@ declare
   v_tecnico uuid;
   v_ana     uuid;
 begin
-  -- ----------------------------------------------------------
-  -- 1) CLIENTE B2B — caso de prueba oficial (MÓDULO 39)
-  --    Espejo exacto de INITIAL_USER en src/data/mockData.ts
-  -- ----------------------------------------------------------
+  -- Cliente B2B principal, espejo de INITIAL_USER.
   v_carlos := pg_temp.seed_user(
     'carlos.mendoza@constructorahorizonte.com', 'pintuco2025*',
     'Carlos', 'Mendoza', '+57 (312) 458-9201', 'Medellín',
     'Constructor', 'Constructora Horizonte S.A.S.'
   );
 
-  -- ----------------------------------------------------------
-  -- 2) SEGUNDO CLIENTE B2B, EMPRESA DISTINTA
-  --    Existe para poder demostrar el aislamiento multi-tenant del
-  --    MÓDULO 62: Ana jamás debe ver los proyectos de Carlos.
-  -- ----------------------------------------------------------
+  -- Segundo cliente B2B de otra empresa, para probar el aislamiento entre empresas.
   v_ana := pg_temp.seed_user(
     'ana.torres@edificarplus.com', 'pintuco2025*',
     'Ana', 'Torres', '+57 (301) 772-1180', 'Bogotá',
     'Constructor', 'Edificar Plus S.A.S.'
   );
 
-  -- ----------------------------------------------------------
-  -- 3) PERSONAL INTERNO PINTUCO
-  --    Sin metadata `company`: no se les crea empresa propia y por
-  --    tanto no reciben el rol CLIENTE_B2B.
-  -- ----------------------------------------------------------
+  -- Personal interno: sin company, así que no reciben empresa ni CLIENTE_B2B.
   v_admin_demo := pg_temp.seed_user(
     'admin@pintuco.demo', 'pintuco2025*',
     'Administración', 'ColorLink', '+57 (604) 448-0000', 'Medellín', 'Empresa'
@@ -132,17 +105,8 @@ begin
     'Jorge', 'Villa', '+57 (604) 448-0022', 'Medellín', 'Profesional'
   );
 
-  -- ----------------------------------------------------------
-  -- 3b) ADMINISTRADOR PRINCIPAL
-  -- Cuenta solicitada para operar el back-office.
-  --
-  -- ⚠️ La contraseña 'admin' tiene 5 caracteres y NO pasaría la validación
-  -- de registro (minimum_password_length = 6). Funciona porque el seed
-  -- inserta el hash directamente, y esa longitud solo se valida al
-  -- registrarse o al cambiarla, no al iniciar sesión.
-  -- ANTES DE DESPLEGAR EN RENDER hay que cambiarla: una contraseña de
-  -- administrador de 5 caracteres en internet se rompe en segundos.
-  -- ----------------------------------------------------------
+  -- Administrador principal. 'admin' salta el mínimo de longitud porque se inserta el hash:
+  -- cambiarla antes de cualquier despliegue público.
   v_admin := pg_temp.seed_user(
     'admin@colorlink.com', 'admin',
     'Administrador', 'ColorLink', '+57 (604) 448-0000', 'Medellín', 'Empresa'
@@ -150,12 +114,7 @@ begin
   insert into public.user_roles (user_id, role) values (v_admin, 'ADMINISTRADOR')
   on conflict on constraint user_roles_unicos do nothing;
 
-  -- ----------------------------------------------------------
-  -- 4) Bootstrap de roles privilegiados.
-  --    Se insertan directamente porque el seed corre como superusuario:
-  --    es el único momento en que se puede crear el primer administrador.
-  --    A partir de aquí, la única vía es public.grant_role().
-  -- ----------------------------------------------------------
+  -- Primer administrador insertado como superusuario; después solo vía public.grant_role().
   insert into public.user_roles (user_id, role) values
     (v_admin_demo, 'ADMINISTRADOR'),
     (v_asesor,  'ASESOR'),

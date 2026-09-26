@@ -19,17 +19,7 @@ import { IconoModulo } from '../IconosDeModulo';
 
 const cantidad = (n: number) => n.toLocaleString('es-CO');
 
-/**
- * Inventario por punto de venta.
- *
- * Antes era una sola tabla con las 175 combinaciones de referencia y bodega
- * mezcladas —y con el catálogo completo de Pintuco serían decenas de miles—.
- * Para saber qué le falta a la tienda de Cali había que leerlas todas.
- *
- * Ahora se entra como se piensa el negocio: primero la bodega, después lo que
- * hay dentro, agrupado por categoría. La bodega es la unidad real de trabajo:
- * quien repone, cuenta o traslada lo hace desde un punto concreto.
- */
+/** Inventario navegado por bodega y luego por categoría: la bodega es la unidad de trabajo. */
 export const InventarioPage: React.FC = () => {
   const { filtroSedes } = useSedes();
   const { puede } = useAdminAuth();
@@ -111,7 +101,7 @@ export const InventarioPage: React.FC = () => {
     });
   }, [existencias, busqueda, soloAtencion]);
 
-  /** Agrupado por categoría: es como está ordenada la bodega de verdad. */
+  /** Agrupado por categoría. */
   const grupos = useMemo(() => {
     const mapa = new Map<string, Existencia[]>();
     for (const e of filtradas) mapa.set(e.categoria, [...(mapa.get(e.categoria) ?? []), e]);
@@ -131,13 +121,7 @@ export const InventarioPage: React.FC = () => {
     (p) => !filtroSedes || filtroSedes.includes(p.locationId)
   );
 
-  // ── Tablero de puntos de venta ────────────────────────────────────────────
-  //
-  // EL SELECTOR GLOBAL MANDA. Antes esta pantalla elegía punto por su cuenta,
-  // así que había dos mecanismos para lo mismo: se podía tener «Medellín»
-  // activa en la cabecera y estar mirando el inventario de Cali. Ahora el
-  // tablero solo ofrece las sedes activas, y entrar a una es elegir dentro de
-  // esa selección, no saltársela.
+  // Tablero de puntos de venta: solo ofrece las sedes activas del selector global.
   if (!punto) {
     const total = puntosVisibles.reduce(
       (acc, p) => ({
@@ -202,9 +186,7 @@ export const InventarioPage: React.FC = () => {
                   alto="h-24"
                 />
 
-                {/* `flex-1` y el `mt-auto` de más abajo alinean las cifras de
-                    todas las tarjetas de una fila aunque el nombre de una
-                    tienda ocupe dos renglones y el de otra solo uno. */}
+                {/* Alinea las cifras aunque el nombre ocupe dos renglones. */}
                 <div className="p-5 flex flex-col flex-1">
                 <div className="min-w-0">
                   <p className="text-sm font-extrabold text-slate-900 leading-snug">{p.punto}</p>
@@ -243,7 +225,7 @@ export const InventarioPage: React.FC = () => {
     );
   }
 
-  // ── Dentro de un punto de venta ───────────────────────────────────────────
+  // Dentro de un punto de venta
   const enAtencion = existencias.filter((e) => situacion(e) !== 'ok').length;
 
   return (
@@ -322,8 +304,7 @@ export const InventarioPage: React.FC = () => {
               Solo lo que requiere atención ({enAtencion})
             </button>
 
-            {/* Exporta las existencias del punto abierto, con la búsqueda y el
-                filtro de atención ya aplicados. */}
+            {/* Exporta las existencias visibles del punto abierto. */}
             <ExportarBoton<Existencia>
               filas={filtradas}
               nombre={`inventario-${punto?.ciudad ?? 'punto'}`}
@@ -526,9 +507,7 @@ export const InventarioPage: React.FC = () => {
                       <td className="px-3 py-3 text-right tabular-nums font-semibold">
                         {(() => {
                           const signo = signoMovimiento(m.tipo);
-                          // El ajuste por conteo no suma ni resta: fija el
-                          // saldo, así que mostrarlo con signo sería inventar
-                          // una dirección que el dato no tiene.
+                          // El ajuste por conteo fija el saldo: va sin signo.
                           if (signo === 0) {
                             return (
                               <span className="text-slate-600">
@@ -594,9 +573,7 @@ export const InventarioPage: React.FC = () => {
   );
 };
 
-// ============================================================
 // Piezas
-// ============================================================
 const Indicador: React.FC<{
   rotulo: string;
   valor: string;

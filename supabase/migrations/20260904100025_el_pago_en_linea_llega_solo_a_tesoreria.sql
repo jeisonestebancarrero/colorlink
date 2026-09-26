@@ -1,23 +1,6 @@
--- El pago en línea entra solo a tesorería.
---
--- El cliente pagaba desde el carrito, el pedido quedaba cobrado y el pago
--- registrado… y en tesorería no aparecía nada. Alguien tenía que entrar a
--- «asociar pago» a mano. Eso no es una tarea: es una forma de que el dinero
--- que sí entró no figure hasta que alguien se acuerde, y de que la caja del
--- día nunca cuadre con lo que de verdad se recaudó.
---
--- Va SOLO EN LA ACTUALIZACIÓN, y esa es la parte que importa:
---
---   · Un pago en línea NACE 'PENDIENTE' (lo crea `create_order_from_cart`) y
---     pasa a 'PAGADO' cuando el webhook lo confirma. Eso es un UPDATE.
---   · Un recaudo manual NACE ya 'PAGADO' desde `registrar_recaudo`, que crea
---     su propio movimiento acto seguido con la cuenta que eligió la persona.
---     Eso es un INSERT.
---
--- Disparando solo en el UPDATE, cada camino crea exactamente un movimiento y
--- ninguno pisa al otro. Aun así se comprueba que no exista ya uno para ese
--- pago: las pasarelas reenvían el mismo evento y un ingreso duplicado en la
--- caja es de los errores más caros de rastrear.
+-- Crea el movimiento de tesorería cuando un pago en línea pasa a PAGADO. Solo en UPDATE:
+-- el recaudo manual nace PAGADO y crea su propio movimiento. Se evita el duplicado
+-- porque las pasarelas reenvían eventos.
 create or replace function public.pago_en_linea_a_tesoreria()
 returns trigger
 language plpgsql
@@ -32,8 +15,7 @@ begin
     return new;
   end if;
 
-  -- Una venta a crédito no es plata que entró: la cartera se recauda después,
-  -- y ahí sí nace su movimiento. Meterla aquí inflaría la caja del día.
+  -- Una venta a crédito no es ingreso: su movimiento nace al recaudar la cartera.
   if coalesce(new.is_credit, false) then
     return new;
   end if;
@@ -42,10 +24,8 @@ begin
     return new;
   end if;
 
-  -- El efectivo entra por caja; lo demás llega por la pasarela y de ahí pasa
-  -- al banco. Si la cuenta esperada no existe, se usa cualquiera activa antes
-  -- que perder el registro: un movimiento en la cuenta equivocada se corrige;
-  -- uno que nunca se creó, no se sabe que falta.
+  -- Efectivo a caja, lo demás a banco; sin esa cuenta se usa otra activa antes que
+  -- perder el registro.
   v_clase := case new.method
     when 'EFECTIVO' then 'CAJA'
     when 'TRANSFERENCIA' then 'BANCARIA'
@@ -86,7 +66,7 @@ create trigger payments_zz_tesoreria
   for each row
   execute function public.pago_en_linea_a_tesoreria();
 
--- Los pagos en línea que ya estaban confirmados y se quedaron fuera de la caja.
+-- Backfill de pagos en línea ya confirmados sin movimiento.
 insert into public.treasury_movements (
   account_id, direction, amount_cop, occurred_on, concept, reference,
   payment_id, order_id

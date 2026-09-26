@@ -21,7 +21,7 @@ const hoy = () => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 };
 
-/** Una línea del asiento manual. Los importes se guardan como texto. */
+/** Línea de asiento manual; importes como texto para permitir edición parcial. */
 interface Renglon {
   cuenta: string;
   detalle: string;
@@ -31,14 +31,7 @@ interface Renglon {
 
 const RENGLON_VACIO: Renglon = { cuenta: '', detalle: '', debito: '', credito: '' };
 
-/**
- * Contabilidad.
- *
- * La mayoría de los comprobantes no se teclean: los generan las facturas, las
- * recepciones y los recaudos. Esta pantalla sirve para consultarlos, para los
- * asientos que no tienen documento de origen —una nómina, un servicio— y para
- * comprobar que los libros cuadran.
- */
+/** Consulta de comprobantes automáticos, asientos manuales sin documento de origen y reportes. */
 export const ContabilidadPage: React.FC = () => {
   const { puede } = useAdminAuth();
   const [pestana, setPestana] = useState<'comprobantes' | 'balance' | 'resultados'>('comprobantes');
@@ -50,8 +43,7 @@ export const ContabilidadPage: React.FC = () => {
     { asiento: Asiento; lineas: LineaAsiento[]; documento: DocumentoOrigen } | null
   >(null);
   const [resultados, setResultados] = useState<RenglonResultado[]>([]);
-  // Movimientos de una cuenta concreta: la consulta más frecuente de un
-  // contador —«muéstrame todo lo que pasó por Clientes»—.
+  // Libro auxiliar de una cuenta.
   const [auxiliar, setAuxiliar] = useState<{
     cuenta: string;
     nombre: string;
@@ -110,14 +102,13 @@ export const ContabilidadPage: React.FC = () => {
     );
   }, [asientos, busqueda]);
 
-  /* El balance se pinta sin las cuentas que no se movieron; el archivo tiene
-     que traer exactamente eso y no el plan de cuentas completo. */
+  /* Exporta solo las cuentas con movimiento, igual que en pantalla. */
   const balanceVisible = useMemo(
     () => balance.filter((b) => b.debitos > 0 || b.creditos > 0),
     [balance],
   );
 
-  /** Cómo describir el período en el encabezado del documento. */
+  /** Período para el encabezado del documento. */
   const periodoTexto = useMemo(() => {
     if (periodo.desde && periodo.hasta) return `${periodo.desde} a ${periodo.hasta}`;
     if (periodo.desde) return `Desde ${periodo.desde}`;
@@ -186,7 +177,7 @@ export const ContabilidadPage: React.FC = () => {
     }
   };
 
-  // ── Detalle de un comprobante ─────────────────────────────────────────────
+  // Detalle de un comprobante
   if (abierto) {
     const { asiento, lineas, documento } = abierto;
     return (
@@ -234,11 +225,7 @@ export const ContabilidadPage: React.FC = () => {
           </div>
         )}
 
-        {/* El documento que originó el asiento.
-            Un comprobante NO lleva las líneas de producto: con cuarenta
-            renglones deja de ser legible y duplica la factura. Pero desde el
-            asiento hay que poder ver QUÉ se vendió o QUÉ llegó sin salir a
-            buscarlo a otra pantalla, y eso es lo que muestra este bloque. */}
+        {/* Documento de origen con sus líneas; el comprobante no las duplica. */}
         {documento.tipo !== 'MANUAL' && (
           <div className="bg-white rounded-xl border border-slate-200 shadow-2xs overflow-hidden">
             <div className="px-5 py-3.5 border-b border-slate-100 flex flex-wrap items-center gap-2">
@@ -395,7 +382,7 @@ export const ContabilidadPage: React.FC = () => {
     );
   }
 
-  // ── Listado ───────────────────────────────────────────────────────────────
+  // Listado
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -520,8 +507,7 @@ export const ContabilidadPage: React.FC = () => {
                     value={r.debito}
                     onChange={(e) => {
                       const copia = [...renglones];
-                      // Débito y crédito se excluyen: escribir en uno limpia
-                      // el otro, que es la regla que valida el servidor.
+                      // Débito y crédito son excluyentes, como valida el servidor.
                       copia[i] = { ...r, debito: e.target.value, credito: '' };
                       setRenglones(copia);
                     }}
@@ -613,10 +599,7 @@ export const ContabilidadPage: React.FC = () => {
           ),
         )}
 
-        {/* Uno por pestaña, no uno que adivine: cada tabla tiene sus columnas,
-            y estos tres archivos son justo los que pide el contador. Se
-            renderiza solo el de la pestaña abierta para no exportar una tabla
-            que no se está mirando. */}
+        {/* Un exportador por pestaña; solo se renderiza el de la abierta. */}
         <div className="ml-auto">
           {pestana === 'comprobantes' && (
             <ExportarBoton<Asiento>
@@ -635,8 +618,7 @@ export const ContabilidadPage: React.FC = () => {
                 { titulo: 'Estado', valor: (a) => a.estado },
                 { titulo: 'Débito', valor: (a) => a.totalDebito, numerica: true },
                 { titulo: 'Crédito', valor: (a) => a.totalCredito, numerica: true },
-                // Un comprobante anulado sin su motivo no se puede justificar
-                // ante nadie.
+                // Incluye el motivo de anulación.
                 { titulo: 'Motivo de anulación', valor: (a) => a.motivoAnulacion },
               ]}
             />
@@ -689,7 +671,7 @@ export const ContabilidadPage: React.FC = () => {
                 className="w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 py-2.5 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#004F9F]/20 focus:border-[#004F9F]"
               />
             </div>
-            {/* Un contador trabaja por mes, no sobre el histórico completo. */}
+            {/* Filtro por mes. */}
             <div className="flex items-end gap-2">
               <div className="w-40">
                 <Input
@@ -744,8 +726,7 @@ export const ContabilidadPage: React.FC = () => {
                       <tr
                         key={a.id}
                         onClick={async () => {
-                          // Sin este aviso, un fallo al leer el detalle dejaba
-                          // el clic sin efecto y nadie sabía por qué.
+                          // Informa el error en vez de ignorar el clic.
                           setError('');
                           try {
                             const [lineas, documento] = await Promise.all([
@@ -855,9 +836,7 @@ export const ContabilidadPage: React.FC = () => {
           </p>
         </div>
       )}
-      {/* Libro auxiliar de una cuenta.
-          Es la consulta más frecuente de un contador y hasta ahora la vista
-          existía en la base pero no había forma de verla. */}
+      {/* Libro auxiliar de una cuenta. */}
       {auxiliar && (
         <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex justify-end">
           <div className="w-full max-w-3xl bg-white h-full overflow-y-auto shadow-2xl">
@@ -900,9 +879,7 @@ export const ContabilidadPage: React.FC = () => {
                 </thead>
                 <tbody>
                   {(() => {
-                    // El saldo corre acumulándose línea por línea, que es como
-                    // se lee un auxiliar: cada fila muestra en qué quedó la
-                    // cuenta después de ese movimiento.
+                    // Saldo acumulado tras cada movimiento.
                     let corriente = 0;
                     const natural = balance.find((b) => b.cuenta === auxiliar.cuenta)?.naturaleza;
                     return auxiliar.movimientos.map((m) => {
@@ -941,12 +918,7 @@ export const ContabilidadPage: React.FC = () => {
   );
 };
 
-/**
- * Estado de resultados.
- *
- * El balance de prueba lista cuentas; no dice si el negocio ganó o perdió,
- * que es la primera pregunta de cualquiera que abra este módulo.
- */
+/** Estado de resultados: utilidad o pérdida del período. */
 const EstadoResultados: React.FC<{ renglones: RenglonResultado[] }> = ({ renglones }) => {
   const suma = (clase: string) =>
     renglones.filter((r) => r.clase === clase).reduce((a, r) => a + r.valor, 0);

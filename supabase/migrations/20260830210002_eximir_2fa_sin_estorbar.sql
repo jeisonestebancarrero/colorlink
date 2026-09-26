@@ -1,21 +1,5 @@
--- ============================================================
--- Quitar la exigencia de doble factor sin dejar a nadie encerrado
--- ============================================================
--- La regla anterior tenía dos candados y uno sobraba:
---
---   · SELF_EXEMPT      — nadie puede eximirse a sí mismo.
---   · ALREADY_ENROLLED — no se exime a quien ya tiene su factor activo.
---
--- El primero se puso pensando en que eximirse fuera «el primer clic de quien
--- toma una cuenta ajena». Pero ese atacante, para llegar hasta ahí, tuvo que
--- superar el segundo factor —tiene la app de códigos en la mano—, así que
--- cae en el segundo candado de todas formas. Y si la cuenta NO tiene factor,
--- quien la haya tomado ya tiene control total: eximirla no le agrega nada.
---
--- Es decir: el primer candado no protegía nada y sí dejaba al administrador
--- del sistema sin forma de desactivarse la exigencia salvo pidiéndoselo a
--- otro administrador. Se retira. El segundo se queda, que es el que de verdad
--- impide bajarle la protección a alguien sin que se entere.
+-- Retira el candado SELF_EXEMPT: no protegía nada y dejaba al administrador sin
+-- poder eximirse. Se mantiene ALREADY_ENROLLED.
 create or replace function public.set_mfa_requerido(
   _user_id   uuid,
   _requerido boolean
@@ -38,8 +22,7 @@ begin
     where f.user_id = _user_id and f.status = 'verified'
   ) into v_tiene_factor;
 
-  -- Eximir a alguien que ya lo tiene activo no lo desactiva —y decirle que sí
-  -- sería mentirle—, así que se rechaza y se le indica el camino correcto.
+    -- Eximir no desactiva un factor ya inscrito; se rechaza para no inducir a error.
   if not _requerido and v_tiene_factor then
     raise exception
       'ALREADY_ENROLLED: esta cuenta ya tiene su aplicación de códigos registrada; primero usa "Reiniciar verificación"'

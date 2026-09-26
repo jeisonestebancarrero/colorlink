@@ -2,9 +2,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { readFileSync, existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-/**
- * Proyectos: aislamiento, atomicidad y Storage — FASE 5.
- */
+/** Proyectos: aislamiento por RLS, creación atómica y Storage. */
 
 function leerEnvLocal(): Record<string, string> {
   const ruta = resolve(process.cwd(), '.env.local');
@@ -45,7 +43,7 @@ async function login(email: string, password: string): Promise<string> {
 const rpc = (t: string, fn: string, body: unknown) =>
   fetch(`${API}/rest/v1/rpc/${fn}`, { method: 'POST', headers: auth(t), body: JSON.stringify(body) });
 
-/** El caso de prueba oficial del MÓDULO 39. */
+/** Caso de prueba de referencia del proyecto Horizonte. */
 const PROYECTO_HORIZONTE = {
   name: 'Fachada Edificio Residencial Horizonte',
   description: 'Fachada con humedad y fisuras en concreto',
@@ -98,10 +96,8 @@ describe.skipIf(!disponible)('Proyectos · aislamiento y atomicidad', () => {
     creados.push({ id: idProyectoCarlos, token: tCarlos });
   });
 
-  // Las pruebas crean proyectos REALES. Sin esta limpieza la base crecería
-  // en cada ejecución y el listado del usuario demo se llenaría de ruido.
-  // El borrado va como dueño de cada proyecto: si RLS lo impidiera, la
-  // limpieza fallaría y lo sabríamos.
+  // Las pruebas crean proyectos reales; se borran como su dueño para que un
+  // fallo de RLS en el borrado también salga a la luz.
   afterAll(async () => {
     for (const { id, token } of creados) {
       await fetch(`${API}/rest/v1/projects?id=eq.${id}`, {
@@ -134,17 +130,13 @@ describe.skipIf(!disponible)('Proyectos · aislamiento y atomicidad', () => {
     expect((await q('project_surfaces')).length).toBe(1);
     expect((await q('project_pathologies')).length).toBe(2); // Humedad + Fisuras
     expect((await q('project_diagnoses')).length).toBe(1);
-    // Siete, no los tres que manda el payload: la ruta de solución la arma el
-    // servidor desde el 4 de septiembre de 2026 y no depende del cliente.
+    // Siete pasos, no los tres del payload: la ruta de solución la arma el servidor.
     expect((await q('project_timeline_steps')).length).toBe(7);
   });
 
   it('ATAQUE: el diagnóstico que manda el cliente se IGNORA', async () => {
-    // `PAYLOAD` incluye a propósito un diagnóstico falsificado: un producto
-    // inventado («p-1», «Koraza 5 Años») y un presupuesto de $500.000 puestos
-    // a mano. Hasta el 4 de septiembre de 2026 `create_project` guardaba eso
-    // tal cual, así que cualquiera con la consola abierta se firmaba su propio
-    // presupuesto. Ahora lo calcula la base y lo del cliente se descarta.
+    // `PAYLOAD` trae a propósito un diagnóstico falsificado (producto y presupuesto
+    // inventados): `create_project` debe descartarlo y calcularlo en la base.
     const [d] = await fetch(
       `${API}/rest/v1/project_diagnoses?select=recommended_products,budget_summary,ai_summary&project_id=eq.${idProyectoCarlos}`,
       { headers: auth(tCarlos) }
@@ -153,7 +145,7 @@ describe.skipIf(!disponible)('Proyectos · aislamiento y atomicidad', () => {
     const productos = d.recommended_products as Array<{ code?: string; id?: string }>;
     expect(productos.length).toBeGreaterThan(0);
     expect(productos.some((p) => p.id === 'p-1')).toBe(false);
-    // Y lo que quedó son referencias reales del catálogo, con su código.
+    // Lo que queda son referencias reales del catálogo, con su código.
     for (const prod of productos) {
       expect(prod.code).toMatch(/^PNT-/);
     }
@@ -302,8 +294,7 @@ describe.skipIf(!disponible)('Proyectos · aislamiento y atomicidad', () => {
     })
       .then((x) => (x.ok ? x.json() : []))
       .catch(() => []);
-    // Si la tabla no está expuesta vía REST se comprueba por el acceso
-    // público directo, que debe fallar.
+    // Si la tabla no está expuesta por REST, el acceso público directo debe fallar.
     if (!b) {
       const r = await fetch(`${API}/storage/v1/object/public/project-files/cualquiera.jpg`);
       expect(r.ok).toBe(false);

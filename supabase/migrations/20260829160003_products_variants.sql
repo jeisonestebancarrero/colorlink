@@ -1,21 +1,9 @@
--- ============================================================
--- FASE 3 · 03 — Productos y variantes (presentaciones)
--- ============================================================
--- MÓDULO 3: un producto, varias presentaciones. NO se duplican productos
--- por tamaño de envase: "Koraza 5 Años" es UN producto con tres variantes
--- (1/4 galón, 1 galón, cuñete de 5 galones).
---
--- MÓDULO 52 — FUENTE ÚNICA DE VERDAD:
--- `price_cop` y `spread_rate_m2_per_gal` viven aquí y solo aquí. El motor de
--- cálculo (FASE 7) y la creación de pedidos (FASE 9) los leerán de la base
--- de datos, ignorando cualquier valor que envíe el navegador.
--- ============================================================
+-- Productos y sus presentaciones. Precio y rendimiento viven solo aquí: cálculo y
+-- pedidos los leen de la base e ignoran lo que envíe el navegador.
 
 create table public.products (
   id           uuid primary key default gen_random_uuid(),
-  -- Identificador del dato mock original ('prod-koraza-5'). Conserva la
-  -- trazabilidad durante la transición y permite regenerar el seed sin
-  -- duplicar filas.
+  -- Id del mock original; permite regenerar el seed sin duplicar filas.
   external_ref text unique,
   code         text not null unique,
   name         text not null,
@@ -28,10 +16,9 @@ create table public.products (
   environment  public.product_environment,
   finish       public.product_finish,
 
-  -- Texto comercial tal como se muestra hoy ("20 a 25 m²/galón a 2 manos").
+  -- Texto comercial para mostrar.
   coverage     text,
-  -- Valor NUMÉRICO que consume el motor de cálculo. Separado del texto a
-  -- propósito: no se puede calcular sobre una cadena.
+  -- Valor numérico que usa el motor de cálculo.
   spread_rate_m2_per_gal numeric(8,2),
   drying_time  text,
 
@@ -58,15 +45,11 @@ create index products_category_id_idx on public.products (category_id);
 create index products_brand_id_idx    on public.products (brand_id);
 create index products_status_idx      on public.products (status);
 create index products_is_popular_idx  on public.products (is_popular) where is_popular;
--- Búsqueda por nombre sin distinguir mayúsculas (MÓDULO 47).
 create index products_name_lower_idx  on public.products (lower(name));
 
 comment on column public.products.spread_rate_m2_per_gal is
   'Rendimiento en m² por galón. Entrada del motor de cálculo (FASE 7). Nunca se acepta desde el cliente.';
 
--- ------------------------------------------------------------
--- Variantes = presentaciones comerciales
--- ------------------------------------------------------------
 create table public.product_variants (
   id            uuid primary key default gen_random_uuid(),
   product_id    uuid not null references public.products (id) on delete cascade,

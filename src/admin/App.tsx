@@ -28,31 +28,14 @@ import { CambiarClaveObligatorio } from '../components/common/CambiarClaveObliga
 import { claveTemporalService } from '../services/claveTemporal';
 import { MensajesProvider } from '../context/MensajesContext';
 
-/**
- * Enrutado del back-office.
- *
- * Igual que el portal del cliente, la navegación es estado local: mantener
- * las dos aplicaciones con el mismo enfoque evita introducir una librería de
- * rutas solo aquí.
- *
- * Las pantallas aún no construidas se declaran como tales en vez de dejar un
- * menú que lleva a la nada.
- */
-// Ya no queda ninguna pantalla por construir. La constante se conserva
-// porque el `default` del enrutador la usa para nombrar una ruta desconocida.
+/** Enrutado del back-office sin librería de rutas, igual que el portal del cliente. */
+// Lo usa el `default` del enrutador para nombrar rutas desconocidas.
 const EN_CONSTRUCCION: Record<string, string> = {};
 
 const Contenido: React.FC = () => {
   const { cargando, autenticado, pendienteMFA, email, salir, acceso } = useAdminAuth();
 
-  /**
-   * ¿Entró con una contraseña provisional?
-   *
-   * `null` mientras se averigua: pintar el portal y quitarlo medio segundo
-   * después sería peor que esperar. Se consulta solo con sesión iniciada y
-   * con el segundo factor ya superado, porque antes de eso `is_staff()` es
-   * falso y la consulta no devolvería nada útil.
-   */
+  /** Contraseña provisional; `null` mientras carga. Se consulta tras el MFA: antes `is_staff()` es falso. */
   const [debeCambiarClave, setDebeCambiarClave] = React.useState<boolean | null>(null);
 
   React.useEffect(() => {
@@ -63,8 +46,7 @@ const Contenido: React.FC = () => {
       .catch(() => { if (vigente) setDebeCambiarClave(false); });
     return () => { vigente = false; };
   }, [autenticado, pendienteMFA]);
-  // La ruta vive en la URL: recargar ya no devuelve al tablero, «atrás»
-  // funciona y un enlace a un pedido se puede compartir.
+  // Ruta en la URL: recargar, «atrás» y enlaces compartidos funcionan.
   const { ruta: rutaUrl, ir: setRuta, abrir, cerrarDetalle } = useRutaUrl();
   const ruta = rutaUrl.modulo;
   const idAbierto = rutaUrl.id;
@@ -77,19 +59,15 @@ const Contenido: React.FC = () => {
     );
   }
 
-  // La contraseña ya está validada, pero falta el segundo factor: la sesión
-  // existe y por eso no se muestra el formulario de ingreso otra vez.
+  // Sesión válida pendiente de segundo factor.
   if (pendienteMFA === 'codigo') return <MfaGate modo="codigo" />;
 
   if (!autenticado) return <AdminLogin />;
 
-  // Personal interno que todavía no ha registrado su aplicación de códigos:
-  // entra, pero no trabaja hasta activarla.
+  // Debe registrar el factor antes de trabajar.
   if (pendienteMFA === 'registro') return <MfaGate modo="registro" />;
 
-  // Contraseña provisional puesta por un administrador: se cambia antes de
-  // entrar. Va DESPUÉS del segundo factor a propósito —primero se demuestra
-  // quién es, después se le deja tocar su cuenta—.
+  // Cambio de contraseña provisional; va después del MFA a propósito.
   if (debeCambiarClave === null) {
     return (
       <div className="min-h-screen bg-[#002D5C] flex items-center justify-center">
@@ -107,20 +85,14 @@ const Contenido: React.FC = () => {
     );
   }
 
-  // El tablero es la puerta de entrada, como en un ERP: se elige aplicación
-  // y solo entonces aparece la navegación lateral de ese módulo.
-  // La campana lleva al pedido por su NÚMERO, que es la ruta que ya existe
-  // (`/pedidos/ORD-PNT-000106`) y donde vive el hilo de conversación.
+  // El tablero es la entrada; la campana navega al pedido por número (`/pedidos/ORD-PNT-000106`).
   const abrirPedido = (numero: string) => abrir('/pedidos', numero);
 
   if (ruta === RUTA_TABLERO) {
     return <LauncherPage onAbrir={setRuta} onAbrirPedido={abrirPedido} />;
   }
 
-  // Una aplicación que no está en tus vistas no se abre, ni escribiendo la
-  // dirección a mano. Antes el menú la escondía pero la URL la pintaba igual:
-  // los datos los protegía la base, pero la persona veía una pantalla llena de
-  // errores de permiso en lugar de un aviso claro.
+  // Un módulo fuera de las vistas del usuario no se abre ni por URL; se muestra un aviso.
   const permitida = acceso.isAdmin || acceso.views.some((v) => v.route === ruta);
 
   const pantalla = () => {
@@ -212,16 +184,10 @@ const Contenido: React.FC = () => {
   );
 };
 
-/**
- * Enchufa la campana de mensajes a la sesión del PORTAL.
- *
- * El proveedor es el mismo que usa la tienda; recibe `activo` por propiedad
- * porque cada aplicación tiene su propio contexto de sesión.
- */
+/** Conecta el proveedor de mensajes de la tienda a la sesión del portal interno vía `activo`. */
 const CampanaConSesion: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { autenticado, pendienteMFA } = useAdminAuth();
-  // Sin el segundo factor superado `is_staff()` es falso en el servidor, así
-  // que consultar antes devolvería vacío y encendería la campana en cero.
+  // Antes del MFA `is_staff()` es falso y la consulta vendría vacía.
   return (
     <MensajesProvider activo={autenticado && !pendienteMFA}>{children}</MensajesProvider>
   );
@@ -229,8 +195,7 @@ const CampanaConSesion: React.FC<{ children: React.ReactNode }> = ({ children })
 
 export const AdminApp: React.FC = () => (
   <AdminAuthProvider>
-    {/* Dentro del de autenticación: las sedes permitidas se resuelven con la
-        sesión ya establecida. */}
+    {/* Dentro de la autenticación: las sedes requieren sesión. */}
     <SedeProvider>
       <CampanaConSesion>
         <Contenido />

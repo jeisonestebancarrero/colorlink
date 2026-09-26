@@ -4,22 +4,8 @@ import { resolve } from 'node:path';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
 /**
- * Roles configurables.
- *
- * Lo que se vigila, y todo son formas de dar acceso sin querer:
- *
- *   1. Que un rol nuevo nazca SIN NADA. Heredar permisos de otro sería la
- *      manera más silenciosa de dar acceso de más: nadie revisa lo que no
- *      configuró.
- *   2. Que quitarle una aplicación a un rol se la quite a TODAS las personas
- *      que lo tienen. Es el motivo de que esta pantalla exista: si no, hay que
- *      ir usuario por usuario y dos personas del mismo cargo acaban distintas.
- *   3. Que los roles del sistema no se puedan archivar. `is_staff()`,
- *      `handle_new_user` y varias políticas los nombran directamente: apagarlos
- *      rompería el acceso sin que nada avisara.
- *   4. Que no se archive un rol que alguien tiene puesto: quedaría con un
- *      acceso que ya no se puede configurar desde ninguna pantalla.
- *   5. Que solo un administrador pueda tocar nada de esto.
+ * Roles configurables: un rol nuevo nace sin permisos, quitar una app al rol la quita
+ * a todos sus usuarios, los roles del sistema y los asignados no se archivan, y solo el admin configura.
  */
 
 function leerEnvLocal(): Record<string, string> {
@@ -60,7 +46,7 @@ describe.skipIf(!disponible || !SERVICE)('Roles configurables', () => {
 
   const sello = Date.now().toString().slice(-6);
   const CODIGO = `PRUEBA_${sello}`;
-  /** Vistas de ASESOR antes de tocar nada, para devolverlas. */
+  /** Vistas de ASESOR al inicio, para restaurarlas. */
   let vistasDelAsesor: string[] = [];
 
   beforeAll(async () => {
@@ -79,15 +65,13 @@ describe.skipIf(!disponible || !SERVICE)('Roles configurables', () => {
   });
 
   afterAll(async () => {
-    // Se devuelven las vistas del asesor exactamente como estaban: es
-    // configuración de negocio y la usan otras pruebas y las pantallas.
+    // Se restauran las vistas del asesor: las usan otras pruebas y las pantallas.
     await root.from('role_views').delete().eq('role', 'ASESOR');
     if (vistasDelAsesor.length > 0) {
       await root.from('role_views')
         .insert(vistasDelAsesor.map((view_code) => ({ role: 'ASESOR', view_code })));
     }
-    // El rol de prueba no se puede eliminar —un valor de enum no se borra—
-    // así que se archiva, que es justo lo que haría una persona.
+    // Un valor de enum no se puede borrar: el rol de prueba se archiva.
     await root.from('role_meta').delete().eq('role', CODIGO);
     await admin.auth.signOut();
     await asesor.auth.signOut();
@@ -116,27 +100,25 @@ describe.skipIf(!disponible || !SERVICE)('Roles configurables', () => {
   });
 
   it('quitarle una aplicación al ROL se la quita a todos los que lo tienen', async () => {
-    // Es la razón de ser de la pantalla: sin esto hay que ir usuario por
-    // usuario y dos personas del mismo cargo acaban con accesos distintos.
+    // Quitarla al rol debe afectar a todos los que lo tienen.
     const { error } = await admin.rpc('set_role_view', {
       _role: 'ASESOR', _view_code: 'bo.inventory', _visible: false,
     });
     expect(error).toBeNull();
 
-    // La fila NO se borra: se marca `visible = false`, para que quede quién
-    // lo cambió y cuándo. Por eso se comprueba la columna y no la ausencia.
+    // No se borra la fila: se marca `visible = false` para dejar auditoría.
     const { data } = await root
       .from('role_views').select('visible').eq('role', 'ASESOR').eq('view_code', 'bo.inventory');
     for (const f of (data ?? []) as Array<{ visible: boolean }>) {
       expect(f.visible).toBe(false);
     }
 
-    // Y la matriz que pinta la pantalla tampoco la da por concedida.
+    // La matriz de la pantalla tampoco la da por concedida.
     const { data: cfg } = await admin.rpc('configuracion_de_roles');
     const porRol = (cfg as { porRol: Record<string, string[]> }).porRol;
     expect(porRol.ASESOR ?? []).not.toContain('bo.inventory');
 
-    // Y el asesor deja de verla en su propio menú.
+    // El asesor deja de verla en su menú.
     const { data: acceso } = await asesor.rpc('my_permissions');
     const vistas = ((acceso as { views?: Array<{ code: string }> })?.views ?? [])
       .map((v) => v.code);
@@ -162,8 +144,7 @@ describe.skipIf(!disponible || !SERVICE)('Roles configurables', () => {
   });
 
   it('un rol que alguien tiene puesto tampoco', async () => {
-    // Quedaría con un acceso que ya no se puede configurar desde ninguna
-    // pantalla, que es peor que dejarlo activo.
+    // Quedaría con un acceso imposible de configurar desde la UI.
     await root.from('role_meta').update({ es_del_sistema: false }).eq('role', 'TECNICO');
     const { error } = await admin.rpc('actualizar_rol', {
       _codigo: 'TECNICO', _etiqueta: null, _descripcion: null, _activo: false,
@@ -200,7 +181,7 @@ describe.skipIf(!disponible || !SERVICE)('Roles configurables', () => {
     });
     expect(cambiar.error?.message).toMatch(/FORBIDDEN/);
 
-    // Y tampoco puede darse a sí mismo una aplicación.
+    // Tampoco puede darse una aplicación a sí mismo.
     const vista = await asesor.rpc('set_role_view', {
       _role: 'ASESOR', _view_code: 'bo.settings', _visible: true,
     });

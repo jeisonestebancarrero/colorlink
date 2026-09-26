@@ -1,14 +1,6 @@
--- El modal de «Completa tu perfil» pedía la ciudad como texto libre, y
--- `complete_profile` la guardaba tal cual: quien entraba con Google terminaba
--- con «medellin», «Medellín », «Mede» o cualquier cosa en `profiles.city` y con
--- `municipality_code` en nulo. El registro normal nunca funcionó así —el
--- trigger de alta valida el código DIVIPOLA y deriva la ciudad del nombre
--- oficial del municipio—, de modo que las dos puertas de entrada dejaban al
--- cliente en estados distintos. Esta función se alinea con el trigger.
---
--- Se DROPEA antes de crear porque cambia la lista de argumentos: un
--- `create or replace` con firma distinta deja las dos versiones vivas y
--- PostgREST ya no sabría cuál llamar.
+-- complete_profile recibe el código DIVIPOLA y deriva la ciudad, igual que el trigger de alta.
+-- Se hace drop antes porque cambia la firma: con create or replace quedarían dos
+-- versiones y PostgREST no sabría cuál llamar.
 drop function if exists public.complete_profile(text, text, text, text, text, text);
 
 create or replace function public.complete_profile(
@@ -48,10 +40,8 @@ begin
   v_country  := nullif(trim(coalesce(_country_code, '')), '');
   v_mun_code := nullif(trim(coalesce(_municipality_code, '')), '');
 
-  -- Un código que no está en el diccionario es un error de programación, no
-  -- una variación de captura: la pantalla solo ofrece municipios reales. Se
-  -- levanta en vez de guardarse en nulo, porque un nulo silencioso deja el
-  -- perfil incompleto y el modal reapareciendo para siempre sin explicación.
+  -- Código desconocido es un error de programación: se lanza en vez de guardar null,
+  -- que dejaría el perfil incompleto sin explicación.
   if v_mun_code is not null
      and not exists (select 1 from public.municipalities where code = v_mun_code) then
     raise exception 'MUNICIPIO_INVALIDO: ese municipio no existe en el catálogo'
@@ -63,8 +53,7 @@ begin
       using errcode = '23503';
   end if;
 
-  -- Con municipio, la ciudad es su nombre oficial y no lo que se haya escrito:
-  -- así `city` y `municipality_code` no pueden contradecirse.
+  -- La ciudad es el nombre oficial del municipio, para que no contradiga el código.
   if v_mun_code is not null then
     select m.name into v_city from public.municipalities m where m.code = v_mun_code;
   else
@@ -82,8 +71,7 @@ begin
    where p.id = v_user_id
    returning p.company_id, p.email into v_actual, v_email;
 
-  -- La empresa solo se crea si el usuario la declara y todavía no tiene una.
-  -- Nunca se reasigna: cambiar de empresa es una operación administrativa.
+  -- La empresa solo se crea si no tiene una; reasignarla es tarea administrativa.
   if v_actual is null and coalesce(trim(_company), '') <> '' then
     insert into public.companies (name, city, email, status, country_code, municipality_code)
     values (trim(_company), v_city, v_email, 'ACTIVA', coalesce(v_country, 'CO'), v_mun_code)

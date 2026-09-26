@@ -26,38 +26,13 @@ import { SolicitudesDeVinculacion } from '../../components/common/SolicitudesDeV
 import { accesoService } from '../../services/admin';
 
 /**
- * Clientes: empresas y personas naturales.
- *
- * Antes solo listaba `companies`, y faltaba la otra mitad del negocio: el
- * maestro de obra, el pintor independiente, el arquitecto que compra a su
- * nombre. Ahora se ven las dos clases y se pueden separar con un filtro.
- *
- * La vista por DEFECTO es de tarjetas. Una tabla de sesenta filas con el
- * mismo texto en todas —que es como se ve hoy— no deja distinguir un cliente
- * de otro; con foto o iniciales de color cada uno se reconoce de lejos. La
- * tabla sigue estando a un clic, porque para comparar cifras en columna sirve
- * mejor.
- *
- * Para qué sirve: despacho necesita ver y corregir a dónde va la mercancía de
- * un cliente sin pedirle a la empresa que entre a su perfil. Un teléfono mal
- * escrito o una sede sin indicaciones de portería se resolvían por chat y
- * quedaban solo ahí.
- *
- * Las sedes se pueden EDITAR con `users.manage`. Las direcciones personales de
- * los usuarios son de SOLO LECTURA a propósito: el personal tiene que poder
- * verlas para despachar, pero la dirección de casa de alguien la corrige esa
- * persona. Eso lo impone RLS, no esta pantalla.
+ * Clientes empresa y persona, en tarjetas por defecto o tabla. Las sedes de empresa se editan
+ * con `users.manage`; las direcciones personales son de solo lectura por RLS.
  */
 
 const CLAVE_VISTA = 'colorlink.admin.clientes.vista.v1';
 
-/**
- * Una fila de la lista, sea empresa o persona.
- *
- * Los campos comunes se aplanan para poder pintar una sola tarjeta, y se
- * conserva el registro original en `empresa` / `persona` porque el detalle de
- * una empresa necesita sus sedes y el de una persona sus pedidos.
- */
+/** Fila común de empresa o persona; conserva el registro original en `empresa` / `persona`. */
 type FilaCliente = {
   clave: string;
   tipo: 'EMPRESA' | 'PERSONA';
@@ -91,20 +66,10 @@ const ubicacionDe = (municipalityCode: string, neighborhoodId: string | null): V
   neighborhoodId,
 });
 
-/**
- * Una tarjeta de cliente.
- *
- * Muestra de un vistazo lo que se pregunta por teléfono: quién es, con qué
- * documento, de qué ciudad y cómo contactarlo. Nada de cifras que haya que
- * comparar entre clientes —para eso está la vista de lista—.
- *
- * Solo las empresas abren detalle, porque el detalle es de sedes y una
- * persona natural no tiene. Una tarjeta que no lleva a ningún sitio no debe
- * parecer pulsable, así que la de persona no cambia con el puntero.
- */
+/** Tarjeta de cliente con identidad y contacto; las cifras comparativas van en la tabla. */
 const TarjetaCliente: React.FC<{
   fila: FilaCliente;
-  /** Abre la ficha para consultarla y corregirla. Toda tarjeta la tiene. */
+  /** Abre la ficha editable. */
   onAbrir: () => void;
   /** Solo las empresas: lleva al detalle de sedes. */
   onVerSedes?: () => void;
@@ -114,8 +79,7 @@ const TarjetaCliente: React.FC<{
       <div className="flex items-start gap-3">
         <AvatarCliente nombre={fila.nombre} fotoUrl={fila.fotoUrl} tipo={fila.tipo} tamano={44} />
         <div className="min-w-0 flex-1">
-          {/* `truncate` con `min-w-0`: una razón social larga no puede
-              estirar la tarjeta y descuadrar la cuadrícula. */}
+          {/* Evita que una razón social larga estire la tarjeta. */}
           <p className="font-bold text-slate-900 text-sm leading-snug truncate" title={fila.nombre}>
             {fila.nombre}
           </p>
@@ -171,8 +135,7 @@ const TarjetaCliente: React.FC<{
               <span
                 role="button"
                 tabIndex={0}
-                // La tarjeta entera abre la ficha; esto lleva a las sedes, así
-                // que tiene que dejar de propagar o haría las dos cosas.
+                // Detiene la propagación: la tarjeta abre la ficha.
                 onClick={(ev) => { ev.stopPropagation(); onVerSedes(); }}
                 onKeyDown={(ev) => {
                   if (ev.key === 'Enter' || ev.key === ' ') {
@@ -199,9 +162,7 @@ const TarjetaCliente: React.FC<{
     </>
   );
 
-  // `div` con rol y no `button`: dentro va «Ver sedes», que también es
-  // pulsable, y un botón anidado dentro de otro es HTML inválido —el
-  // navegador lo reacomoda y la tarjeta deja de responder—.
+  // `div` con rol en vez de `button`: contiene otro botón y anidarlos es HTML inválido.
   return (
     <div
       role="button"
@@ -220,13 +181,7 @@ const TarjetaCliente: React.FC<{
 };
 
 interface ClientesPageProps {
-  /**
-   * Empresa que pide la URL, por su NIT (`/clientes/901123456-7`).
-   *
-   * Se usa el NIT y no el uuid porque es lo que el personal reconoce y
-   * pregunta por teléfono. Las empresas sin NIT no tienen enlace directo:
-   * inventarles un código para la URL sería inventar un identificador.
-   */
+  /** Empresa de la URL por NIT (`/clientes/901123456-7`); sin NIT no hay enlace directo. */
   idAbierto?: string | null;
   onAbrir?: (nit: string) => void;
   onCerrar?: () => void;
@@ -240,9 +195,7 @@ export const ClientesPage: React.FC<ClientesPageProps> = ({
   const [busqueda, setBusqueda] = useState('');
   const [filtro, setFiltro] = useState<'TODOS' | 'EMPRESAS' | 'PERSONAS'>('TODOS');
 
-  /* Solo el administrador de la plataforma resuelve vinculaciones ajenas: es
-     lo que exige `resolve_join_request`. Pintar el bloque a todo el personal
-     sería ofrecer un botón que el servidor rechaza. */
+  /* `resolve_join_request` exige admin de plataforma. */
   const [esAdmin, setEsAdmin] = useState(false);
   useEffect(() => {
     let vigente = true;
@@ -251,8 +204,7 @@ export const ClientesPage: React.FC<ClientesPageProps> = ({
       .catch(() => undefined);
     return () => { vigente = false; };
   }, []);
-  /* Tarjetas por defecto: ver arriba. Se recuerda la elección, porque quien
-     prefiere la tabla la prefiere siempre. */
+  /* Tarjetas por defecto; se recuerda la elección. */
   const [vista, setVista] = useState<'tarjetas' | 'tabla'>(
     () => (localStorage.getItem(CLAVE_VISTA) === 'tabla' ? 'tabla' : 'tarjetas'),
   );
@@ -280,8 +232,7 @@ export const ClientesPage: React.FC<ClientesPageProps> = ({
     try {
       const [lista, gente, puede] = await Promise.all([
         clientesAdminService.listarEmpresas(q),
-        // Si falla, las empresas se siguen viendo: quien no es personal
-        // interno no puede listar personas, y eso no debe apagar la pantalla.
+        // Si no puede listar personas, se siguen mostrando las empresas.
         clientesAdminService.listarPersonas(q).catch(() => []),
         clientesAdminService.puedoEditarSedes(),
       ]);
@@ -305,7 +256,7 @@ export const ClientesPage: React.FC<ClientesPageProps> = ({
     const e = empresas.find((x) => x.nit === idAbierto);
     if (e) void abrir(e);
     else setError(`No se encontró una empresa con NIT ${idAbierto}.`);
-    // `abrir` se recrea en cada render y añadirlo reabriría la empresa en bucle.
+    // `abrir` cambia en cada render; incluirlo reabriría en bucle.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [idAbierto, abrio, empresas]);
 
@@ -314,9 +265,7 @@ export const ClientesPage: React.FC<ClientesPageProps> = ({
     if (empresa.nit) onAbrir?.(empresa.nit);
     setCargandoDetalle(true);
     try {
-      // Filtrado por empresa a propósito: RLS le deja ver al personal con
-      // `users.manage` las sedes de TODOS los clientes, así que `listar()`
-      // mezclaría las de todos en la pantalla de uno.
+      // Filtra por empresa: con `users.manage` RLS deja ver las sedes de todos los clientes.
       const [susSedes, dirs] = await Promise.all([
         sedeService.listarDeEmpresa(empresa.id),
         clientesAdminService.direccionesDeEmpresa(empresa.id).catch(() => []),
@@ -373,13 +322,7 @@ export const ClientesPage: React.FC<ClientesPageProps> = ({
     sinSede: empresas.filter((e) => e.sedes === 0).length,
   }), [empresas, personas]);
 
-  /**
-   * Las dos clases en una sola lista para pintarlas juntas.
-   *
-   * Se ordena por nombre y no por tipo: con el filtro en «Todos» lo que se
-   * busca es un cliente concreto, y agrupar por tipo obligaría a saber de
-   * antemano en cuál de los dos bloques está.
-   */
+  /** Empresas y personas en una lista ordenada por nombre, no por tipo. */
   const visibles = useMemo(() => {
     const filas: FilaCliente[] = [];
     if (filtro !== 'PERSONAS') {
@@ -403,9 +346,7 @@ export const ClientesPage: React.FC<ClientesPageProps> = ({
     return filas.sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
   }, [empresas, personas, filtro]);
 
-  // ----------------------------------------------------------
   // Detalle de una empresa
-  // ----------------------------------------------------------
   if (abierta) {
     return (
       <div className="space-y-4">
@@ -434,8 +375,7 @@ export const ClientesPage: React.FC<ClientesPageProps> = ({
           </p>
         )}
 
-        {/* Condición de pago: va arriba porque es lo que decide si esta
-            empresa puede pedir sin pagar primero. */}
+        {/* Condición de pago primero: decide si puede pedir a crédito. */}
         <CreditoPanel companyId={abierta.id} nombre={abierta.name} />
 
         {cargandoDetalle ? (
@@ -631,15 +571,12 @@ export const ClientesPage: React.FC<ClientesPageProps> = ({
     );
   }
 
-  // ----------------------------------------------------------
   // Listado
-  // ----------------------------------------------------------
   return (
     <div className="space-y-4">
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          {/* Era un `h2` pequeño, distinto al de los demás módulos: Clientes
-              es un módulo del menú y su encabezado tiene que pesar igual. */}
+          {/* Mismo encabezado que los demás módulos. */}
           <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2.5">
             <IconoModulo nombre="Building2" /> Clientes
           </h1>
@@ -665,9 +602,7 @@ export const ClientesPage: React.FC<ClientesPageProps> = ({
           </div>
           <Button variant="outline" size="sm" className="text-xs font-bold">Buscar</Button>
 
-          {/* Exporta lo que se ve, con el filtro de tipo aplicado. Las
-              columnas propias de cada clase van vacías en la otra: es un solo
-              archivo y separarlo en dos obligaría a exportar dos veces. */}
+          {/* Exporta lo visible en un solo archivo; las columnas de cada tipo van vacías en el otro. */}
           <ExportarBoton<FilaCliente>
             filas={visibles}
             nombre={filtro === 'EMPRESAS' ? 'clientes-empresa'
@@ -701,16 +636,12 @@ export const ClientesPage: React.FC<ClientesPageProps> = ({
         </p>
       )}
 
-      {/* Vinculaciones que nadie más puede destrabar: una empresa cuyo dueño
-          no vuelve a entrar deja a su gente esperando para siempre, y soporte
-          no tenía dónde resolverlo. */}
+      {/* Vinculaciones pendientes que el dueño de la empresa no atiende. */}
       {esAdmin && <SolicitudesDeVinculacion contexto="portal" onCambio={() => void cargar(busqueda)} />}
 
-      {/* ── Filtro de tipo y forma de ver ──────────────────────────────── */}
+      {/* Filtro de tipo y forma de ver */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        {/* Control segmentado: las tres opciones a la vista y con su cuenta.
-            Un desplegable esconde cuántos hay de cada clase, que es
-            justamente lo que se quiere saber antes de elegir. */}
+        {/* Control segmentado con el conteo de cada tipo. */}
         <div
           role="group"
           aria-label="Filtrar por tipo de cliente"
@@ -747,7 +678,7 @@ export const ClientesPage: React.FC<ClientesPageProps> = ({
           })}
         </div>
 
-        {/* Tarjetas o tabla. La elección se guarda. */}
+        {/* Tarjetas o tabla. */}
         <div
           role="group"
           aria-label="Forma de ver la lista"
@@ -793,9 +724,7 @@ export const ClientesPage: React.FC<ClientesPageProps> = ({
             <TarjetaCliente
               key={f.clave}
               fila={f}
-              // Abren las DOS clases. Antes la de persona no era pulsable
-              // porque el único detalle era el de sedes, y una persona no
-              // tiene; ahora abre su ficha para consultarla y corregirla.
+              // Ambos tipos abren su ficha.
               onAbrir={() => setEditando({
                 tipo: f.tipo,
                 id: f.tipo === 'EMPRESA' ? f.empresa!.id : f.persona!.id,
@@ -816,8 +745,7 @@ export const ClientesPage: React.FC<ClientesPageProps> = ({
                   <th className="text-left px-4 py-3">NIT / Documento</th>
                   <th className="text-left px-4 py-3">Ciudad</th>
                   <th className="text-left px-4 py-3">Contacto</th>
-                  {/* Una columna por clase: en «Todos» la que no aplica va con
-                      raya, que se lee mejor que un cero que parece un dato. */}
+                  {/* La columna que no aplica va con raya, no con cero. */}
                   <th className="text-right px-4 py-3">Sedes</th>
                   <th className="text-right px-4 py-3">Usuarios</th>
                   <th className="text-right px-4 py-3">Pedidos</th>
@@ -906,8 +834,7 @@ export const ClientesPage: React.FC<ClientesPageProps> = ({
           nombre={editando.nombre}
           fotoUrl={editando.fotoUrl}
           onCerrar={() => setEditando(null)}
-          // La lista se refresca sola: el nombre o la ciudad que se acaban de
-          // corregir tienen que verse ya en la tarjeta de atrás.
+          // Refresca la lista para reflejar la corrección.
           onGuardado={() => void cargar(busqueda)}
         />
       )}

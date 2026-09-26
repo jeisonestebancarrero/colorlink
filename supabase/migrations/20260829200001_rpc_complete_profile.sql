@@ -1,18 +1,5 @@
--- ============================================================
--- Completar perfil tras acceder con un proveedor externo
--- ============================================================
--- Quien entra con Google llega sin teléfono, sin ciudad y sin empresa:
--- Google no entrega esos datos. Sin una forma de completarlos, ese usuario
--- nunca podría crear un proyecto B2B.
---
--- Esta función NO puede sustituirse por un UPDATE desde el cliente: crear la
--- empresa, la membresía y otorgar el rol CLIENTE_B2B requiere escribir en
--- `user_roles`, que deliberadamente no tiene política de INSERT para nadie.
---
--- Mantiene la regla de la FASE 2: nunca vincula a una empresa preexistente;
--- si el usuario declara una razón social, se crea una empresa NUEVA con él
--- como OWNER.
--- ============================================================
+-- Completa el perfil tras un acceso con Google. Es RPC y no un UPDATE del cliente
+-- porque otorgar CLIENTE_B2B escribe en user_roles, que no tiene política de INSERT.
 
 create or replace function public.complete_profile(
   _first_name  text default null,
@@ -53,8 +40,7 @@ begin
    where p.id = v_user_id
    returning p.company_id, p.email into v_actual, v_email;
 
-  -- La empresa solo se crea si el usuario la declara y todavía no tiene una.
-  -- Nunca se reasigna: cambiar de empresa es una operación administrativa.
+  -- Solo si aún no tiene empresa; cambiar de empresa es tarea administrativa.
   if v_actual is null and coalesce(trim(_company), '') <> '' then
     insert into public.companies (name, city, email, status)
     values (trim(_company), nullif(trim(_city), ''), v_email, 'ACTIVA')

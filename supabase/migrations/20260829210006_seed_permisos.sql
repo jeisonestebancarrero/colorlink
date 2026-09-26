@@ -1,10 +1,5 @@
--- ============================================================
--- BACK-OFFICE · 06 — Catálogo de permisos y vistas por rol
--- ============================================================
--- Es el punto de partida que el administrador podrá modificar después desde
--- la interfaz. Va en una migración y no en el seed porque no son datos de
--- demostración: son la definición del producto.
--- ============================================================
+-- Catálogo inicial de permisos y vistas por rol. Va en migración y no en el seed:
+-- es definición del producto, no datos de demostración.
 
 insert into public.permissions (code, module, action, label, is_critical, sort_order) values
   ('catalog.read',      'Catálogo',      'read',   'Ver catálogo',                     false, 10),
@@ -48,15 +43,11 @@ insert into public.app_views (code, label, icon, route, sort_order) values
   ('bo.settings',    'Configuración',   'Settings',        '/configuracion',  140)
 on conflict (code) do nothing;
 
--- ------------------------------------------------------------
--- Asignación inicial por rol
--- ------------------------------------------------------------
 do $$
 declare
   v_rol text;
   v_perm text;
   v_vista text;
-  -- rol -> permisos
   v_mapa jsonb := jsonb_build_object(
     'ADMINISTRADOR', jsonb_build_array(
       'catalog.read','catalog.write','projects.read','projects.write','projects.assign',
@@ -87,7 +78,6 @@ declare
       'catalog.read','projects.read','orders.read','inventory.read','invoices.read',
       'accounting.read','analytics.read')
   );
-  -- rol -> vistas
   v_vistas jsonb := jsonb_build_object(
     'ADMINISTRADOR', jsonb_build_array('bo.dashboard','bo.orders','bo.dispatch','bo.inventory','bo.projects','bo.visits','bo.invoices','bo.treasury','bo.accounting','bo.conversations','bo.catalog','bo.analytics','bo.users','bo.settings'),
     'ASESOR',        jsonb_build_array('bo.dashboard','bo.orders','bo.projects','bo.conversations','bo.catalog','bo.analytics'),
@@ -119,5 +109,4 @@ begin
   end loop;
 end $$;
 
--- Los roles de cliente NO reciben ninguna vista del back-office: su lista
--- queda vacía a propósito. El portal interno no existe para ellos.
+-- Los roles de cliente no reciben vistas del back-office a propósito.

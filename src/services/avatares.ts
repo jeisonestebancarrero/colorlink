@@ -1,23 +1,13 @@
 import { supabase } from '../lib/supabase';
 
 /**
- * Foto de perfil de la persona y logo de la empresa.
- *
- * `profiles.avatar_url` existía desde el principio, pero solo la llenaba
- * Google al entrar con su proveedor: quien se registraba con correo no tenía
- * forma de poner una foto, y una empresa tampoco su logo.
- *
- * La ruta SIEMPRE empieza por el id del usuario (`<uid>/archivo.jpg`), porque
- * la política del bucket comprueba justamente eso: sin esa carpeta, cualquier
- * cliente autenticado podría sobrescribir la foto de otro. Y lleva marca de
- * tiempo, porque reutilizar el nombre haría que el navegador siguiera
- * mostrando la foto vieja y pareciera que no se guardó.
+ * Foto de perfil y logo de empresa. La ruta empieza por el uid porque la política
+ * del bucket lo exige, y lleva marca de tiempo para evitar la caché.
  */
 
 const BUCKET = 'avatares';
 
-/** Igual al límite del bucket (2 MB). Se comprueba antes de subir para dar un
- *  mensaje claro en lugar del error crudo del servidor. */
+/** Igual al límite del bucket (2 MB); se valida antes para dar un mensaje claro. */
 export const TAMANO_MAXIMO = 2 * 1024 * 1024;
 
 const TIPOS_ACEPTADOS = ['image/jpeg', 'image/png', 'image/webp', 'image/avif'];
@@ -55,7 +45,7 @@ async function subir(archivo: File, prefijo: string): Promise<string> {
 
   const extension = (archivo.name.split('.').pop() ?? 'jpg').toLowerCase()
     .replace(/[^a-z0-9]/g, '') || 'jpg';
-  // La carpeta es el id del usuario: es lo que valida la política del bucket.
+  // La carpeta es el uid: lo valida la política del bucket.
   const ruta = `${userId}/${prefijo}-${Date.now()}.${extension}`;
 
   const { error } = await supabase.storage
@@ -68,7 +58,7 @@ async function subir(archivo: File, prefijo: string): Promise<string> {
 }
 
 export const avatarService = {
-  /** Sube la foto de la persona y la deja guardada en su perfil. */
+  /** Sube la foto y la guarda en el perfil. */
   async cambiarFotoDePerfil(archivo: File): Promise<string> {
     const url = await subir(archivo, 'perfil');
 
@@ -84,12 +74,7 @@ export const avatarService = {
     return url;
   },
 
-  /**
-   * Sube el logo de la empresa.
-   *
-   * Solo lo consigue el OWNER o el ADMIN: la política de `companies` es la que
-   * decide, no esta función.
-   */
+  /** Solo OWNER o ADMIN; lo decide la política de `companies`. */
   async cambiarLogoDeEmpresa(companyId: string, archivo: File): Promise<string> {
     const url = await subir(archivo, 'logo-empresa');
 
@@ -102,7 +87,7 @@ export const avatarService = {
     return url;
   },
 
-  /** Logo guardado de la empresa, para mostrarlo antes de cambiarlo. */
+  /** Logo actual de la empresa. */
   async obtenerLogoDeEmpresa(companyId: string): Promise<string | null> {
     const { data, error } = await supabase
       .from('companies').select('logo_url').eq('id', companyId).maybeSingle();
@@ -113,8 +98,7 @@ export const avatarService = {
     return (data as { logo_url: string | null } | null)?.logo_url ?? null;
   },
 
-  /** Quita la foto del perfil. El archivo se deja: no cuesta nada y evita
-   *  romper un correo antiguo que la tenga incrustada por URL. */
+  /** El archivo se conserva para no romper correos antiguos que lo enlazan. */
   async quitarFotoDePerfil(): Promise<void> {
     const { data: sesion } = await supabase.auth.getSession();
     const userId = sesion.session?.user?.id;

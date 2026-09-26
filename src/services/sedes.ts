@@ -1,19 +1,8 @@
 import { supabase } from '../lib/supabase';
 
 /**
- * Sedes: las permitidas de cada usuario interno y su asignación.
- *
- * DOS COSAS DISTINTAS, y confundirlas es el error clásico:
- *
- *   * SEDES PERMITIDAS — frontera de SEGURIDAD. La aplica RLS en la base
- *     (`puede_ver_sede`, ver la migración 20260902100014). Lo que no está
- *     permitido no se puede leer ni escribir, mande el navegador lo que mande.
- *   * SEDE ACTIVA — comodidad de PANTALLA. La elige la persona en el selector
- *     de la cabecera y solo acota lo que está mirando, DENTRO de lo permitido.
- *     Vive en el navegador. No es un control de acceso.
- *
- * Por eso este servicio no "aplica" ningún filtro de seguridad: solo pregunta
- * qué tiene permitido para poder ofrecerlo en el selector.
+ * Sedes permitidas (frontera de seguridad, aplicada por RLS con `puede_ver_sede`)
+ * frente a sede activa (filtro de pantalla en el navegador). Aquí solo se consulta.
  */
 
 export interface SedePermitida {
@@ -21,19 +10,15 @@ export interface SedePermitida {
   nombre: string;
   ciudad: string;
   direccion: string;
-  /**
-   * Referencia estable ('store-med-poblado') con la que `imagenPunto()`
-   * encuentra la foto del punto. Se usa esa y no el uuid porque el uuid cambia
-   * con cada siembra de la base y dejaría las tarjetas sin imagen.
-   */
+  /** Referencia estable para `imagenPunto()`; el uuid cambia con cada siembra. */
   externalRef: string | null;
-  /** Foto subida desde el portal. Tiene prioridad sobre la del proyecto. */
+  /** Foto subida desde el portal; tiene prioridad sobre la del proyecto. */
   imageUrl: string | null;
 }
 
 export interface AsignacionDeUsuario {
   userId: string;
-  /** Vacío = sin restricción: ve todas las sedes. */
+  /** Vacío = sin restricción. */
   locationIds: string[];
   restringido: boolean;
 }
@@ -47,14 +32,7 @@ function fallo(contexto: string, mensaje: string): Error {
 }
 
 export const sedesService = {
-  /**
-   * Sedes que quien pregunta puede ver.
-   *
-   * Se resuelve en el servidor con `sedes_permitidas()`: si el listado se
-   * armara en el navegador filtrando `pickup_locations`, bastaría cambiar el
-   * filtro para ofrecerse una sede ajena —aunque RLS la seguiría negando, la
-   * pantalla mentiría—.
-   */
+  /** Se resuelve con `sedes_permitidas()` en el servidor para que el selector no ofrezca sedes ajenas. */
   async permitidas(): Promise<SedePermitida[]> {
     const { data: ids, error } = await supabase.rpc('sedes_permitidas');
     if (error) throw fallo('permitidas', error.message);
@@ -79,7 +57,7 @@ export const sedesService = {
     }));
   },
 
-  /** ¿Está este usuario restringido a algunas sedes, o ve todas? */
+  /** Si el usuario está restringido a algunas sedes. */
   async estoyRestringido(): Promise<boolean> {
     const { data, error } = await supabase.rpc('tiene_sedes_restringidas');
     if (error) {
@@ -89,11 +67,9 @@ export const sedesService = {
     return data === true;
   },
 
-  // ----------------------------------------------------------
   // Administración: exige `users.manage`
-  // ----------------------------------------------------------
 
-  /** Todas las sedes activas, para la pantalla de asignación. */
+  /** Sedes activas para la pantalla de asignación. */
   async todas(): Promise<SedePermitida[]> {
     const { data, error } = await supabase
       .from('pickup_locations')
@@ -110,7 +86,7 @@ export const sedesService = {
     }));
   },
 
-  /** Asignación actual de varios usuarios, para pintar la lista de personal. */
+  /** Asignación actual de varios usuarios. */
   async asignacionesDe(userIds: string[]): Promise<Map<string, string[]>> {
     if (userIds.length === 0) return new Map();
     const { data, error } = await supabase
@@ -126,13 +102,7 @@ export const sedesService = {
     return m;
   },
 
-  /**
-   * Fija las sedes de un usuario. Una lista VACÍA lo deja sin restricción, es
-   * decir viendo todas: es el estado por defecto y hay que poder volver a él.
-   *
-   * Se borra y se inserta en lugar de calcular diferencias: son pocas filas y
-   * el resultado es exactamente el que se pidió, sin estados intermedios raros.
-   */
+  /** Lista vacía = sin restricción. Se borra y reinserta: son pocas filas. */
   async fijar(userId: string, locationIds: string[]): Promise<void> {
     const { error: eBorrar } = await supabase
       .from('user_pickup_locations').delete().eq('user_id', userId);

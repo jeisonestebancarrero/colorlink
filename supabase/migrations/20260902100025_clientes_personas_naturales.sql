@@ -1,26 +1,6 @@
--- ============================================================
--- Clientes que son personas naturales
--- ============================================================
--- La pantalla de Clientes solo listaba `companies`. Faltaba la otra mitad del
--- negocio: el maestro de obra, el pintor independiente, el arquitecto que
--- compra a su nombre. Están en `profiles` sin `company_id`.
---
--- POR QUÉ UNA FUNCIÓN Y NO UNA CONSULTA DESDE EL NAVEGADOR: distinguir un
--- cliente de un empleado exige leer `user_roles`, y su política solo deja
--- leer los roles PROPIOS salvo que seas administrador
--- (`user_roles_select_admin`). Un asesor consultándolo directamente recibiría
--- una lista vacía. La función lee los roles por dentro y devuelve el
--- resultado ya resuelto.
---
--- Y no amplía nada: se exige `is_staff()`, el mismo requisito que la política
--- `profiles_select_staff` que ya permite leer estas filas. Lo único que añade
--- es el filtro por rol que el llamante no puede calcular por su cuenta.
---
--- SE EXCLUYE AL PERSONAL INTERNO a propósito. En esta base las cuentas
--- internas también tienen el rol CLIENTE —`admin@pintuco.demo`,
--- `asesor@pintuco.demo` y `tecnico@pintuco.demo` lo tienen—, así que sin ese
--- filtro el maestro de obra aparecería junto al administrador del sistema. Un
--- empleado que compre pintura no es un cliente del CRM.
+-- Lista clientes personas naturales (profiles sin company_id). Es función porque
+-- user_roles solo deja leer los roles propios; exige is_staff() como profiles_select_staff.
+-- Excluye al personal interno, que también tiene el rol CLIENTE.
 
 create or replace function public.clientes_personas_naturales(_busqueda text default null)
 returns table (
@@ -42,7 +22,7 @@ security definer
 set search_path = public
 as $$
   with roles_del_personal as (
-    -- Los mismos roles que `is_staff()` considera internos.
+    -- Mismos roles que is_staff() considera internos.
     select unnest(array[
       'ASESOR','TECNICO','ADMINISTRADOR','BODEGA','DESPACHO','FACTURACION',
       'TESORERIA','CONTABILIDAD','SERVICIO_CLIENTE','MARKETING','GERENCIA'
@@ -50,7 +30,6 @@ as $$
   )
   select
     p.id,
-    -- El nombre completo ya viene normalizado en mayúsculas por disparador.
     nullif(trim(coalesce(p.first_name, '') || ' ' || coalesce(p.last_name, '')), '') as nombre,
     p.email,
     p.phone,
@@ -79,7 +58,7 @@ as $$
       or p.first_name ilike '%' || trim(_busqueda) || '%'
       or p.last_name ilike '%' || trim(_busqueda) || '%'
       or p.email ilike '%' || trim(_busqueda) || '%'
-      -- El documento se guarda sin puntos, así que se limpia lo que escriban.
+      -- El documento se guarda sin puntos; se limpia la búsqueda igual.
       or p.document_number ilike '%' || regexp_replace(coalesce(_busqueda, ''), '[^0-9A-Za-z-]', '', 'g') || '%'
     )
   order by nombre nulls last;

@@ -6,22 +6,8 @@ import {
 } from './limpieza';
 
 /**
- * Qué guarda cada importe de la factura.
- *
- * La cabecera tenía una columna llamada `subtotal_cop` que NO era un subtotal:
- * guardaba la suma de las líneas **con el IVA dentro**, porque en Colombia el
- * precio de góndola ya lo incluye. Exportar esa cifra a la DIAN como base
- * imponible es declarar de más y pagar IVA sobre el IVA. Se renombró a
- * `items_total_cop` (20260904100003).
- *
- * Y la trampa era doble: en `invoice_items` la columna `subtotal_cop` significa
- * justo lo contrario —la base SIN IVA—. Mismo nombre, sentido opuesto, en el
- * mismo documento.
- *
- * Esta prueba fija las dos convenciones sobre una factura emitida de verdad.
- * Renombrar sin dejar esto escrito solo cambia de sitio la trampa: el próximo
- * que sume `items_total_cop` y `tax_cop` para sacar el total volvería a
- * equivocarse, y aquí se entera.
+ * Fija las convenciones de importes: en `invoices`, `items_total_cop` incluye IVA;
+ * en `invoice_items`, `subtotal_cop` es la base sin IVA. Mismo nombre, sentido opuesto.
  */
 
 function leerEnvLocal(): Record<string, string> {
@@ -90,7 +76,7 @@ describe.skipIf(!disponible)('Importes de la factura · qué guarda cada columna
     });
     pedido = p.id;
 
-    // Una línea con precio de góndola: $119.000 con IVA del 19% dentro.
+    // Precio de góndola: $119.000 con IVA del 19% incluido.
     const { data: variante } = await admin
       .from('product_variants').select('id').limit(1).single();
 
@@ -124,9 +110,8 @@ describe.skipIf(!disponible)('Importes de la factura · qué guarda cada columna
 
   afterAll(async () => {
     if (!pedido) return;
-    // El asiento contable lo crea un disparador de `invoices` y su FK es ON
-    // DELETE SET NULL: sin borrarlo a mano quedaría un comprobante huérfano
-    // en la contabilidad real.
+    // El asiento lo crea un disparador y su FK es ON DELETE SET NULL: se borra a
+    // mano para no dejar un comprobante huérfano.
     const { data: asientos } = await admin
       .from('journal_entries').select('id').eq('invoice_id', factura);
     for (const a of (asientos ?? []) as Array<{ id: string }>) {
@@ -141,7 +126,6 @@ describe.skipIf(!disponible)('Importes de la factura · qué guarda cada columna
   });
 
   it('`items_total_cop` LLEVA el IVA dentro: es base + impuesto', () => {
-    // Esta es la afirmación que el nombre viejo negaba.
     const base = n(cabecera!.taxable_base_cop);
     const iva = n(cabecera!.tax_cop);
     expect(n(cabecera!.items_total_cop)).toBeCloseTo(base + iva, 2);
@@ -150,8 +134,7 @@ describe.skipIf(!disponible)('Importes de la factura · qué guarda cada columna
   });
 
   it('la base imponible es `taxable_base_cop`, y es la que va a la DIAN', () => {
-    // 119.000 / 1,19 = 100.000. Si alguien declarara `items_total_cop` como
-    // base, estaría declarando 19.000 pesos de más en esta sola línea.
+    // 119.000 / 1,19 = 100.000: declarar `items_total_cop` como base sobrestimaría 19.000.
     expect(n(cabecera!.taxable_base_cop)).toBeCloseTo(100000, 2);
     expect(n(cabecera!.tax_cop)).toBeCloseTo(19000, 2);
   });

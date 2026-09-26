@@ -21,7 +21,6 @@ interface LoginPageProps {
   onNavigate: (page: string, param?: string) => void;
 }
 
-/** Lo que la cuenta habilita. Es el motivo real para iniciar sesión. */
 const VENTAJAS = [
   {
     icono: PackageCheck,
@@ -43,15 +42,13 @@ const VENTAJAS = [
 export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
   const { login, loginWithGoogle, isSubmitting } = useAuth();
 
-  // Los campos van vacíos. Traían las credenciales de la cuenta demo escritas,
-  // lo que en un sistema que va a producción es entregar una contraseña real
-  // a cualquiera que abra la pantalla de ingreso.
+  // Sin valores por defecto: no exponer credenciales en la pantalla de ingreso.
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(true);
   const [error, setError] = useState('');
   const [recuperando, setRecuperando] = useState(false);
-  // Un botón que lleva a una página de error no debería estar en pantalla.
+  // El botón de Google solo aparece si el proveedor está habilitado.
   const [conGoogle, setConGoogle] = useState(false);
 
   useEffect(() => {
@@ -97,10 +94,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
 
   return (
     <div className="min-h-screen bg-slate-50 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,560px)]">
-      {/* ── Panel de marca ────────────────────────────────────────────────
-          Antes el ingreso era una tarjeta blanca sobre fondo gris: correcta
-          pero sin identidad. Este panel usa el azul Pintuco y dice para qué
-          sirve la cuenta, que es lo que decide a alguien a iniciar sesión. */}
+      {/* Panel de marca */}
       <aside className="relative hidden lg:flex flex-col justify-between overflow-hidden bg-[#00306B] p-12 xl:p-16">
         <div
           aria-hidden
@@ -156,7 +150,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
         </div>
       </aside>
 
-      {/* ── Formulario ───────────────────────────────────────────────────── */}
+      {/* Formulario */}
       <main className="flex flex-col justify-center px-5 py-10 sm:px-10 lg:px-12 xl:px-16">
         <div className="w-full max-w-md mx-auto">
           {/* En móvil el panel de marca no se muestra: el logo va aquí. */}

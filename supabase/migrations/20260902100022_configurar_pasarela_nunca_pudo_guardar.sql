@@ -1,30 +1,6 @@
--- ============================================================
--- `configurar_pasarela` nunca pudo guardar nada
--- ============================================================
--- Salió al construirle la pantalla. La función terminaba con:
---
---   insert into public.audit_logs (..., entity_id, ...)
---   values (..., 'app_settings', v_id, ...);
---
--- y `v_id` es el id de `app_settings`, que es un `smallint`, mientras
--- `audit_logs.entity_id` es `uuid`:
---
---   ERROR: column "entity_id" is of type uuid but expression is of type smallint
---
--- El `insert` es la última sentencia, así que la función SIEMPRE fallaba, y al
--- fallar deshacía el `update` anterior dentro de la misma transacción. Es decir:
--- se podía llamar, no devolvía nada raro a primera vista, y no guardaba nunca.
--- No se había notado porque no existía pantalla que la llamara —tenía cero usos
--- en el código—, así que el error vivía en una función que nadie ejecutaba.
---
--- El arreglo es el que ya usa `save_smtp_settings` para esta misma tabla:
--- `entity_id` en null y el id de la fila dentro de `metadata`. `app_settings`
--- es una tabla de una sola fila con clave numérica; no tiene un uuid que poner
--- ahí, y forzar un cast inventaría un identificador que no existe.
---
--- Se aprovecha para dejar en la bitácora QUÉ LLAVES se tocaron —nunca su
--- valor—. Si un día los pagos dejan de funcionar, lo primero que se pregunta
--- es quién cambió qué y cuándo; «PAYMENTS_CONFIG» a secas no lo respondía.
+-- configurar_pasarela nunca guardaba: auditaba el id smallint de app_settings en
+-- audit_logs.entity_id (uuid) y el error deshacía el update. Ahora entity_id va en
+-- null, el id en metadata (como save_smtp_settings) y se registran las llaves tocadas.
 
 create or replace function public.configurar_pasarela(_datos jsonb)
 returns jsonb
@@ -57,8 +33,8 @@ begin
   end if;
   v_id := v_antes.id;
 
-  -- Cobrar de verdad sin llaves dejaría al cliente en una pantalla muerta.
-  -- Un campo en blanco no borra: si ya había llave guardada, cuenta.
+  -- Cobrar en real sin llaves deja al cliente sin pasarela; un campo en blanco
+  -- conserva la llave ya guardada.
   if v_activa and not v_prueba then
     if coalesce(v_publica, v_antes.wompi_public_key) is null
        or coalesce(v_integ, v_antes.wompi_integrity_secret) is null then
@@ -70,8 +46,7 @@ begin
   update public.app_settings
      set payments_enabled = v_activa,
          payments_test_mode = v_prueba,
-         -- Un campo vacío significa "no lo cambies", no "bórralo": la pantalla
-         -- nunca puede mostrar el secreto guardado, así que llega en blanco.
+         -- Vacío significa «no cambiar»: la pantalla nunca recibe el secreto guardado.
          wompi_public_key = coalesce(v_publica, wompi_public_key),
          wompi_integrity_secret = coalesce(v_integ, wompi_integrity_secret),
          wompi_events_secret = coalesce(v_eventos, wompi_events_secret),
@@ -79,16 +54,13 @@ begin
          updated_at = now()
    where id = v_id;
 
-  -- `entity_id` va en null: `app_settings` tiene clave numérica, no uuid. El id
-  -- viaja en `metadata`, igual que en `save_smtp_settings`.
   insert into public.audit_logs (user_id, action, entity, entity_id, metadata)
   values ((select auth.uid()), 'PAYMENTS_CONFIG', 'app_settings', null,
           jsonb_build_object(
             'settings_id', v_id,
             'activa', v_activa,
             'prueba', v_prueba,
-            -- Qué se tocó, nunca el valor. Saber que alguien cambió el secreto
-            -- de integridad es la mitad de cualquier diagnóstico.
+            -- Qué llaves cambiaron, nunca su valor.
             'cambio_llave_publica', v_publica is not null,
             'cambio_secreto_integridad', v_integ is not null,
             'cambio_secreto_eventos', v_eventos is not null,

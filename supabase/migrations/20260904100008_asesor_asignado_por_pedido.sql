@@ -1,29 +1,6 @@
--- ============================================================
--- Cada pedido tiene un asesor, y cada asesor ve solo lo suyo
--- ============================================================
--- Hasta hoy todo el personal interno veía TODOS los pedidos de sus sedes. Con
--- un equipo pequeño se aguanta; con varios asesores es la receta para que un
--- pedido se quede sin dueño porque «alguien lo estará viendo».
---
--- Reglas, y el porqué de cada una:
---
---   · SE ASIGNA SOLO AL CREARSE. Si el cliente tuviera que esperar a que
---     alguien reparta los pedidos a mano, el reparto se haría tarde o no se
---     haría. El disparador corre dentro de la misma transacción del pedido.
---   · RESPETA LA SEDE. Solo entran al sorteo los asesores que pueden ver la
---     sede del pedido. Asignar a alguien un pedido que su propia RLS le va a
---     ocultar es peor que no asignarlo: el pedido queda con dueño y sin nadie
---     que lo vea.
---   · SI NO HAY ASESOR, SE LE DICE AL CLIENTE. Un pedido sin asignar en
---     silencio es un cliente esperando sin saber a qué. Se le avisa que le
---     llegará una notificación cuando tenga asesor, y se le cumple: en cuanto
---     entra un asesor que cubra esa sede, los pedidos huérfanos se reparten y
---     el cliente recibe el aviso.
---   · EL ASESOR PURO SOLO VE LO SUYO. «Puro» importa: quien además es
---     administrador, de despacho o de facturación necesita ver el resto para
---     hacer su trabajo, así que el filtro se aplica únicamente a quien no
---     tiene otro rol operativo.
--- ============================================================
+-- Asignación automática de asesor al crear el pedido, al azar entre quienes cubren su sede.
+-- Sin asesor disponible se avisa al cliente y el pedido se reparte cuando entre uno.
+-- El filtro de visibilidad solo aplica al asesor sin otro rol operativo.
 
 alter table public.orders
   add column if not exists advisor_id uuid references public.profiles(id) on delete set null,
@@ -35,12 +12,7 @@ comment on column public.orders.advisor_id is
   'Asesor responsable. Lo pone `asignar_asesor()` al crear el pedido, o el '
   'reparto de huérfanos cuando entra un asesor nuevo. Null = sin asesor todavía.';
 
--- ------------------------------------------------------------
--- ¿Este usuario es asesor y NADA MÁS?
--- ------------------------------------------------------------
--- De esto depende que el filtro no le tape los pedidos a quien los necesita
--- para trabajar. Un ASESOR que además es de DESPACHO tiene que seguir viendo
--- lo que despacha, aunque no sea suyo.
+-- Asesor sin otro rol operativo: quien además despacha o factura debe ver todo.
 create or replace function public.solo_asesor(_user_id uuid default null)
 returns boolean
 language sql
@@ -62,12 +34,7 @@ as $$
     );
 $$;
 
--- ------------------------------------------------------------
--- Quién puede atender un pedido de esta sede
--- ------------------------------------------------------------
--- Un asesor SIN sedes asignadas no está restringido: cubre todas. Es la misma
--- convención que ya usa `puede_ver_sede`, y cambiarla aquí crearía dos reglas
--- de sede distintas en el mismo sistema.
+-- Asesor sin sedes asignadas cubre todas, igual que puede_ver_sede.
 create or replace function public.asesores_para_sede(_location_id uuid)
 returns setof uuid
 language sql
@@ -90,9 +57,6 @@ as $$
      );
 $$;
 
--- ------------------------------------------------------------
--- Asignar (o intentar asignar) el asesor de un pedido
--- ------------------------------------------------------------
 create or replace function public.asignar_asesor(_order_id uuid)
 returns uuid
 language plpgsql
@@ -109,17 +73,14 @@ begin
     return v_pedido.advisor_id;
   end if;
 
-  -- Al azar, como se pidió. Si más adelante se quiere repartir por carga, el
-  -- cambio es el `order by`: `(select count(*) from orders o where
-  -- o.advisor_id = a)` antes del random.
+  -- Al azar; para repartir por carga, ordenar antes por pedidos asignados.
   select a into v_asesor
     from public.asesores_para_sede(v_pedido.pickup_location_id) a
    order by random()
    limit 1;
 
   if v_asesor is null then
-    -- Nadie puede atenderlo todavía. Se le dice al cliente en lugar de
-    -- dejarlo esperando sin explicación.
+    -- Nadie cubre la sede: se avisa al cliente.
     insert into public.notifications (user_id, order_id, title, message, type)
     values (
       v_pedido.user_id, v_pedido.id,
@@ -139,7 +100,6 @@ begin
   select nullif(trim(coalesce(first_name,'') || ' ' || coalesce(last_name,'')), '')
     into v_nombre from public.profiles where id = v_asesor;
 
-  -- Al cliente: quién lo atiende.
   insert into public.notifications (user_id, order_id, title, message, type)
   values (
     v_pedido.user_id, v_pedido.id,
@@ -149,8 +109,6 @@ begin
     'success'::public.notification_type
   );
 
-  -- Al asesor: que sepa que le entró trabajo. Sin esto tendría que estar
-  -- refrescando la pantalla para enterarse.
   insert into public.notifications (user_id, order_id, title, message, type)
   values (
     v_asesor, v_pedido.id,
@@ -167,9 +125,6 @@ begin
 end;
 $$;
 
--- ------------------------------------------------------------
--- Al crear el pedido
--- ------------------------------------------------------------
 create or replace function public.orders_asignar_asesor()
 returns trigger
 language plpgsql
@@ -183,18 +138,12 @@ end;
 $$;
 
 drop trigger if exists orders_zz_asignar_asesor on public.orders;
--- `zz` para que corra DESPUÉS de los disparadores que normalizan y completan
--- el pedido: la sede tiene que estar puesta antes de buscar quién la cubre.
+-- zz: corre después de los disparadores que completan la sede del pedido.
 create trigger orders_zz_asignar_asesor
   after insert on public.orders
   for each row execute function public.orders_asignar_asesor();
 
--- ------------------------------------------------------------
--- Repartir los huérfanos cuando entra un asesor
--- ------------------------------------------------------------
--- Cumple la promesa que se le hizo al cliente: «te avisamos apenas te
--- asignemos uno». Se dispara al darle el rol a alguien y al cambiarle las
--- sedes, que son los dos momentos en que la respuesta puede cambiar.
+-- Reparte huérfanos al asignar el rol ASESOR o cambiar sus sedes.
 create or replace function public.repartir_pedidos_sin_asesor()
 returns integer
 language plpgsql

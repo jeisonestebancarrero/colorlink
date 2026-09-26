@@ -1,15 +1,8 @@
 import { supabase } from '../lib/supabase';
 
 /**
- * Pagos del cliente.
- *
- * La regla del negocio: un particular paga antes de que el pedido se aliste;
- * una empresa con crédito aprobado puede pedir y pagar dentro de su plazo. El
- * servidor es quien decide cuál aplica —`condiciones_de_pago`— porque dejarlo
- * al navegador sería dejar que el cliente se conceda su propio crédito.
- *
- * La confirmación del pago tampoco llega por aquí: la manda Wompi al webhook,
- * firmada. Esta pantalla solo abre el cobro y consulta el resultado.
+ * Pagos del cliente. `condiciones_de_pago` decide en el servidor contado o crédito;
+ * la confirmación llega firmada por el webhook de Wompi, no por aquí.
  */
 
 export interface CondicionesPago {
@@ -49,7 +42,7 @@ function legible(contexto: string, error: { message?: string }): Error {
 }
 
 export const pagoService = {
-  /** Si el cliente compra de contado o a crédito, y con cuánto cupo. */
+  /** Contado o crédito, y cupo disponible. */
   async condiciones(): Promise<CondicionesPago> {
     const { data, error } = await supabase.rpc('condiciones_de_pago');
     if (error) throw legible('condiciones', error);
@@ -65,7 +58,7 @@ export const pagoService = {
     };
   },
 
-  /** Abre el cobro y devuelve lo que hace falta para llevarlo a la pasarela. */
+  /** Abre el cobro y devuelve los datos para la pasarela. */
   async iniciar(orderId: string, metodo: string): Promise<IntencionPago> {
     const { data, error } = await supabase.rpc('iniciar_pago', {
       _order_id: orderId,
@@ -85,10 +78,7 @@ export const pagoService = {
     };
   },
 
-  /**
-   * Aprueba el pago sin pasarela. Solo funciona con el modo prueba encendido:
-   * el servidor lo rechaza en cuanto se apaga.
-   */
+  /** Aprueba sin pasarela; el servidor solo lo acepta en modo prueba. */
   async simular(orderId: string, aprobar = true): Promise<EstadoPago> {
     const { data, error } = await supabase.rpc('simular_pago', {
       _order_id: orderId,
@@ -98,7 +88,6 @@ export const pagoService = {
     return ((data as Record<string, unknown>)?.resultado as EstadoPago) ?? 'PENDIENTE';
   },
 
-  /** Estado actual del cobro de un pedido. */
   async estado(orderId: string): Promise<{ estado: EstadoPago; aCredito: boolean; vence: string | null }> {
     const { data, error } = await supabase
       .from('payments')
@@ -116,22 +105,18 @@ export const pagoService = {
     };
   },
 
-  /**
-   * El cliente cerró el pago sin pagar: se cancela el pedido y sus productos
-   * vuelven al carrito, que es donde el cliente espera encontrarlos.
-   */
+  /** Pago abandonado: cancela el pedido y devuelve sus productos al carrito. */
   async devolverAlCarrito(orderId: string): Promise<void> {
     const { error } = await supabase.rpc('devolver_pedido_al_carrito', {
       _order_id: orderId,
     });
-    // Si el pedido ya avanzó, no hay nada que devolver y tampoco es un error
-    // que deba interrumpir al cliente.
+    // Si el pedido ya avanzó no hay nada que devolver y no es un error.
     if (error && !/YA_EN_CURSO/.test(error.message ?? '')) {
       throw legible('devolverAlCarrito', error);
     }
   },
 
-  /** Cómo está configurada la pasarela, para saber qué ofrecer en pantalla. */
+  /** Configuración de la pasarela, para decidir qué ofrecer. */
   async configuracion(): Promise<{ activa: boolean; prueba: boolean }> {
     const { data } = await supabase
       .from('app_settings')
@@ -143,7 +128,7 @@ export const pagoService = {
   },
 };
 
-/** Medios de pago en línea que se ofrecen, con el nombre que usa la gente. */
+/** Medios de pago en línea con su nombre común. */
 export const MEDIOS_PAGO = [
   { valor: 'PSE', texto: 'PSE — débito desde tu banco' },
   { valor: 'TARJETA_CREDITO', texto: 'Tarjeta de crédito' },

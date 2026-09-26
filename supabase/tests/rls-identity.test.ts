@@ -2,12 +2,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { readFileSync, existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { borrarEmpresasHuerfanas, clienteDeServicio } from './limpieza';
-/**
- * Los nombres se guardan en MAYÚSCULAS y los documentos sin puntos
- * (20260902100006): la comparación se hace contra el dato NORMALIZADO, no
- * contra la caja con la que se escribió. Comparar contra el literal original
- * estaría comprobando cómo lo escribió la prueba, no qué guardó la base.
- */
+/** La base guarda nombres en mayúsculas y documentos sin puntos: se compara contra el valor normalizado. */
 const NORM = (t: string) => t.trim().replace(/\s+/g, ' ').toUpperCase();
 /** Documento sin separadores, conservando el guion del dígito de verificación. */
 const NORM_DOC = (t: string) =>
@@ -15,15 +10,8 @@ const NORM_DOC = (t: string) =>
 
 
 /**
- * Pruebas de integración de seguridad — FASE 2 (MÓDULO 49, criterio 24).
- *
- * Se ejecutan contra la instancia LOCAL de Supabase y atacan la API tal como
- * lo haría un navegador hostil: con la anon key y un JWT de usuario normal.
- * No usan la conexión de superusuario, porque esa se salta RLS y no probaría
- * nada.
- *
- * Requieren `npm run db:start`. Si no hay instancia, la suite se omite en
- * lugar de fallar, para no romper un `npm run test` en CI sin Docker.
+ * Seguridad de identidad contra Supabase local, con anon key y JWT de usuario como
+ * un navegador hostil. Requiere `npm run db:start`; sin instancia la suite se omite.
  */
 
 function leerEnvLocal(): Record<string, string> {
@@ -43,12 +31,7 @@ const ANON = env.VITE_SUPABASE_ANON_KEY ?? '';
 
 const SERVICE = env.SUPABASE_SERVICE_ROLE_KEY ?? '';
 
-/**
- * Cuentas que crean las pruebas de registro. Se recogen para borrarlas al
- * final: dos pruebas de esta suite dan de alta un usuario cada vez, y sin
- * limpieza la base termina con decenas de cuentas de prueba —con contraseña
- * conocida— que después habría que distinguir de las reales.
- */
+/** Cuentas creadas por las pruebas de registro, para borrarlas al final. */
 const creadas: string[] = [];
 
 const CARLOS = { email: 'carlos.mendoza@constructorahorizonte.com', password: 'pintuco2025*' };
@@ -75,7 +58,7 @@ async function login(cred: { email: string; password: string }): Promise<string>
   return j.access_token ?? '';
 }
 
-/** Guarda el id de una cuenta recién creada para eliminarla al terminar. */
+/** Guarda el id de una cuenta recién creada para borrarla al terminar. */
 async function recordarParaBorrar(token: string): Promise<void> {
   if (!token) return;
   const [perfil] = await fetch(`${API}/rest/v1/profiles?select=id`, {
@@ -107,19 +90,8 @@ describe.skipIf(!disponible)('RLS · identidad y multi-tenant', () => {
         headers: { apikey: SERVICE, Authorization: `Bearer ${SERVICE}` },
       });
     }
-    // Las empresas no caen con el usuario: hay que retirarlas aparte.
-    //
-    // NO se borran por nombre. Una de las pruebas se registra a propósito con
-    // «Constructora Horizonte S.A.S.», que es el nombre de la empresa REAL de
-    // carlos.mendoza —de eso trata la prueba: comprobar que registrarse con
-    // el nombre de otra empresa no te mete en ella—. Un `delete` por nombre
-    // se llevaría por delante la empresa de demostración con sus 229 pedidos.
-    //
-    // Por eso se barren las HUÉRFANAS: las que no tienen ni perfil, ni
-    // pedidos, ni miembros, ni sedes. La empresa real nunca cae en esa red.
-    // Antes solo se borraba la otra, así que cada corrida dejaba una empresa
-    // suelta; así se llegó a 72 empresas con el mismo nombre en la pantalla
-    // de Clientes.
+    // Las empresas no caen con el usuario. No se borran por nombre: una prueba se
+    // registra con el de la empresa real de demostración. Se barren solo las huérfanas.
     await borrarEmpresasHuerfanas(clienteDeServicio(API, SERVICE));
   });
 
@@ -242,8 +214,7 @@ describe.skipIf(!disponible)('RLS · identidad y multi-tenant', () => {
   });
 
   it('SEGURIDAD: el registro NO vincula a una empresa preexistente', async () => {
-    // Alguien se registra escribiendo el nombre exacto de una empresa ajena.
-    // Debe recibir una empresa NUEVA, nunca acceso a la de Carlos.
+    // Registrarse con el nombre exacto de una empresa ajena debe crear una empresa nueva, sin acceso a la otra.
     const email = `intruso.${Date.now()}@colorlink.test`;
     const r = await fetch(`${API}/auth/v1/signup`, {
       method: 'POST',
@@ -267,7 +238,7 @@ describe.skipIf(!disponible)('RLS · identidad y multi-tenant', () => {
     const empresas = await fetch(`${API}/rest/v1/companies?select=id,name`, { headers: auth(token) }).then((x) => x.json());
     expect(empresas).toHaveLength(1);
 
-    // Ve una empresa con el mismo NOMBRE, pero es otra fila distinta.
+    // Misma razón social, fila distinta.
     const perfiles = await fetch(`${API}/rest/v1/profiles?select=email`, { headers: auth(token) }).then((x) => x.json());
     expect(perfiles.map((p: { email: string }) => p.email)).not.toContain(CARLOS.email);
   });

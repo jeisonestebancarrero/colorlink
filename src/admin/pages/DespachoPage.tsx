@@ -18,31 +18,15 @@ import { ExportarBoton } from '../ExportarBoton';
 import { IconoModulo } from '../IconosDeModulo';
 import { EntregaPorCodigo } from '../EntregaPorCodigo';
 
-/**
- * Despacho y rastreo.
- *
- * El tablero se actualiza en vivo: si otra persona mueve un envío, esta
- * pantalla lo refleja sin recargar. Y cada cambio de estado queda escrito en
- * el hilo del pedido por un trigger, de modo que el cliente ve el avance sin
- * que nadie tenga que avisarle.
- */
+/** Despacho en vivo (realtime); un trigger escribe cada cambio de estado en el hilo del pedido. */
 interface DespachoPageProps {
-  /**
-   * Envío que pide la URL, por el NÚMERO DE PEDIDO
-   * (`/despacho/ORD-PNT-000045`). No hay pantalla de detalle: el envío se
-   * edita en su fila, así que la URL abre esa fila en modo edición.
-   */
+  /** Número de pedido de la URL (`/despacho/ORD-PNT-000045`); abre su fila en edición. */
   idAbierto?: string | null;
   onAbrir?: (numeroPedido: string) => void;
   onCerrar?: () => void;
 }
 
-/**
- * Resuelve el nombre de icono que declara el servicio.
- *
- * `Circle` como respaldo: si mañana se agrega un estado al enum y se olvida su
- * icono, el filtro sigue funcionando con un punto neutro en lugar de romperse.
- */
+/** Icono declarado por el servicio; `Circle` si un estado nuevo no tiene icono. */
 const ICONOS_ESTADO: Record<string, React.FC<{ className?: string }>> = {
   Clock, PackageOpen, PackageCheck, Truck, CheckCircle2, Undo2,
 };
@@ -79,8 +63,7 @@ export const DespachoPage: React.FC<DespachoPageProps> = ({
 
   useEffect(() => { void cargar(); }, [estado]);
 
-  // Suscripción en vivo, independiente del filtro para no re-suscribir a cada
-  // cambio de pestaña.
+  // Suscripción independiente del filtro para no resuscribir al cambiar de pestaña.
   useEffect(() => {
     const cancelar = despachoService.suscribir(() => { void cargar(); });
     setEnVivo(true);
@@ -125,13 +108,11 @@ export const DespachoPage: React.FC<DespachoPageProps> = ({
     }
   };
 
-  // `estimated_at` es una columna `date`: sin anclar la hora, la entrega
-  // estimada se mostraba un día antes en horario de Colombia.
+  // `estimated_at` es `date`: sin anclar la hora se corre un día en Colombia.
   const fecha = (iso: string | null) =>
     formatearFecha(iso, { day: '2-digit', month: 'short' });
 
-  // Acotado a las sedes ACTIVAS del selector. RLS ya limitó las filas a
-  // lo permitido; esto es la selección de pantalla.
+  // Selección de pantalla; RLS ya limitó a lo permitido.
   const porSede = envios.filter((x) => sedeVisible(x.locationId, filtroSedes));
   const visibles = envios.filter((x) => sedeVisible(x.locationId, filtroEfectivo));
 
@@ -155,14 +136,10 @@ export const DespachoPage: React.FC<DespachoPageProps> = ({
           </p>
         </div>
 
-      {/* El retiro en tienda entra por aquí, no por la ficha del pedido: en el
-          mostrador nadie busca primero el pedido en una lista, tiene al cliente
-          enfrente con un código en la mano. Y así el código deja de ser
-          decorativo y pasa a ser lo que autoriza la entrega. */}
+      {/* El retiro en tienda se entrega por código, que es lo que autoriza la entrega. */}
       <EntregaPorCodigo onEntregado={() => void cargar()} />
 
-      {/* Exporta EXACTAMENTE lo que se ve: los filtros y la sede activa ya
-          están aplicados en la lista. */}
+      {/* Exporta lo visible, con filtros y sede ya aplicados. */}
       <div className="flex justify-end">
         <ExportarBoton<Despacho>
           filas={visibles}
@@ -184,8 +161,7 @@ export const DespachoPage: React.FC<DespachoPageProps> = ({
         />
       </div>
 
-      {/* Con varias sedes activas, un total no dice cómo se reparte: la
-          comparación entre sedes es lo que se busca al activar varias. */}
+      {/* Con varias sedes activas, desglose por sede. */}
       <ContadorPorSede
         sedeAislada={sedeAislada}
         onAislar={aislar}
@@ -199,10 +175,7 @@ export const DespachoPage: React.FC<DespachoPageProps> = ({
         )}
       </div>
 
-      {/* Filtros de estado con su icono. Con seis estados en fila, el texto
-          solo obliga a leerlos todos para encontrar el que se busca; la forma
-          se reconoce antes que la palabra. El conteo va al lado porque «En
-          tránsito (0)» ahorra el clic. */}
+      {/* Filtros de estado con icono y conteo. */}
       <div className="flex flex-wrap gap-1.5">
         {(['TODOS', ...ESTADOS_ENVIO] as const).map((e) => {
           const Icono = e === 'TODOS' ? Layers : iconoEnvio(e as EstadoEnvio);
@@ -250,8 +223,7 @@ export const DespachoPage: React.FC<DespachoPageProps> = ({
                 <div className="min-w-0">
                   <div className="flex items-center gap-2.5">
                     <p className="font-extrabold text-slate-900">{d.numeroPedido}</p>
-                    {/* El mismo icono que en el filtro: el estado tiene que
-                        reconocerse igual en los dos sitios. */}
+                    {/* Mismo icono que en el filtro. */}
                     <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full border
                                       inline-flex items-center gap-1 ${COLOR_ENVIO[d.estado]}`}>
                       {(() => {

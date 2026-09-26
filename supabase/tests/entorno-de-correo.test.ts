@@ -4,25 +4,9 @@ import { resolve } from 'node:path';
 import { limpiarCuentasDePrueba, clienteDeServicio } from './limpieza';
 
 /**
- * El entorno de correo: el cableado entre la base y el buzón.
- *
- * Sin `functions_url` y `service_key`, `enviar_correo` descarta los mensajes
- * antes de tocar el SMTP y los deja en `email_log` como OMITIDO. Eso es lo que
- * pasaba en producción: el correo de bienvenida existía, se registraba, y
- * nunca salía.
- *
- * Lo que se vigila:
- *   1. Que la llave NO se devuelva jamás. Una pantalla que muestra el secreto
- *      que acaba de guardar lo filtra a cualquiera que abra las herramientas
- *      del navegador.
- *   2. Que mandar la llave vacía CONSERVE la que hay. Si la borrara, guardar
- *      cualquier otro campo apagaría el correo entero sin avisar.
- *   3. Que la barra final se limpie: `enviar_correo` concatena '/send-email',
- *      y '//send-email' responde 404 en unos servidores y no en otros.
- *   4. Que solo un administrador pueda tocarlo ni verlo.
- *
- * La configuración real se guarda y se restaura, porque esta base es la de
- * trabajo: una prueba no puede dejar el correo local apagado.
+ * Configuración de correo: sin `functions_url` y `service_key`, `enviar_correo` marca
+ * todo como OMITIDO. La llave nunca se devuelve, vacía conserva la actual, la barra
+ * final se limpia y solo el admin accede. La configuración real se restaura al final.
  */
 
 function leerEnvLocal(): Record<string, string> {
@@ -105,8 +89,7 @@ describe.skipIf(!disponible)('Entorno de correo · el cableado entre la base y e
       body: JSON.stringify({ user_id: await idDe(JEFE.email), role: 'ADMINISTRADOR' }),
     });
 
-    // Se guarda la configuración REAL, con llave incluida, para devolverla al
-    // final. Esta es la base de trabajo, no una desechable.
+    // Se respalda la configuración real, llave incluida, para restaurarla al final.
     const r = await fetch(`${API}/rest/v1/internal_config?select=*&id=eq.1`, { headers: admin() });
     original = ((await r.json()) as Record<string, unknown>[])[0] ?? null;
   });
@@ -146,7 +129,7 @@ describe.skipIf(!disponible)('Entorno de correo · el cableado entre la base y e
       _site_url: 'https://tienda.ejemplo.com/',
     });
     expect(r.ok).toBe(true);
-    // Sin esto se formaría '//send-email' al concatenar.
+    // Evita '//send-email' al concatenar.
     expect((r.cuerpo as { functions_url: string }).functions_url)
       .toBe('https://ejemplo.supabase.co/functions/v1');
     expect((r.cuerpo as { site_url: string }).site_url).toBe('https://tienda.ejemplo.com');
@@ -183,7 +166,7 @@ describe.skipIf(!disponible)('Entorno de correo · el cableado entre la base y e
     expect((r.cuerpo as { allowlist: string[] }).allowlist.sort())
       .toEqual(['dos@ejemplo.com', 'uno@ejemplo.com']);
 
-    // Vaciarla es lo que se hace al pasar a producción: sin filtro.
+    // Lista vacía significa sin filtro (producción).
     r = await guardar(tokenJefe, { _allowlist: [], _cambiar_allowlist: true });
     expect((r.cuerpo as { allowlist: string[] }).allowlist).toEqual([]);
   });

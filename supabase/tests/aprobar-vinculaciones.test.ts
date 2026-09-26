@@ -6,22 +6,9 @@ import {
 } from './limpieza';
 
 /**
- * Aprobar la vinculación de un empleado a su empresa.
- *
- * `registro-bifurcado` ya comprueba que la solicitud SE CREA y que solo el
- * dueño puede resolverla por RPC. Lo que faltaba —y por lo que la función
- * llevaba desde el 30 de agosto sin un solo uso— es que hubiera de dónde
- * sacar la información para decidir. Aquí se vigila eso:
- *
- *   1. Que quien tiene que aprobar VEA A QUIÉN aprueba. `profiles` no se deja
- *      leer por alguien de fuera de la empresa, y quien solicita todavía lo
- *      es: el dueño solo veía un uuid. Aprobar a ciegas no es aprobar.
- *   2. Que el listado no se le escape a nadie más: ni a un cliente ajeno, ni
- *      sin sesión.
- *   3. Que un OWNER dado de baja de la empresa (status INACTIVO) ya no pueda
- *      meter gente en ella.
- *   4. Que aprobar reactive a un miembro desactivado en lugar de dejar la
- *      solicitud APROBADA y a la persona fuera.
+ * Aprobar vinculaciones: el dueño ve los datos de quien solicita (RLS de `profiles` no se
+ * los muestra), nadie más accede al listado, un OWNER INACTIVO no aprueba y aprobar
+ * reactiva a un miembro dado de baja.
  */
 
 function leerEnvLocal(): Record<string, string> {
@@ -174,10 +161,8 @@ describe.skipIf(!disponible)('Aprobar vinculaciones · pantalla del dueño de la
   });
 
   it('LA RAZÓN DE SER: leyendo la tabla, el dueño no sabe a quién aprueba', async () => {
-    // Esto es lo que veía la pantalla antes de la función: la solicitud existe
-    // pero el perfil de quien la pide es ilegible para el dueño, porque
-    // todavía no son de la misma empresa. Si algún día `profiles` se abriera y
-    // esta prueba fallara, sería una fuga, no una mejora.
+    // Sin la función el dueño no puede leer el perfil del solicitante. Si esto dejara de
+    // fallar, `profiles` se habría abierto: sería una fuga.
     const filas = await fetch(
       `${API}/rest/v1/profiles?select=id,first_name,email&id=eq.${idColega}`,
       { headers: auth(tDueno) },
@@ -211,8 +196,7 @@ describe.skipIf(!disponible)('Aprobar vinculaciones · pantalla del dueño de la
   });
 
   it('quien pide entrar no ve la solicitud de los demás', async () => {
-    // La política `solicitud_propia_select` le deja ver la SUYA en la tabla,
-    // pero la función es para quien decide: él no decide nada.
+    // `solicitud_propia_select` le deja ver la suya en la tabla, pero la función es solo para quien decide.
     expect(await solicitudes(tColega)).toEqual([]);
   });
 
@@ -260,8 +244,7 @@ describe.skipIf(!disponible)('Aprobar vinculaciones · pantalla del dueño de la
   });
 
   it('una rechazada se puede reabrir, y vuelve a quedar pendiente', async () => {
-    // El agujero que dejaba la pantalla de aprobación: rechazar era
-    // definitivo, porque la solicitud solo la crea el disparador de alta.
+    // Rechazar no puede ser definitivo: la solicitud solo la crea el disparador de alta.
     const rechazada = (await solicitudes(tDueno)).find((s) => s.email === SEGUNDO.email);
     expect(rechazada?.estado).toBe('RECHAZADA');
 
@@ -270,8 +253,7 @@ describe.skipIf(!disponible)('Aprobar vinculaciones · pantalla del dueño de la
 
     const otra_vez = (await solicitudes(tDueno)).find((s) => s.email === SEGUNDO.email);
     expect(otra_vez?.estado).toBe('PENDIENTE');
-    // La fila es la MISMA: conserva su id y su fecha original, para que quien
-    // vuelva a decidir vea que a esta persona ya la habían rechazado.
+    // Se reutiliza la misma fila (id y fecha original) para que se vea el rechazo previo.
     expect(otra_vez?.id).toBe(rechazada!.id);
     expect(otra_vez?.resuelta_por).toBeNull();
 
@@ -316,8 +298,7 @@ describe.skipIf(!disponible)('Aprobar vinculaciones · pantalla del dueño de la
   it.skipIf(!SERVICE)('un dueño DADO DE BAJA ya no puede vincular a nadie', async () => {
     const admin = clienteDeServicio(API, SERVICE);
 
-    // Hace falta una solicitud viva: se aprovecha la del colega, que ya se
-    // aprobó, creando una nueva a mano con la llave de servicio.
+    // Hace falta una solicitud viva: se crea a mano con la llave de servicio.
     const { data: creada } = await admin
       .from('company_join_requests')
       .insert({ company_id: companyId, user_id: idColega, requested_nit: NIT })
@@ -336,7 +317,7 @@ describe.skipIf(!disponible)('Aprobar vinculaciones · pantalla del dueño de la
     expect(r.ok).toBe(false);
     expect(JSON.stringify(await r.json())).toContain('FORBIDDEN');
 
-    // Y tampoco le sirve para espiar: el listado se le apaga igual.
+    // El listado también se le cierra.
     expect(await solicitudes(tDueno)).toEqual([]);
 
     await admin.from('company_members')
@@ -348,9 +329,7 @@ describe.skipIf(!disponible)('Aprobar vinculaciones · pantalla del dueño de la
   it.skipIf(!SERVICE)('aprobar REACTIVA a un miembro que estaba desactivado', async () => {
     const admin = clienteDeServicio(API, SERVICE);
 
-    // El colega ya es miembro (se aprobó arriba). Se le da de baja y se deja
-    // una solicitud viva, que es el caso que antes dejaba la solicitud
-    // APROBADA y a la persona fuera.
+    // El colega ya es miembro: se le da de baja y se deja una solicitud viva.
     await admin.from('company_members')
       .update({ status: 'INACTIVO' })
       .eq('company_id', companyId).eq('user_id', idColega);

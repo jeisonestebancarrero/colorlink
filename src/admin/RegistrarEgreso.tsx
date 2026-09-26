@@ -7,18 +7,8 @@ import { Input } from '../components/common/Input';
 import { fechaLocal } from '../utils/fechaLocal';
 
 /**
- * Registrar una salida de dinero.
- *
- * Tesorería solo sabía cobrar: pagar un flete, un proveedor o un servicio se
- * anotaba fuera del sistema, y la caja del sistema decía más dinero del que
- * había.
- *
- * LA CONTRAPARTIDA ES OBLIGATORIA y no tiene valor por defecto. Un egreso no
- * dice por sí solo qué se pagó —un gasto de servicios, un abono a un
- * proveedor, una compra— y poner una cuenta fija metería todos los pagos en el
- * mismo renglón: el estado de resultados diría cualquier cosa. Es la misma
- * razón por la que el disparador contable deja pasar los egresos en lugar de
- * inventarles la contrapartida.
+ * Registro de egresos. La contrapartida es obligatoria y sin valor por defecto: una cuenta
+ * fija mezclaría todos los pagos en el estado de resultados.
  */
 export const RegistrarEgreso: React.FC<{
   cuentas: CuentaSaldo[];
@@ -53,9 +43,7 @@ export const RegistrarEgreso: React.FC<{
   const listo = form.cuenta !== '' && Number.isFinite(monto) && monto > 0
     && form.concepto.trim() !== '' && form.contrapartida !== '';
 
-  /* Aviso ANTES de guardar: un egreso que deja la caja en negativo casi
-     siempre es un cero de más al digitar. No se bloquea —una cuenta puede
-     quedar en descubierto de verdad— pero se avisa. */
+  /* Saldo negativo suele ser un error de digitación: se avisa, no se bloquea (el descubierto es posible). */
   const saldoPrevisto = (cuentaElegida?.saldo ?? 0) - (Number.isFinite(monto) ? monto : 0);
   const dejaNegativo = listo && saldoPrevisto < 0;
 

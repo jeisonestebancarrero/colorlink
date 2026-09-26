@@ -1,27 +1,5 @@
--- ============================================================
--- Sede en facturas, envíos, tesorería y visitas
--- ============================================================
--- Cierra el hueco que quedó del multi-sede: `inventory`,
--- `inventory_movements`, `purchase_receipts` y `orders` ya se acotan por sede,
--- pero facturación, despacho, tesorería y visitas no tenían columna, así que
--- no se podían acotar NI contar por sede.
---
--- DE DÓNDE SALE LA SEDE EN CADA UNA:
---   * invoices           — del pedido que factura. `issue_pos_invoice` factura
---                          un pedido, y el pedido ya sabe de qué sede sale.
---   * shipments          — del pedido que despacha.
---   * treasury_movements — del pedido o de la factura a la que corresponde el
---                          recaudo. Un egreso suelto no tiene sede y se queda
---                          en null, que es lo correcto: no pertenece a una.
---   * technical_visits   — NO SE PUEDE DERIVAR y se queda en null a propósito.
---                          Una visita cuelga de un proyecto, y los proyectos no
---                          tienen sede. Asignarle la sede más cercana sería
---                          inventar el dato. La columna queda lista para que el
---                          flujo de programación la fije cuando se decida qué
---                          sede atiende cada visita.
---
--- `puede_ver_sede(null)` devuelve true, así que las filas sin sede las siguen
--- viendo todos: esconderlas de todo el mundo sería peor que no acotarlas.
+-- Agrega sede a facturas, envíos y tesorería (derivada del pedido o la factura) y
+-- a visitas técnicas (null hasta que se programe). puede_ver_sede(null) es true.
 
 alter table public.invoices
   add column if not exists location_id uuid references public.pickup_locations(id);
@@ -42,11 +20,7 @@ comment on column public.invoices.location_id is
 comment on column public.technical_visits.location_id is
   'Sede que atiende la visita. Puede ser null: un proyecto no tiene sede y no se inventa.';
 
--- ------------------------------------------------------------
--- Que se llene sola de aquí en adelante
--- ------------------------------------------------------------
--- Va en disparadores y no dentro de `issue_pos_invoice` para que se cumpla
--- también si la factura o el envío se crean por otro camino.
+-- Por trigger para que se cumpla aunque la factura o el envío se creen por otro camino.
 
 create or replace function public.invoices_heredar_sede()
 returns trigger
@@ -111,9 +85,6 @@ create trigger treasury_zz_sede
   before insert on public.treasury_movements
   for each row execute function public.tesoreria_heredar_sede();
 
--- ------------------------------------------------------------
--- Lo que ya está guardado
--- ------------------------------------------------------------
 update public.invoices i
    set location_id = o.pickup_location_id
   from public.orders o
@@ -134,12 +105,7 @@ update public.treasury_movements t
   from public.invoices i
  where i.id = t.invoice_id and t.location_id is null;
 
--- ------------------------------------------------------------
--- El dominio
--- ------------------------------------------------------------
--- Igual que antes: se REESCRIBEN las políticas conservando su predicado
--- original y añadiendo la sede. Y el CLIENTE nunca queda acotado por sede: su
--- factura es su factura, la emita la tienda que la emita.
+-- Se reescriben las políticas conservando su predicado; el cliente nunca queda acotado por sede.
 
 drop policy if exists invoices_select on public.invoices;
 create policy invoices_select
@@ -206,8 +172,7 @@ create policy movimientos_finanzas
     and (select public.puede_ver_sede(location_id))
   );
 
--- Visitas: se añade la sede a la rama del personal. La condición de proyecto se
--- conserva tal cual, que es la que protege la privacidad del cliente.
+-- La condición de proyecto se conserva: protege la privacidad del cliente.
 drop policy if exists technical_visits_staff on public.technical_visits;
 create policy technical_visits_staff
   on public.technical_visits for all to authenticated

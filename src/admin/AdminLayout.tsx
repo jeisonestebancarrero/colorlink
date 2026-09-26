@@ -1,8 +1,5 @@
 import React, { useState } from 'react';
 import { LogOut, Home, ChevronLeft, ChevronRight } from 'lucide-react';
-// El mapa de iconos vive en un solo sitio y lo comparten el menú y el
-// encabezado de cada pantalla: si estuviera duplicado, añadir un módulo
-// obligaría a acordarse de los dos.
 import { iconoDeModulo } from './IconosDeModulo';
 import { CampanaMensajes } from './CampanaMensajes';
 import { CampanaAvisos } from './CampanaAvisos';
@@ -13,17 +10,11 @@ import { RUTA_TABLERO } from './useRutaUrl';
 
 const CLAVE_BARRA = 'colorlink.admin.barra.v1';
 
-/**
- * Armazón del back-office.
- *
- * El menú NO está escrito en el código: se dibuja con las vistas que el
- * administrador haya habilitado para el rol de quien entra (tablas
- * `app_views` y `role_views`). Cambiar quién ve qué no exige desplegar.
- */
+/** Armazón del back-office; el menú sale de `app_views` y `role_views`, no del código. */
 export const AdminLayout: React.FC<{
   rutaActual: string;
   onNavegar: (ruta: string) => void;
-  /** Abre un pedido concreto. Lo usa la campana de mensajes. */
+  /** Lo usa la campana de mensajes. */
   onAbrirPedido?: (numero: string) => void;
   children: React.ReactNode;
 }> = ({ rutaActual, onNavegar, onAbrirPedido, children }) => {
@@ -34,17 +25,7 @@ export const AdminLayout: React.FC<{
   /** Módulo en el que se está, para mostrarlo aunque la lista esté plegada. */
   const moduloActual = acceso.views.find((v) => v.route === rutaActual);
 
-  /**
-   * La BARRA COMPLETA va oculta por defecto.
-   *
-   * Al abrir un módulo desde el tablero, lo que se quiere ver es el módulo. La
-   * barra azul con las diecisiete aplicaciones se quedaba ahí ocupando un
-   * cuarto de la pantalla para repetir un menú que ya se acababa de usar.
-   *
-   * Oculta queda una franja delgada con lo único que hace falta: volver al
-   * inicio y abrir la barra. El estado se recuerda, para quien prefiera
-   * trabajar con la barra visible.
-   */
+  /** Barra oculta por defecto para dar espacio al módulo; la preferencia se recuerda. */
   const [barraVisible, setBarraVisible] = useState<boolean>(() => {
     try {
       return window.localStorage.getItem(CLAVE_BARRA) === 'visible';
@@ -64,23 +45,8 @@ export const AdminLayout: React.FC<{
 
   return (
     <div className="relative min-h-screen bg-slate-100 flex">
-      {/* Fondo de la marca: óvalos difusos con los colores reales de Pintuco.
-          ÓVALOS Y NO LÍNEAS porque un patrón de líneas compite con las filas
-          de una tabla y cansa la vista al leer cifras.
-          VA EN EL CONTENEDOR RAÍZ, no dentro de `main`: puesto dentro solo se
-          asomaba por los márgenes.
-          CÓMO SE CALIBRÓ: se probó pintando este mismo div de rojo sólido.
-          El mecanismo era correcto desde el principio —el div cubre todo el
-          fondo y las tarjetas son semitransparentes, así que el color se ve
-          incluso a través de ellas—; lo que fallaba eran los valores. Se pasó
-          por 3 %, 9 % y 20 % sin que se percibiera nada, porque los centros de
-          las manchas quedaban fuera de pantalla o detrás de la barra de
-          navegación, que es opaca.
-          Ahora los centros están DENTRO del área visible y por debajo de la
-          barra, con intensidades que se ven sin ensuciar el texto.
-          Los colores son los que ya usa la aplicación: #004F9F el azul
-          Pintuco, #0284C7 el de Pedidos, #D97706 el de Inventario y #002D5C
-          el de la barra. */}
+      {/* Fondo de óvalos difusos (las líneas competirían con las tablas), en el contenedor raíz
+          para verse tras las tarjetas; los centros deben quedar dentro del área visible. */}
       <div
         aria-hidden
         className="pointer-events-none select-none fixed inset-0 z-0"
@@ -101,7 +67,7 @@ export const AdminLayout: React.FC<{
       >
         <div className="px-5 py-5 border-b border-white/10">
           <div className="flex items-center gap-2.5">
-            {/* El logotipo va sobre azul: su fondo propio se funde con la barra. */}
+            {/* Logo sobre azul: su fondo se funde con la barra. */}
             <div className="w-9 h-9 rounded-lg bg-white/10 border border-white/20 flex items-center justify-center overflow-hidden shrink-0">
               <img src={logoPintuco} alt="Pintuco" className="w-full h-full object-contain" />
             </div>
@@ -117,14 +83,10 @@ export const AdminLayout: React.FC<{
           </div>
         </div>
 
-        {/* Selector de sede, al estilo del de compañías de Odoo. Va arriba y
-            siempre visible: si estuviera dentro de cada módulo, sería fácil
-            mirar el inventario de una sede creyendo que es otra. */}
+        {/* Selector de sede siempre visible, para no confundir la sede activa. */}
         <SelectorSede />
 
-        {/* Inicio. Un icono de casa en un sitio fijo: al abrir un módulo lo
-            primero que se busca es cómo volver, y un enlace de texto dentro de
-            una lista de diecisiete no es "un sitio fijo". */}
+        {/* Inicio en posición fija. */}
         <button
           onClick={() => onNavegar(RUTA_TABLERO)}
           title="Ir a las aplicaciones"
@@ -135,8 +97,7 @@ export const AdminLayout: React.FC<{
           Inicio
         </button>
 
-        {/* La lista completa. Ya no se pliega por su cuenta: lo que se oculta
-            es la barra entera, y dos niveles de plegado solo estorban. */}
+        {/* Lista completa; se oculta la barra entera, no la lista. */}
         <nav className="flex-1 overflow-y-auto py-1">
           {acceso.views.length === 0 && (
             <p className="px-5 text-xs text-blue-200/60 font-medium">
@@ -169,9 +130,7 @@ export const AdminLayout: React.FC<{
               <p className="text-xs font-bold truncate">{nombre ?? 'Usuario'}</p>
               <p className="text-[11px] text-blue-200/60 truncate">{email}</p>
             </div>
-            {/* Aquí y no en la cabecera de cada pantalla: la barra está en
-                todas, y así el aviso se ve sin importar en qué módulo se
-                esté. Con la barra oculta queda el del tablero. */}
+            {/* En la barra, para que se vea desde cualquier módulo. */}
             <div className="flex items-center gap-0.5 shrink-0">
               {onAbrirPedido && (
                 <CampanaMensajes onAbrirPedido={onAbrirPedido} variante="lateral" />
@@ -190,14 +149,8 @@ export const AdminLayout: React.FC<{
       </aside>
 
       <main className="relative z-10 flex-1 min-w-0 overflow-x-auto">
-        {/* Marca de agua, igual que en el tablero: identifica la pantalla sin
-            competir con el dato. Va detrás del contenido, sin capturar clics y
-            fuera del árbol de accesibilidad. */}
-        {/* La capa recorta lo que sobresale: la marca va 5rem fuera del borde
-            derecho y, suelta dentro de un `main` con desplazamiento
-            horizontal, le sumaba 80 px de ancho a toda página. Al bajar hasta
-            un campo, el navegador corría la página de lado y la barra azul
-            tapaba el contenido. */}
+        {/* Marca de agua detrás del contenido, sin clics ni accesibilidad. */}
+        {/* Recorta la marca, que sobresale 5rem y provocaría desplazamiento horizontal. */}
         <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden z-0">
           <img
             src={logoPintuco}
@@ -211,24 +164,12 @@ export const AdminLayout: React.FC<{
           />
         </div>
 
-        {/* SIN tope de ancho, a propósito.
-            Tenía un tope de 1280 px y dejaba una franja muerta a la derecha
-            en cualquier pantalla grande —más todavía con la barra azul oculta,
-            que es justo cuando se esconde para ganar sitio—. Subirlo a 1760 px
-            no bastó: seguían sobrando unos 240 px. (El nombre de la clase no se
-            escribe aquí: Tailwind lee los comentarios y emitiría la regla CSS
-            de una clase que ya nadie usa.) El portal es de
-            tablas y contadores, no de lectura corrida, así que se ocupa todo el
-            ancho disponible y el único margen es el relleno de la página. */}
+        {/* Sin tope de ancho a propósito: el portal es de tablas y aprovecha toda la pantalla.
+            No nombrar clases aquí: Tailwind lee los comentarios. */}
         <div className="relative z-10 p-6 lg:p-8 w-full">{children}</div>
       </main>
 
-      {/* UNA sola pestaña para las dos cosas.
-          Viaja con la barra —pegada a su borde cuando está visible, al borde
-          de la pantalla cuando está oculta— y la flecha apunta a donde va a
-          moverse el menú. Antes ocultar era un botón distinto, con otra forma
-          y metido junto al logotipo: mostrar y ocultar son la misma acción y
-          tienen que vivir en el mismo sitio, o hay que aprender dos. */}
+      {/* Una sola pestaña muestra y oculta la barra; viaja con su borde. */}
       <div
         className={`fixed top-1/2 -translate-y-1/2 z-40 flex flex-col gap-1.5
                     transition-all duration-200 ${barraVisible ? 'left-64' : 'left-0'}`}
@@ -249,8 +190,7 @@ export const AdminLayout: React.FC<{
           )}
         </button>
 
-        {/* El inicio solo hace falta con la barra oculta: cuando está visible
-            ya tiene su propia entrada dentro. */}
+        {/* Inicio solo con la barra oculta. */}
         {!barraVisible && (
           <button
             onClick={() => onNavegar(RUTA_TABLERO)}

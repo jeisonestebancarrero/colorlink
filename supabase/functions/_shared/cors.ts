@@ -1,21 +1,6 @@
 /**
- * Cabeceras CORS compartidas por todas las funciones.
- *
- * Vivían copiadas en cada una, y por eso pasó lo que pasó: el cliente del
- * navegador añade `x-application-name` a TODAS sus peticiones, esa cabecera no
- * estaba en la lista de permitidas, y el navegador bloqueaba la llamada en la
- * comprobación previa —antes de enviarla—. Ninguna función llegaba a
- * ejecutarse.
- *
- * El síntoma era desconcertante: la misma petición hecha a mano respondía 200,
- * y desde la aplicación fallaba siempre. Con `curl` no se reproduce nunca,
- * porque fuera de un navegador no hay comprobación previa. Se cayeron con
- * esto la llamada de voz, el correo de prueba, el alta de personal interno y
- * los restablecimientos de contraseña; todos mostrando mensajes genéricos que
- * no apuntaban a ninguna parte.
- *
- * Ahora hay una sola lista. Si mañana el cliente manda otra cabecera propia,
- * se agrega aquí y las seis funciones quedan al día.
+ * CORS común a todas las funciones. Toda cabecera que envíe el cliente (p. ej.
+ * x-application-name) debe estar aquí o el preflight bloquea la llamada; curl no lo reproduce.
  */
 export const CORS = {
   'Access-Control-Allow-Origin': '*',

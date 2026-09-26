@@ -1,13 +1,6 @@
 import { supabase } from '../lib/supabase';
 
-/**
- * Seguimiento de pedidos — vista del CLIENTE.
- *
- * Distinta a la del back-office a propósito: al cliente no le interesan
- * transportadoras ni alistamiento, sino una respuesta a "¿dónde está mi
- * pedido y cuándo llega?". Por eso este servicio devuelve el avance como
- * una secuencia de hitos, no como campos de base de datos.
- */
+/** Seguimiento para el cliente: el avance como secuencia de hitos, no como campos de la base. */
 
 export type EstadoSeguimiento =
   | 'PENDIENTE' | 'CONFIRMADO' | 'PREPARANDO' | 'ENVIADO'
@@ -38,7 +31,7 @@ export interface PedidoCliente {
   guia: string | null;
   estimada: string | null;
   items: Array<{ nombre: string; presentacion: string | null; cantidad: number; subtotal: number }>;
-  /** 0 a 1: cuánto ha avanzado, para dibujar el recorrido. */
+  /** Avance de 0 a 1. */
   progreso: number;
   hitos: HitoSeguimiento[];
 }
@@ -49,11 +42,7 @@ const num = (v: string | number | null | undefined): number => {
   return Number.isFinite(n) ? n : 0;
 };
 
-/**
- * Secuencia de hitos según el método de entrega.
- * Retiro y envío no comparten recorrido: mostrar "en camino" a quien va a
- * recoger en tienda sería mentirle.
- */
+/** Retiro y envío tienen recorridos distintos: al que recoge no se le muestra "en camino". */
 function construirHitos(estado: EstadoSeguimiento, esEnvio: boolean): HitoSeguimiento[] {
   const secuencia = esEnvio
     ? [
@@ -70,7 +59,7 @@ function construirHitos(estado: EstadoSeguimiento, esEnvio: boolean): HitoSeguim
       ];
 
   const orden = secuencia.map((h) => h.clave);
-  // PENDIENTE aún no alcanza el primer hito; el resto se ubica en la secuencia.
+  // PENDIENTE aún no alcanza el primer hito.
   const indiceActual = estado === 'PENDIENTE' ? -1 : orden.indexOf(estado);
 
   return secuencia.map((h, i) => ({
@@ -149,13 +138,7 @@ export const trackingService = {
     });
   },
 
-  /**
-   * Escucha cambios de sus pedidos y de sus envíos.
-   *
-   * Es lo que hace que el seguimiento sea realmente "en tiempo real": cuando
-   * despacho mueve el envío en el portal interno, la pantalla del cliente se
-   * actualiza sola, sin recargar ni consultar cada pocos segundos.
-   */
+  /** Cambios en vivo de pedidos y envíos, sin sondeo. */
   suscribir(alCambiar: () => void): () => void {
     const canal = supabase
       .channel('seguimiento-cliente')

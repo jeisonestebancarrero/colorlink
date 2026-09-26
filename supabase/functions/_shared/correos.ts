@@ -3,13 +3,7 @@ import {
   type Emisor, type Punto,
 } from './plantillas.ts';
 
-/**
- * Construye cada correo a partir de lo que hay en la base.
- *
- * La plantilla no recibe texto ya armado: recibe el pedido y decide qué decir.
- * Así el mensaje cambia con el estado real y no hay forma de mandar "tu pedido
- * está listo" sobre un pedido que no lo está.
- */
+/** Arma cada correo desde los datos de la base, para que el texto siga el estado real del pedido. */
 
 export type Plantilla =
   | 'BIENVENIDA'
@@ -69,19 +63,12 @@ export function construir(
 ): { asunto: string; html: string; texto: string } {
   const { emisor, destinatario, punto, pedido, pago, sitio } = ctx;
 
-  /**
-   * El enlace al pedido.
-   *
-   * Apuntaba a `/mis-pedidos`, y esa ruta NO EXISTE en la tienda: la buena es
-   * `/pedidos`. Quien recibía el correo y pulsaba el botón caía en la portada,
-   * sin pedido y sin ninguna pista de por qué. Y ya que se corrige, lleva al
-   * pedido concreto en vez de al listado: el correo habla de UN pedido.
-   */
+  /** Enlace al pedido concreto; la ruta de la tienda es /pedidos. */
   const enlacePedido = (numero?: string) =>
     numero ? `${sitio}/pedidos/${encodeURIComponent(numero)}` : `${sitio}/pedidos`;
 
   switch (plantilla) {
-    // ── Bienvenida ─────────────────────────────────────────────────────
+    // Bienvenida.
     case 'BIENVENIDA': {
       const contenido =
         saludo(destinatario.nombre) +
@@ -109,7 +96,7 @@ export function construir(
       };
     }
 
-    // ── Pedido creado, pendiente de pago ───────────────────────────────
+    // Pedido creado, pendiente de pago.
     case 'PEDIDO_CREADO': {
       const p = pedido!;
       const contenido =
@@ -140,7 +127,7 @@ export function construir(
       };
     }
 
-    // ── Pago recibido ──────────────────────────────────────────────────
+    // Pago recibido.
     case 'PAGO_RECIBIDO': {
       const p = pedido!;
       const contenido =
@@ -171,7 +158,7 @@ export function construir(
       };
     }
 
-    // ── Cambio de estado (trazabilidad) ────────────────────────────────
+    // Cambio de estado (trazabilidad).
     case 'PEDIDO_ESTADO': {
       const p = pedido!;
       const info = ESTADOS[p.estado] ?? {

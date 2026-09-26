@@ -9,24 +9,8 @@ import {
 import { Button } from './Button';
 
 /**
- * Aprobar o rechazar la vinculación de una persona a una cuenta empresarial.
- *
- * Sin esta pantalla el flujo se cortaba a la mitad: el segundo empleado de una
- * constructora se registraba con el NIT de su empresa, el alta dejaba la
- * solicitud, se le avisaba al dueño… y no había dónde resolverla. La persona
- * quedaba con cuenta personal, sin ver los proyectos ni los precios de su
- * empresa, y sin manera de saber por qué.
- *
- * El mismo componente sirve en los dos lados y por eso no depende de ningún
- * contexto de una sola aplicación (ni ProjectContext ni AdminAuthContext):
- *   · `cliente`  — el dueño o administrador de la empresa, en su perfil.
- *   · `portal`   — el administrador de la plataforma, para destrabar soporte
- *                  cuando el dueño de esa cuenta no aparece. Muestra además de
- *                  quién es la empresa, porque ahí se ven las de todos.
- *
- * QUIÉN VE QUÉ no se decide aquí. `solicitudes_de_vinculacion()` solo devuelve
- * lo que quien pregunta puede resolver; si no administra ninguna empresa la
- * lista llega vacía y el bloque no se dibuja.
+ * Aprobar o rechazar vinculaciones a una empresa. Compartido por tienda (`cliente`) y portal (`portal`),
+ * así que no depende de contextos de una sola app. La visibilidad la filtra `solicitudes_de_vinculacion()`.
  */
 
 interface Props {
@@ -70,8 +54,7 @@ export const SolicitudesDeVinculacion: React.FC<Props> = ({ contexto, onCambio }
     try {
       setSolicitudes(await vinculacionesService.listar());
     } catch (err) {
-      // Quien no administra empresas no recibe error, recibe lista vacía. Un
-      // error aquí es real y hay que decirlo, no dejar el bloque en blanco.
+      // Sin empresas administradas llega lista vacía, así que un error aquí es real.
       setAviso({ tipo: 'error', texto: (err as Error).message });
     } finally {
       setCargando(false);
@@ -97,8 +80,7 @@ export const SolicitudesDeVinculacion: React.FC<Props> = ({ contexto, onCambio }
       onCambio?.();
     } catch (err) {
       setAviso({ tipo: 'error', texto: (err as Error).message });
-      // Una solicitud que ya resolvió otra persona sigue apareciendo hasta que
-      // se recarga: sin esto, el botón se queda ofreciendo algo imposible.
+      // Otra persona pudo resolverla ya: se recarga para no ofrecer una acción imposible.
       await cargar();
     } finally {
       setProcesando(null);
@@ -127,8 +109,7 @@ export const SolicitudesDeVinculacion: React.FC<Props> = ({ contexto, onCambio }
   const pendientes = solicitudes.filter((s) => s.estado === 'PENDIENTE');
   const historial = solicitudes.filter((s) => s.estado !== 'PENDIENTE');
 
-  // En la tienda el bloque solo existe si hay algo que mirar: a un cliente
-  // particular no se le anuncia una función de empresas que no tiene.
+  // En la tienda se oculta si no hay solicitudes: un particular no tiene empresa.
   if (cargando && contexto === 'cliente') return null;
   if (contexto === 'cliente' && solicitudes.length === 0 && !aviso) return null;
 
@@ -259,9 +240,7 @@ export const SolicitudesDeVinculacion: React.FC<Props> = ({ contexto, onCambio }
                   </div>
                 ) : (
                   <div className="flex flex-wrap gap-2">
-                    {/* El icono va por `leftIcon`, no como hijo: metido dentro
-                        de `children` el botón lo envuelve junto al texto en un
-                        mismo span y la etiqueta se parte en dos renglones. */}
+                    {/* Icono por `leftIcon`: como hijo, la etiqueta se parte en dos renglones. */}
                     <Button
                       size="sm" variant="pintuco" className="text-xs font-bold"
                       isLoading={enCurso} disabled={enCurso}
@@ -324,9 +303,7 @@ export const SolicitudesDeVinculacion: React.FC<Props> = ({ contexto, onCambio }
                   {contexto === 'portal' && <span>· {s.empresa}</span>}
                   {s.resuelta && <span>· {fecha(s.resuelta)}</span>}
                   {s.resueltaPor && <span>· por {s.resueltaPor}</span>}
-                  {/* Solo las rechazadas. Deshacer una APROBADA sería sacar a
-                      alguien de la empresa por la puerta de atrás, y para eso
-                      está la baja del miembro. */}
+                  {/* Solo rechazadas: revertir una aprobada es dar de baja al miembro, que va por otro flujo. */}
                   {s.estado === 'RECHAZADA' && (
                     <button
                       type="button"

@@ -2,18 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { UserPlus, ArrowRight } from 'lucide-react';
 import { vinculacionesService } from '../../services/vinculaciones';
 
-/**
- * Aviso en el panel: «alguien está esperando que lo apruebes».
- *
- * La solicitud ya genera una notificación en la campana, pero una campana con
- * veinte avisos de pedidos no comunica que hay una persona bloqueada esperando
- * una decisión que solo este usuario puede tomar. La pantalla para resolverlo
- * vive en el perfil, y a nadie se le ocurre buscar ahí: este aviso es el
- * puente.
- *
- * Se dibuja solo si hay pendientes, así que para el 99% de los clientes no
- * existe.
- */
+/** Aviso en el panel de solicitudes de vinculación pendientes; se resuelven en el perfil. Oculto si no hay. */
 
 interface Props {
   onNavigate: (page: string) => void;
@@ -28,8 +17,7 @@ export const AvisoVinculaciones: React.FC<Props> = ({ onNavigate }) => {
       .then((lista) => {
         if (vigente) setPendientes(lista.filter((s) => s.estado === 'PENDIENTE').length);
       })
-      // Silencioso a propósito: es un aviso accesorio. Si falla, el bloque del
-      // perfil sigue siendo la vía buena y ahí sí se muestra el error.
+      // Silencioso a propósito: el bloque del perfil es la vía principal y ahí sí se muestra el error.
       .catch(() => undefined);
     return () => { vigente = false; };
   }, []);

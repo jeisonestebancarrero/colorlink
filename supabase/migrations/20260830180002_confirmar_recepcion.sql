@@ -1,18 +1,5 @@
--- ============================================================
--- Confirmar una recepción: donde el costo entra al sistema
--- ============================================================
--- Mientras la recepción está en BORRADOR no toca el inventario: se puede
--- corregir línea por línea contra el papel del proveedor. Al confirmarla
--- ocurren tres cosas de una vez, dentro de la misma transacción:
---   1. entran las unidades a la bodega,
---   2. se recalcula el costo promedio ponderado de cada referencia,
---   3. queda el rastro de quién la confirmó y con qué documento.
---
--- Separar el borrador de la confirmación no es burocracia: recibir mercancía
--- es teclear muchas líneas, y si cada una impactara el saldo al instante, un
--- error a mitad de camino dejaría el inventario a medio actualizar sin forma
--- de saber dónde se quedó.
--- ============================================================
+-- Confirma una recepción en una transacción: entra la mercancía, se recalcula el
+-- costo promedio y queda auditoría. En BORRADOR no toca el inventario.
 
 create or replace function public.confirm_purchase_receipt(_receipt_id uuid)
 returns jsonb
@@ -53,27 +40,20 @@ begin
     where i.receipt_id = _receipt_id
     order by i.created_at
   loop
-    -- La fila de inventario debe existir antes de recibir: una referencia
-    -- puede llegar por primera vez a esta bodega.
+    -- La referencia puede llegar por primera vez a esta bodega.
     insert into public.inventory (variant_id, location_id, qty_available, qty_reserved)
     values (r.variant_id, v_rec.location_id, 0, 0)
     on conflict (variant_id, location_id) do nothing;
 
-    -- Se lee el saldo ANTES de la entrada y se bloquea la fila: el promedio
-    -- ponderado se calcula sobre lo que había, y dos recepciones simultáneas
-    -- de la misma referencia no pueden partir del mismo saldo.
+    -- Saldo previo con bloqueo: el promedio parte de lo que había y dos
+    -- recepciones simultáneas no pueden partir del mismo saldo.
     select qty_available, avg_cost_cop into v_saldo, v_promedio
       from public.inventory
      where variant_id = r.variant_id and location_id = v_rec.location_id
      for update;
 
-    -- Promedio ponderado: (unidades viejas × costo viejo + unidades nuevas ×
-    -- costo nuevo) / total de unidades. Es el método usual en Colombia y el
-    -- único que no exige rastrear cada unidad individualmente.
-    --
-    -- Si lo que había estaba en costo cero —inventario cargado antes de
-    -- existir este módulo— se toma el costo nuevo tal cual: promediar contra
-    -- un cero que nadie midió ensuciaría el dato real que acaba de llegar.
+    -- Promedio ponderado. Si el costo previo es cero (inventario anterior a este
+    -- módulo) se toma el nuevo tal cual para no promediar contra un dato no medido.
     if v_saldo <= 0 or coalesce(v_promedio, 0) = 0 then
       v_promedio := r.unit_cost_cop;
     else
@@ -115,9 +95,6 @@ $$;
 revoke all on function public.confirm_purchase_receipt(uuid) from public, anon;
 grant execute on function public.confirm_purchase_receipt(uuid) to authenticated;
 
--- ------------------------------------------------------------
--- Crear la recepción con su numeración
--- ------------------------------------------------------------
 create or replace function public.create_purchase_receipt(
   _location_id  uuid,
   _supplier_id  uuid default null,
@@ -163,13 +140,8 @@ $$;
 revoke all on function public.create_purchase_receipt(uuid, uuid, text, date, text) from public, anon;
 grant execute on function public.create_purchase_receipt(uuid, uuid, text, date, text) to authenticated;
 
--- ------------------------------------------------------------
--- Anular una recepción en borrador
--- ------------------------------------------------------------
--- Solo se anula lo que aún no tocó el inventario. Una recepción confirmada
--- no se borra: si llegó mercancía de menos, eso se corrige con un ajuste por
--- conteo, que deja su propio rastro. Borrar el documento haría desaparecer
--- la única prueba de lo que entró.
+-- Solo se anulan borradores; una recepción confirmada se corrige con un ajuste
+-- por conteo, no se borra.
 create or replace function public.void_purchase_receipt(_receipt_id uuid)
 returns void
 language plpgsql

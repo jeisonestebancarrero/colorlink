@@ -1,18 +1,6 @@
--- ============================================================
--- CORRECCIÓN DE SEGURIDAD: la analítica exponía las ventas de todos
--- ============================================================
--- En PostgreSQL una vista se ejecuta por defecto con los privilegios de
--- QUIEN LA CREÓ, no de quien la consulta. `v_ventas` quedó así y con SELECT
--- concedido a `authenticated`: cualquier cliente con sesión podía leer los
--- pedidos, importes y márgenes de TODAS las empresas.
---
--- Dos capas de corrección:
---   1. La vista pasa a security_invoker: vuelve a aplicar RLS, de modo que
---      cada quien ve solo lo que ya tenía permitido ver.
---   2. Las funciones de analítica siguen siendo SECURITY DEFINER —necesitan
---      ver el total para poder agregar— pero ahora EXIGEN el permiso
---      `analytics.read` antes de devolver nada.
--- ============================================================
+-- v_ventas pasa a security_invoker: una vista corre con los permisos de su dueño
+-- y exponía las ventas de todos. Las funciones siguen como SECURITY DEFINER para
+-- agregar, pero exigen analytics.read.
 
 alter view public.v_ventas set (security_invoker = true);
 

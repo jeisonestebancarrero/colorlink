@@ -1,17 +1,5 @@
--- ============================================================
--- La visita técnica queda con su sede
--- ============================================================
--- Última pieza del multi-sede. `technical_visits.location_id` existía desde
--- 20260902100016 pero quedaba SIEMPRE en null, así que las visitas se salían
--- del dominio: la agenda de un asesor de Barranquilla mostraba visitas de
--- Medellín.
---
--- No se podía derivar antes porque una visita cuelga de un proyecto y los
--- proyectos no tienen sede. Ahora se resuelve al PROGRAMARLA, que es el
--- momento en que alguien decide quién va.
---
--- Se añade `_location_id` con valor por defecto, así que las llamadas
--- existentes siguen funcionando y caen en la deducción por ciudad.
+-- La visita técnica fija su sede al programarse. _location_id tiene default para
+-- no romper las llamadas existentes.
 
 drop function if exists public.schedule_technical_visit(uuid, date, text, uuid, text, uuid);
 
@@ -53,24 +41,10 @@ begin
       using errcode = '42501';
   end if;
 
-  -- ── Qué sede atiende la visita ──────────────────────────────────────
-  -- Hasta ahora `technical_visits.location_id` quedaba siempre en null, así
-  -- que las visitas se salían del dominio de sede: aparecían en la agenda de
-  -- todo el mundo.
-  --
-  -- Se resuelve en TRES pasos, del dato más fiable al más débil:
-  --   1. La sede que indique quien programa. Es una decisión explícita y
-  --      manda sobre cualquier deducción.
-  --   2. Si no la indicó, la sede activa en la CIUDAD del proyecto. Una obra
-  --      en Medellín la atiende la tienda de Medellín; deducirlo es razonable
-  --      y verificable, no inventado.
-  --   3. Si el proyecto está en una ciudad sin tienda, se queda en null. NO se
-  --      asigna «la más cercana»: eso sí sería inventar el dato, y una visita
-  --      sin sede la siguen viendo todos, que es el comportamiento correcto
-  --      mientras nadie decida quién la atiende.
+    -- Sede: la indicada por quien programa; si no, la de la ciudad del proyecto;
+    -- si no hay tienda allí, null (no se asigna la más cercana).
   if _location_id is not null then
-    -- Solo si quien programa puede ver esa sede. Si no, se ignora en lugar de
-    -- fallar: la visita se programa igual y queda sin sede.
+      -- Una sede no visible para quien programa se ignora en vez de fallar.
     select pl.id into v_sede
       from public.pickup_locations pl
      where pl.id = _location_id
@@ -98,7 +72,7 @@ begin
   )
   returning id into v_visita;
 
-  -- Quien va a la obra queda asignado al proyecto: si no, no podría abrirlo.
+    -- El técnico se asigna al proyecto; sin eso no podría abrirlo.
   if _technician_id is not null then
     insert into public.project_assignments (project_id, user_id, assignment_role, assigned_by)
     values (_project_id, _technician_id, 'TECNICO', (select auth.uid()))

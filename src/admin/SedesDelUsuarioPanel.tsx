@@ -4,20 +4,8 @@ import { sedesService, type SedePermitida } from '../services/sedes';
 import { Button } from '../components/common/Button';
 
 /**
- * Sedes permitidas de un usuario interno.
- *
- * Es la configuración que hace que el dominio de sede signifique algo: sin
- * asignar nada, la persona ve las siete sedes, que es el estado actual de
- * todas las cuentas internas.
- *
- * SIN SEDES = TODAS, no "ninguna". Se eligió así porque el otro camino deja el
- * portal inservible el día del despliegue para todo el personal que ya existe.
- * El aviso de "sin restricción" está para que acotar sea una decisión
- * deliberada y no algo que se olvide.
- *
- * El administrador es la excepción: ve todas las sedes aunque se le asigne
- * una, porque nadie puede quedarse sin acceso a una sede por un error de
- * configuración. El panel lo dice en voz alta para no prometer lo que no hace.
+ * Sedes permitidas de un usuario. Sin sedes asignadas ve todas (compatibilidad con cuentas
+ * existentes); el administrador siempre ve todas, aunque tenga alguna asignada.
  */
 
 interface Props {

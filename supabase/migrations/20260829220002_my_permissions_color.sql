@@ -1,10 +1,4 @@
--- ============================================================
--- Corrección incremental: my_permissions debe devolver el color
--- ============================================================
--- La migración que creó esta función es anterior a las columnas de color,
--- descripción y distintivo del tablero. No se reescribe una migración ya
--- aplicada: se redefine la función aquí.
--- ============================================================
+-- my_permissions devuelve también color, descripción y distintivo de cada vista.
 
 create or replace function public.my_permissions()
 returns jsonb

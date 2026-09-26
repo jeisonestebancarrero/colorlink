@@ -3,16 +3,8 @@ import { readFileSync, existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 /**
- * Proyectos y visitas técnicas.
- *
- * Lo que se vigila, en orden de gravedad:
- *   1. Que un cliente no vea la obra de otro cliente, ni siquiera con una
- *      sesión válida. Un proyecto lleva la dirección de la casa de alguien.
- *   2. Que un técnico solo vea los proyectos que le asignaron.
- *   3. Que no se pueda asignar a un cliente como técnico de una obra: sería
- *      abrirle el proyecto de un tercero por la puerta de atrás.
- *   4. Que cerrar una visita exija informe. Una visita "realizada" sin
- *      constancia de qué se encontró no sirve para nada.
+ * Proyectos y visitas: un cliente no ve obras ajenas, el técnico solo las asignadas,
+ * un cliente no puede asignarse como técnico y cerrar una visita exige informe.
  */
 
 function leerEnvLocal(): Record<string, string> {
@@ -84,10 +76,7 @@ describe.skipIf(!disponible)('Proyectos y visitas técnicas', () => {
       login(CARLOS), login(ANA), login(TECNICO), login(ADMIN),
     ]);
 
-    // La suite crea su propio proyecto en vez de depender de que exista uno.
-    // Antes tomaba el primero que encontrara, así que cualquier reinicio de la
-    // base la dejaba sin nada con qué trabajar y fallaban nueve pruebas por un
-    // motivo que no tenía relación con lo que verifican.
+    // La suite crea su propio proyecto para no depender de datos sembrados.
     proyecto = (await fetch(`${API}/rest/v1/rpc/create_project`, {
       method: 'POST',
       headers: cab(tCarlos),
@@ -119,8 +108,7 @@ describe.skipIf(!disponible)('Proyectos y visitas técnicas', () => {
         _user_id: idTecnico,
       });
     }
-    // El proyecto de prueba se retira con la clave de servicio: deja
-    // notificaciones y visitas que el propio cliente no puede borrar.
+    // Se borra con la llave de servicio: deja notificaciones y visitas que el cliente no puede borrar.
     if (proyecto && SERVICE) {
       const s = { apikey: SERVICE, Authorization: `Bearer ${SERVICE}` };
       await fetch(`${API}/rest/v1/notifications?project_id=eq.${proyecto}`, { method: 'DELETE', headers: s });
@@ -148,8 +136,7 @@ describe.skipIf(!disponible)('Proyectos y visitas técnicas', () => {
   });
 
   it('no se puede asignar a un cliente como técnico de la obra', async () => {
-    // Si esto pasara, bastaría asignar al cliente A la obra del cliente B
-    // para entregarle su dirección y su diagnóstico.
+    // Si pasara, asignar al cliente A a la obra de B le entregaría su dirección y diagnóstico.
     const r = await rpc('assign_to_project', tAdmin, {
       _project_id: proyecto,
       _user_id: idCarlos,
@@ -219,12 +206,8 @@ describe.skipIf(!disponible)('Proyectos y visitas técnicas', () => {
     }).then((r) => r.json());
     expect(suyos.map((p: { id: string }) => p.id)).toContain(proyecto);
 
-    // Y el cliente se entera sin tener que preguntar.
-    //
-    // Se busca LA notificación de esta visita, no se cuenta el total: otras
-    // suites corren en paralelo sobre el mismo cliente y una de ellas borra
-    // un pedido con sus notificaciones, así que el total puede bajar entre
-    // dos lecturas y la prueba fallaría por algo ajeno a lo que verifica.
+    // El cliente recibe aviso. Se busca la notificación concreta, no el total: otras
+    // suites en paralelo crean y borran notificaciones del mismo cliente.
     const avisos = await fetch(
       `${API}/rest/v1/notifications?select=title,message&user_id=eq.${idCarlos}&project_id=eq.${proyecto}`,
       { headers: cab(tCarlos) },
@@ -278,8 +261,7 @@ describe.skipIf(!disponible)('Proyectos y visitas técnicas', () => {
   });
 
   it('un cliente no puede cambiar el estado de su propio proyecto', async () => {
-    // El estado lo mueve quien atiende la obra. Si lo moviera el cliente,
-    // podría darse por atendido sin que nadie haya ido.
+    // Solo el personal mueve el estado; el cliente podría darse por atendido.
     const r = await rpc('set_project_status', tCarlos, {
       _project_id: proyecto,
       _estado: 'COMPLETADO',
@@ -289,8 +271,7 @@ describe.skipIf(!disponible)('Proyectos y visitas técnicas', () => {
   });
 
   it('el nombre de la persona se puede traer junto con su rol', async () => {
-    // Sin la clave foránea hacia `profiles` esta consulta falla y el
-    // desplegable de "quién va a la obra" queda vacío sin explicación.
+    // Depende de la FK hacia `profiles`; sin ella el selector de técnico queda vacío.
     const r = await fetch(
       `${API}/rest/v1/user_roles?select=user_id,role,profiles:user_id(first_name)&role=eq.TECNICO`,
       { headers: cab(tAdmin) },

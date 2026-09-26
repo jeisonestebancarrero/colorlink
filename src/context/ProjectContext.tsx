@@ -54,10 +54,7 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [projects, setProjects] = useState<Project[]>([]);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
-  // FASE 5 — riesgo R8 resuelto.
-  // Antes arrancaba con 'proj-horiz-001', el id de un proyecto del archivo
-  // mock. Con proyectos reales ese id no existe y el valor solo servía para
-  // confundir: `activeProject` ya cae en el primer proyecto del usuario.
+  // Sin valor inicial: activeProject cae en el primer proyecto del usuario.
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
   const [toast, setToast] = useState<ToastState>({
     message: '',
@@ -76,11 +73,7 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setToast((prev) => ({ ...prev, visible: false }));
   }, []);
 
-  /**
-   * Proyectos y notificaciones son datos privados: sin sesión, las políticas
-   * RLS los deniegan. Antes se pedían igualmente al cargar cualquier página,
-   * y un visitante anónimo veía errores en consola al entrar a la tienda.
-   */
+  /** Solo con sesión: sin ella RLS deniega proyectos y notificaciones y ensucia la consola. */
   const loadInitialData = useCallback(async () => {
     if (!isAuthenticated) {
       setProjects([]);
@@ -160,14 +153,7 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
     showToast('Todas las notificaciones marcadas como leídas', 'info');
   };
 
-  /**
-   * FASE 5 — Los proyectos ya viven en Supabase, así que restablecerlos
-   * sobrescribiendo localStorage dejó de tener efecto: hacerlo habría dejado
-   * un botón que aparenta funcionar sin hacer nada.
-   *
-   * Ahora recarga proyectos y notificaciones desde la base. Nunca borra
-   * datos reales del usuario.
-   */
+  // Restablecer recarga proyectos y notificaciones desde la base; nunca borra datos.
   const activeProject = projects.find((p) => p.id === activeProjectId) || projects[0] || null;
   const unreadNotificationsCount = notifications.filter((n) => !n.read).length;
 

@@ -1,14 +1,4 @@
--- ============================================================
--- La ciudad guardada también va en mayúsculas
--- ============================================================
--- Omisión de 20260902100006: se normalizó `orders.shipping_city` y
--- `shipments.city`, pero no `profiles.city` ni `companies.city`. Quedaba
--- 'MEDELLÍN' en el pedido y 'Medellín' en el perfil del mismo cliente, que es
--- exactamente la inconsistencia que se venía a cerrar.
---
--- El diccionario NO se toca: `municipalities.name` sigue en minúsculas
--- legibles porque es lo que se lee en un desplegable, y el nombre oficial en
--- mayúsculas ya está en `municipalities.name_dane` para los documentos.
+-- Normaliza también profiles.city y companies.city, omitidas en 20260902100006.
 
 create or replace function public.profiles_normalizar()
 returns trigger

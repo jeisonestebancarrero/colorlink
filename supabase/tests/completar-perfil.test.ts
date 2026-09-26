@@ -4,20 +4,8 @@ import { resolve } from 'node:path';
 import { limpiarCuentasDePrueba, clienteDeServicio } from './limpieza';
 
 /**
- * `complete_profile` es la SEGUNDA puerta de entrada al sistema: la de quien
- * llega por Google, que trae correo y nombre pero jamás teléfono ni ciudad.
- *
- * Durante un tiempo esa puerta guardó la ciudad como texto libre mientras el
- * registro normal exigía código DIVIPOLA, así que los clientes de Google
- * quedaban con `city = 'medellin'` y `municipality_code` en nulo. Sin ese
- * código no se puede resolver qué punto de venta cubre la dirección ni a qué
- * asesor va el pedido: el cliente entra, compra y cae en tierra de nadie.
- *
- * Lo que se vigila aquí:
- *   1. Que el municipio quede guardado y que `city` sea el NOMBRE OFICIAL.
- *   2. Que un `_city` escrito a mano no pueda contradecir al municipio.
- *   3. Que un código inventado se rechace en vez de guardarse en nulo, porque
- *      un nulo silencioso deja el perfil incompleto para siempre.
+ * `complete_profile` (entrada por Google, sin teléfono ni ciudad) debe guardar el
+ * código DIVIPOLA con `city` como nombre oficial, sin que `_city` lo contradiga, y rechazar códigos inventados.
  */
 
 function leerEnvLocal(): Record<string, string> {
@@ -39,12 +27,9 @@ const SERVICE = env.SUPABASE_SERVICE_ROLE_KEY ?? '';
 const sello = Date.now();
 const CLIENTE = { email: `perfil.${sello}@correo.test`, password: 'pintuco2025*' };
 
-// Códigos DIVIPOLA reales. Cali se llama oficialmente «Santiago de Cali», y por
-// eso sirve de prueba: nadie lo escribiría así a mano.
+// Códigos DIVIPOLA reales. Cali es oficialmente «Santiago de Cali», que nadie escribiría a mano.
 
-// La base normaliza a mayúsculas al guardar (20260902100006), igual que con los
-// nombres en el registro. Se compara contra el dato NORMALIZADO: comparar contra
-// el literal del catálogo estaría comprobando la caja, no el hecho.
+// La base guarda en mayúsculas; se compara contra el valor normalizado.
 const MEDELLIN = '05001';
 const CALI = '76001';
 const NORM = (t: string) => t.toUpperCase();
@@ -104,8 +89,7 @@ describe.skipIf(!disponible)('Completar perfil · la ciudad sale del catálogo',
   let token = '';
 
   beforeAll(async () => {
-    // Se registra SIN municipio, que es exactamente como llega quien entra con
-    // Google: el proveedor no entrega ubicación.
+    // Sin municipio, como llega quien entra con Google.
     token = await registrar(CLIENTE, {
       first_name: 'Rocío',
       last_name: 'Peláez',
@@ -138,7 +122,7 @@ describe.skipIf(!disponible)('Completar perfil · la ciudad sale del catálogo',
   });
 
   it('el municipio manda sobre la ciudad escrita a mano', async () => {
-    // El caso que producía los datos sucios: dos fuentes para el mismo hecho.
+    // Dos fuentes para el mismo dato: el municipio manda.
     const r = await completarPerfil(token, {
       _city: 'cali',
       _municipality_code: CALI,
@@ -155,7 +139,7 @@ describe.skipIf(!disponible)('Completar perfil · la ciudad sale del catálogo',
     expect(r.ok).toBe(false);
     expect(r.mensaje).toContain('MUNICIPIO_INVALIDO');
 
-    // Y sobre todo: no pisó lo que ya estaba bien guardado.
+    // No debe pisar lo que ya estaba guardado.
     const perfil = await miPerfil(token);
     expect(perfil.municipality_code).toBe(CALI);
   });

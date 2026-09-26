@@ -13,18 +13,9 @@ import {
   type RegistroInput,
 } from '../schemas/auth';
 
-/**
- * Servicio de autenticación respaldado por Supabase Auth.
- *
- * Sustituye la implementación simulada que vivía en services/api.ts y
- * conserva EXACTAMENTE la misma firma pública, de modo que AuthContext y las
- * páginas no requieren reescritura.
- *
- * MÓDULO 1: las contraseñas nunca se almacenan ni se registran aquí.
- * Supabase Auth (auth.users) es la única autoridad de credenciales.
- */
+/** Autenticación sobre Supabase Auth, única autoridad de credenciales; aquí no se guardan contraseñas. */
 
-/** Permisos del usuario actual, calculados en el servidor por public.my_access(). */
+/** Permisos del usuario actual, calculados por public.my_access(). */
 export interface AccessInfo {
   userId: string | null;
   roles: string[];
@@ -57,24 +48,20 @@ interface ProfileRow {
   companies: { name: string } | null;
 }
 
-/** Lo que devuelve un registro: el usuario y si quedó a la espera de aprobación. */
+/** Usuario creado y si quedó pendiente de aprobación. */
 export interface ResultadoRegistro {
   user: User;
   vinculacionPendiente: boolean;
 }
 
-/** Se consulta una sola vez: la configuración no cambia dentro de una sesión. */
+/** Se consulta una vez: la configuración no cambia durante la sesión. */
 let proveedoresCache: Record<string, boolean> | null = null;
 
 const PROFILE_SELECT =
   'id, email, first_name, last_name, phone, city, client_type, company_id, avatar_url, created_at, '
   + 'document_type, document_number, companies(name)';
 
-/**
- * Traduce errores técnicos a mensajes presentables (MÓDULO 44).
- * El detalle interno se envía a la consola; al usuario solo le llega una
- * frase accionable, nunca una violación de constraint en crudo.
- */
+/** Traduce errores técnicos a mensajes accionables; el detalle va a la consola. */
 function toFriendlyError(error: { message: string } | PostgrestError, contexto: string): Error {
   const raw = error.message ?? '';
   console.error(`[auth] ${contexto}:`, raw);
@@ -99,7 +86,7 @@ function toFriendlyError(error: { message: string } | PostgrestError, contexto: 
   return new Error('No fue posible completar la operación. Inténtalo nuevamente.');
 }
 
-/** Convierte una fila de `profiles` en el tipo `User` que ya consume el frontend. */
+/** Fila de `profiles` → tipo `User` del frontend. */
 function toUser(row: ProfileRow): User {
   return {
     id: row.id,
@@ -112,7 +99,7 @@ function toUser(row: ProfileRow): User {
     city: row.city ?? '',
     documentType: row.document_type ?? undefined,
     documentNumber: row.document_number ?? undefined,
-    // El frontend espera 'YYYY-MM-DD', igual que en los datos demo.
+    // El frontend espera 'YYYY-MM-DD'.
     createdAt: row.created_at.split('T')[0],
     avatar: row.avatar_url ?? undefined,
   };
@@ -154,11 +141,7 @@ export const authService = {
     return user;
   },
 
-  /**
-   * Registro. La metadata viaja en `options.data` y el trigger
-   * public.handle_new_user() crea perfil, rol CLIENTE y empresa propia
-   * dentro de la misma transacción.
-   */
+  /** La metadata va en `options.data`; handle_new_user() crea perfil, rol y empresa en la misma transacción. */
   async register(input: RegisterInput): Promise<User> {
     const parsed = registerSchema.safeParse(input);
     if (!parsed.success) {
@@ -185,18 +168,13 @@ export const authService = {
 
     const user = await fetchProfile(data.user.id);
     if (!user) {
-      // Ocurre si la confirmación por correo está activada: la cuenta existe
-      // pero todavía no hay sesión para leer el perfil.
+      // Con confirmación por correo activa la cuenta existe pero aún no hay sesión.
       throw new Error('Cuenta creada. Revisa tu correo para confirmarla antes de iniciar sesión.');
     }
     return user;
   },
 
-  /**
-   * Registro bifurcado. La metadata que se envía cambia según la forma:
-   * a una persona natural no se le pide NIT ni razón social, y por tanto el
-   * trigger no le crea empresa.
-   */
+  /** Registro de persona o empresa; a una persona no se le crea empresa. */
   async registrar(entrada: RegistroInput): Promise<ResultadoRegistro> {
     const parsed =
       entrada.accountType === 'EMPRESA'
@@ -235,10 +213,8 @@ export const authService = {
             address: d.address,
           };
 
-    // Se comprueba el documento ANTES de crear nada. Si se deja llegar hasta
-    // el índice único, el alta revienta dentro del trigger y GoTrue responde
-    // "Database error saving new user": la persona ve un error de servidor y
-    // nunca se entera de que su cédula ya estaba registrada.
+    // Se valida el documento antes de crear nada: si choca con el índice único dentro
+    // del trigger, GoTrue solo devuelve "Database error saving new user".
     if (d.accountType === 'PERSONA') {
       const { data: tomado, error: errorDoc } = await supabase.rpc('documento_ya_registrado', {
         _tipo: d.documentType,
@@ -265,10 +241,8 @@ export const authService = {
       throw new Error('Cuenta creada. Revisa tu correo para confirmarla antes de iniciar sesión.');
     }
 
-    // Si pidió registrar una empresa y la cuenta quedó sin empresa, es porque
-    // ese NIT ya estaba registrado: el servidor dejó una solicitud de
-    // vinculación en lugar de duplicar la compañía o —peor— entregarle el
-    // acceso a la empresa de otro. Hay que decírselo, no dejarlo adivinando.
+    // Empresa pedida pero cuenta sin empresa: el NIT ya existía y el servidor dejó una
+    // solicitud de vinculación en lugar de dar acceso a la empresa ajena.
     const vinculacionPendiente = d.accountType === 'EMPRESA' && !user.company;
 
     return { user, vinculacionPendiente };
@@ -279,11 +253,7 @@ export const authService = {
     if (error) throw toFriendlyError(error, 'logout');
   },
 
-  /**
-   * Actualiza el perfil. Solo se envían las columnas que el usuario tiene
-   * permitido modificar; `company_id` y `status` están excluidos a nivel de
-   * GRANT en la base de datos, no solo aquí.
-   */
+  /** Solo columnas editables; `company_id` y `status` además están vetados por GRANT. */
   async updateUser(updates: Partial<User>): Promise<User> {
     const { data: sessionData } = await supabase.auth.getSession();
     const userId = sessionData.session?.user?.id;
@@ -302,8 +272,7 @@ export const authService = {
       if (error) throw toFriendlyError(error, 'updateUser/profile');
     }
 
-    // El nombre de la empresa vive en `companies`; solo un OWNER/ADMIN de esa
-    // empresa puede cambiarlo y así lo verifica la política RLS.
+    // El nombre vive en `companies`; RLS solo deja cambiarlo a OWNER/ADMIN.
     if (updates.company !== undefined && updates.company.trim() !== '') {
       const { data: perfil } = await supabase
         .from('profiles')
@@ -320,8 +289,7 @@ export const authService = {
       }
     }
 
-    // Cambiar el correo pasa por Supabase Auth, nunca escribiendo la columna
-    // proyectada `profiles.email` directamente.
+    // El correo se cambia vía Supabase Auth, nunca en `profiles.email`.
     if (updates.email !== undefined && updates.email.trim() !== '') {
       const emailValido = emailSchema.safeParse(updates.email.trim());
       if (!emailValido.success) throw new Error(emailValido.error.issues[0].message);
@@ -338,20 +306,11 @@ export const authService = {
   },
 
   /**
-   * Acceso con Google.
-   *
-   * Redirige al consentimiento de Google y vuelve a la aplicación con la
-   * sesión ya establecida. El perfil lo crea el mismo trigger
-   * handle_new_user, que sabe derivar nombre y avatar de los datos que
-   * entrega Google.
-   *
-   * No crea empresa: con Google no hay razón social declarada y no se puede
-   * inventar. El usuario la completa después desde su perfil.
+   * Acceso con Google; handle_new_user crea el perfil con nombre y avatar. No crea
+   * empresa: el usuario la completa luego en su perfil.
    */
   async signInWithGoogle(): Promise<void> {
-    // Se comprueba antes de redirigir. Si el proveedor no está configurado,
-    // `signInWithOAuth` manda el navegador a una página de Supabase con un
-    // JSON crudo que a un cliente no le dice nada y parece un sitio roto.
+    // Se verifica antes de redirigir: un proveedor no configurado deja al usuario ante un JSON crudo de Supabase.
     const habilitados = await this.proveedoresHabilitados();
     if (habilitados.google === false) {
       throw new Error(
@@ -364,8 +323,7 @@ export const authService = {
       options: {
         redirectTo: window.location.origin,
         queryParams: {
-          // Fuerza la pantalla de selección de cuenta: sin esto Google
-          // reutiliza en silencio la última sesión del navegador.
+          // Fuerza elegir cuenta; si no, Google reutiliza la última sesión.
           prompt: 'select_account',
         },
       },
@@ -373,30 +331,19 @@ export const authService = {
     if (error) throw toFriendlyError(error, 'signInWithGoogle');
   },
 
-  /** Envía el correo de restablecimiento de contraseña (MÓDULO 1). */
+  /** Envía el correo de restablecimiento de contraseña. */
   async requestPasswordReset(email: string): Promise<void> {
     const parsed = emailSchema.safeParse(email);
     if (!parsed.success) throw new Error(parsed.error.issues[0].message);
 
-    // Sin redirectTo: el correo lleva un código, no un enlace, para que se
-    // pueda pedir en el computador y leer en el celular.
+    // Sin redirectTo: el correo lleva un código, no un enlace, para leerlo en otro dispositivo.
     const { error } = await supabase.auth.resetPasswordForEmail(parsed.data);
     if (error) throw toFriendlyError(error, 'requestPasswordReset');
   },
 
   /**
-   * Verifica el código de 6 dígitos y fija la contraseña nueva.
-   *
-   * `verifyOtp` es quien valida el código contra el que Supabase Auth generó
-   * y guardó cifrado. La verificación NO se hace en el navegador: aquí no hay
-   * nada que un atacante pueda saltarse cambiando el código de la página.
-   *
-   * Al validar el código queda abierta una sesión y la persona entra directo
-   * a su cuenta. Es correcto: demostró que controla el buzón de ese correo,
-   * que es exactamente la prueba que pide cualquier recuperación. No se cierra
-   * la sesión a la fuerza —sería pedirle que se identifique dos veces seguidas
-   * por lo mismo—; el aviso de que la contraseña cambió se lo manda Supabase
-   * por correo, y ese sí sirve para detectar un cambio que no hizo ella.
+   * Verifica el código de 6 dígitos con `verifyOtp` (en el servidor) y fija la clave.
+   * La sesión que queda abierta es intencional: ya se probó el control del buzón.
    */
   async confirmarCodigoYCambiarPassword(
     email: string,
@@ -426,7 +373,7 @@ export const authService = {
     if (error) throw toFriendlyError(error, 'confirmarCodigoYCambiarPassword');
   },
 
-  /** Fija una contraseña nueva. Requiere sesión activa o enlace de recuperación. */
+  /** Requiere sesión activa o enlace de recuperación. */
   async updatePassword(newPassword: string): Promise<void> {
     const parsed = passwordSchema.safeParse(newPassword);
     if (!parsed.success) throw new Error(parsed.error.issues[0].message);
@@ -435,30 +382,14 @@ export const authService = {
     if (error) throw toFriendlyError(error, 'updatePassword');
   },
 
-  /**
-   * ¿El perfil está incompleto?
-   *
-   * Quien entra con Google llega sin empresa, sin teléfono y sin ciudad,
-   * porque Google no entrega esos datos. Sirve para decidir si hay que
-   * pedirle esa información justo después de entrar.
-   *
-   * Es también la forma de distinguir "ya estaba registrado" de "acaba de
-   * registrarse": un usuario que ya existía tiene su perfil completo y no
-   * vuelve a ver el formulario.
-   */
+  /** Perfil incompleto tras un acceso externo (Google no entrega empresa, teléfono ni documento). */
   perfilIncompleto(user: User | null): boolean {
     if (!user) return false;
 
-    // La razón social solo falta si el usuario dice comprar como empresa.
-    // Un particular NO tiene empresa, y exigírsela lo dejaba atrapado en el
-    // modal de "completa tu perfil" apenas terminaba de registrarse.
+    // La razón social solo se exige a quien compra como empresa.
     const faltaEmpresa = user.clientType !== 'Particular' && user.company.trim() === '';
 
-    // El documento entra en la cuenta: sin él no se puede facturar, y el
-    // registro con Google no lo pide porque Google no lo entrega. Si no se
-    // exige aquí, esas cuentas se quedan sin documento para siempre y el dato
-    // termina pidiéndose por teléfono en el mostrador, que es donde se escribe
-    // mal.
+    // El documento es obligatorio para facturar y Google no lo entrega.
     return (
       faltaEmpresa ||
       user.phone.trim() === '' ||
@@ -468,16 +399,7 @@ export const authService = {
     );
   },
 
-  /**
-   * Qué accesos externos están realmente habilitados en el servidor.
-   *
-   * GoTrue lo publica en /auth/v1/settings. Se consulta ANTES de redirigir
-   * porque, si el proveedor no está configurado, la redirección lleva a una
-   * página de Supabase con un JSON crudo —«Unsupported provider»— que a un
-   * cliente no le dice absolutamente nada y parece que el sitio se rompió.
-   *
-   * El resultado se recuerda: es la misma respuesta durante toda la sesión.
-   */
+  /** Proveedores habilitados según /auth/v1/settings; se consulta antes de redirigir y se cachea. */
   async proveedoresHabilitados(): Promise<Record<string, boolean>> {
     if (proveedoresCache) return proveedoresCache;
     try {
@@ -489,31 +411,20 @@ export const authService = {
       proveedoresCache = cuerpo.external ?? {};
       return proveedoresCache;
     } catch (e) {
-      // Sin respuesta se asume que no hay ninguno: es preferible ocultar un
-      // botón que existe a mostrar uno que va a fallar.
+      // Sin respuesta se asume ninguno: mejor ocultar un botón que mostrar uno que falla.
       console.error('[auth] proveedoresHabilitados:', e);
       return {};
     }
   },
 
-  /**
-   * Con qué proveedor se abrió la sesión ('google', 'email', ...).
-   * Sirve para no afirmarle a alguien que "inició sesión con Google" cuando
-   * en realidad se registró con su correo.
-   */
+  /** Proveedor con que se abrió la sesión ('google', 'email', ...). */
   async proveedorSesion(): Promise<string | null> {
     const { data } = await supabase.auth.getSession();
     const meta = data.session?.user.app_metadata as { provider?: string } | undefined;
     return meta?.provider ?? null;
   },
 
-  /**
-   * Completa los datos que faltan tras un acceso externo.
-   *
-   * Pasa por una RPC y no por un UPDATE directo porque crear la empresa,
-   * la membresía y otorgar el rol CLIENTE_B2B exige escribir en `user_roles`,
-   * tabla que a propósito no admite escritura desde el cliente.
-   */
+  /** Vía RPC porque asignar rol exige escribir en `user_roles`, vetada al cliente. */
   async completeProfile(datos: {
     firstName?: string;
     lastName?: string;
@@ -534,8 +445,7 @@ export const authService = {
       _client_type: datos.clientType ?? null,
       _company: datos.company ?? null,
       _country_code: datos.countryCode ?? null,
-      // Con el código de municipio el servidor IGNORA `_city` y usa el nombre
-      // oficial: es lo que impide que las dos columnas se contradigan.
+      // Con código de municipio el servidor ignora `_city` y usa el nombre oficial.
       _municipality_code: datos.municipalityCode ?? null,
       _document_type: datos.documentType ?? null,
       _document_number: datos.documentNumber ?? null,
@@ -551,10 +461,7 @@ export const authService = {
     return actualizado;
   },
 
-  /**
-   * Roles y empresas del usuario actual, resueltos en el servidor.
-   * Solo sirve para decidir qué se MUESTRA; la autorización real es RLS.
-   */
+  /** Roles y empresas del usuario; solo para decidir qué se muestra, la autorización es RLS. */
   async getAccess(): Promise<AccessInfo> {
     const { data, error } = await supabase.rpc('my_access');
     if (error || !data) return EMPTY_ACCESS;
@@ -576,7 +483,7 @@ export const authService = {
     };
   },
 
-  /** Notifica login/logout/refresco de token para mantener el contexto en sync. */
+  /** Notifica login, logout y refresco de token. */
   onAuthStateChange(callback: (userId: string | null) => void) {
     const { data } = supabase.auth.onAuthStateChange((_event, session) => {
       callback(session?.user?.id ?? null);

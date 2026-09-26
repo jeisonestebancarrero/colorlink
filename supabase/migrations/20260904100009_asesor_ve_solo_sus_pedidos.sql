@@ -1,19 +1,5 @@
--- ============================================================
--- Un asesor ve sus pedidos, no los de todo el mundo
--- ============================================================
--- La política anterior daba a TODO el personal los pedidos de sus sedes. Se le
--- añade una condición y solo una: si quien mira es asesor y NADA MÁS, solo ve
--- los que tiene asignados.
---
--- El «y nada más» es la parte delicada. Quien es asesor y además despacha,
--- factura o administra necesita ver el resto para hacer su trabajo; taparle
--- los pedidos ajenos rompería el despacho y la facturación sin que nadie lo
--- relacione con este cambio. Por eso `solo_asesor()` excluye a quien tenga
--- cualquier otro rol operativo.
---
--- El cliente y su empresa siguen viendo lo suyo exactamente igual: esa parte
--- de la política no se toca.
--- ============================================================
+-- El asesor sin otro rol operativo (solo_asesor) ve solo sus pedidos asignados;
+-- el resto del personal y los clientes conservan su acceso.
 
 drop policy if exists orders_select_propio on public.orders;
 
@@ -32,7 +18,6 @@ create policy orders_select_propio on public.orders
     )
   );
 
--- Las líneas del pedido cuelgan de la política de `orders`, así que no hace
--- falta tocarlas: si el pedido no se ve, sus líneas tampoco.
+-- order_items depende de la política de orders; no requiere cambios.
 
 notify pgrst, 'reload schema';

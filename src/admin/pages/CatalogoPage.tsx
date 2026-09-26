@@ -19,24 +19,15 @@ import { Select } from '../../components/common/Select';
 import { IconoModulo } from '../IconosDeModulo';
 import { KitsPanel } from '../KitsPanel';
 
-// Valores tomados de los enums de la base (`product_environment`,
-// `product_finish`). Si aquí apareciera uno que la base no conoce, guardar
-// fallaría con un error de tipo que no le dice nada a quien lo ve.
+// Deben coincidir con los enums `product_environment` y `product_finish` de la base.
 const AMBIENTES = ['Interior', 'Exterior', 'Ambos', 'Industrial'];
 const ACABADOS = ['Mate', 'Satinado', 'Brillante', 'Semibrillante', 'Texturizado', 'N/A'];
 
 /**
- * Catálogo: qué vende Pintuco y a qué precio.
- *
- * Aquí va el PRECIO, que es lo que ve el cliente. El costo no se edita en
- * esta pantalla —entra con la recepción de mercancía— y solo se muestra a
- * quien tiene el permiso para verlo, porque revela el margen del negocio.
- *
- * Todo se guarda a través de funciones del servidor: la tabla de
- * presentaciones ya no admite lectura completa desde el navegador, justamente
- * porque una de sus columnas es confidencial.
+ * Catálogo y precios. El costo entra por recepciones y solo lo ve quien tiene permiso;
+ * se guarda vía funciones porque la tabla de presentaciones tiene una columna confidencial.
  */
-/** Etiqueta del grupo que reúne lo que todavía nadie clasificó. */
+/** Grupo de productos sin categoría. */
 const SIN_CATEGORIA = 'Sin categoría';
 
 export const CatalogoPage: React.FC = () => {
@@ -56,7 +47,7 @@ export const CatalogoPage: React.FC = () => {
   const [ocupado, setOcupado] = useState(false);
 
   const [editandoProducto, setEditandoProducto] = useState<Partial<ProductoCatalogo> | null>(null);
-  /** Resultado de intentar cargar la imagen de la URL escrita. */
+  /** Resultado de cargar la imagen de la URL. */
   const [avisoImagen, setAvisoImagen] = useState<string | null>(null);
   const [verificandoImagen, setVerificandoImagen] = useState(false);
   const [editandoColor, setEditandoColor] = useState<Partial<ColorCatalogo> | null>(null);
@@ -108,22 +99,14 @@ export const CatalogoPage: React.FC = () => {
     );
   }, [productos, busqueda, estado]);
 
-  /**
-   * Lista de precios: una fila por PRESENTACIÓN, no por producto.
-   *
-   * Es lo que se pide cuando alguien dice «mándame la lista de precios»: el
-   * precio y el SKU viven en la presentación, así que un archivo con una fila
-   * por producto no serviría para cotizar ni para cargar en otro sistema.
-   */
+  /** Lista de precios por presentación, donde viven precio y SKU. */
   const filasDePrecios = useMemo(
     () => productosFiltrados.flatMap((p) =>
       p.presentaciones.map((v) => ({ p, v }))),
     [productosFiltrados],
   );
 
-  /* Los costos solo llegan del servidor a quien tiene `costs.read`; si no, son
-     null. Se omiten las columnas en vez de exportarlas vacías, que se leería
-     como «este producto no tiene costo». */
+  /* Sin `costs.read` el costo llega null: se omiten las columnas en vez de exportarlas vacías. */
   const conCostos = useMemo(
     () => filasDePrecios.some(({ v }) => v.costoEstandar !== null || v.costoPromedio !== null),
     [filasDePrecios],
@@ -268,12 +251,7 @@ export const CatalogoPage: React.FC = () => {
     }
   };
 
-  /**
-   * Los productos, repartidos por categoría y en el mismo orden en que las
-   * categorías se muestran en la tienda. Los que no tienen categoría van al
-   * final en su propio grupo: esconderlos haría que un producto publicado
-   * pareciera perdido.
-   */
+  /** Productos por categoría en el orden de la tienda; los sin categoría van al final. */
   const grupos = useMemo(() => {
     const orden = new Map<string, number>(referencias.categorias.map((c, i) => [c.nombre, i]));
     const porNombre = new Map<string, ProductoCatalogo[]>();
@@ -311,7 +289,7 @@ export const CatalogoPage: React.FC = () => {
     });
   };
 
-  // ── Formulario de producto ────────────────────────────────────────────────
+  // Formulario de producto
   if (editandoProducto) {
     const p = editandoProducto;
     return (
@@ -416,10 +394,7 @@ export const CatalogoPage: React.FC = () => {
               <div className="w-full sm:w-40 shrink-0">
                 <div className="aspect-square rounded-lg border border-slate-200 bg-slate-50 overflow-hidden flex items-center justify-center">
                   {p.imagenUrl ? (
-                    /* Antes, al fallar la carga, la imagen se ocultaba con
-                       `visibility: hidden` y quedaba un cuadro vacío sin
-                       explicación: parecía que el producto no tenía foto
-                       cuando lo que pasaba es que la URL no servía. */
+                    /* Si la imagen falla se muestra el error, no un cuadro vacío. */
                     <ImagenConRespaldo
                       src={p.imagenUrl}
                       alt={p.nombre ? `Imagen de ${p.nombre}` : 'Imagen del producto'}
@@ -433,10 +408,7 @@ export const CatalogoPage: React.FC = () => {
               </div>
 
               <div className="flex-1 space-y-2.5">
-                {/* Cargar por URL sigue siendo válido: la mayoría del
-                    catálogo está así. El aviso solo ataja el error concreto de
-                    pegar la página de resultados de un buscador en lugar de la
-                    imagen, que es lo que dejó un producto con la foto rota. */}
+                {/* URL válida; el aviso detecta páginas pegadas en lugar de imágenes. */}
                 <Input
                   label="URL de la imagen"
                   type="url"
@@ -445,11 +417,7 @@ export const CatalogoPage: React.FC = () => {
                     setAvisoImagen(null);
                     setEditandoProducto({ ...p, imagenUrl: e.target.value || null });
                   }}
-                  // Al salir del campo se INTENTA CARGAR la imagen. Es la única
-                  // comprobación que no se puede engañar: ya se guardaron dos
-                  // URL que eran páginas —una de Google Imágenes y una ficha de
-                  // producto de pintuco.com.co— y las dos pasaban cualquier
-                  // validación por patrón.
+                  // Se intenta cargar la imagen: validar por patrón deja pasar URL de páginas.
                   onBlur={async () => {
                     const url = (p.imagenUrl ?? '').trim();
                     if (url === '') { setAvisoImagen(null); return; }
@@ -639,7 +607,7 @@ export const CatalogoPage: React.FC = () => {
     );
   }
 
-  // ── Listado ───────────────────────────────────────────────────────────────
+  // Listado
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -651,8 +619,7 @@ export const CatalogoPage: React.FC = () => {
             Lo que Pintuco vende y a qué precio. Es lo que el cliente ve en la tienda.
           </p>
         </div>
-        {/* En Kits no va: el panel trae su propio «Nuevo kit», y aquí el
-            botón decía «Nuevo color» y abría el editor de colores. */}
+        {/* En Kits no aplica: el panel tiene su propio «Nuevo kit». */}
         {escribe && pestana !== 'kits' && (
           <Button
             variant="pintuco"
@@ -706,8 +673,7 @@ export const CatalogoPage: React.FC = () => {
         )}
       </div>
 
-      {/* Los kits traen su propia pantalla: no se filtran por estado ni se
-          exportan como lista de precios. */}
+      {/* Los kits no se filtran por estado ni se exportan. */}
       {pestana === 'kits' && <KitsPanel />}
 
       {pestana !== 'kits' && (
@@ -738,8 +704,7 @@ export const CatalogoPage: React.FC = () => {
           ))}
         </select>
 
-        {/* Uno por pestaña: la lista de precios, la carta de colores y las
-            categorías son tres documentos distintos que se piden por separado. */}
+        {/* Un exportador por pestaña. */}
         <div className="ml-auto">
           {pestana === 'productos' && (
             <ExportarBoton<{ p: ProductoCatalogo; v: Presentacion }>
@@ -766,7 +731,7 @@ export const CatalogoPage: React.FC = () => {
                 { titulo: 'Ambiente', valor: ({ p }) => p.ambiente },
                 { titulo: 'Rendimiento (m²/gal)', valor: ({ p }) => p.rendimiento, numerica: true },
                 { titulo: 'Estado', valor: ({ v }) => v.estado },
-                // Solo para quien puede ver costos. Ver la nota de `conCostos`.
+                // Solo con permiso de costos (ver `conCostos`).
                 ...(conCostos ? [
                   { titulo: 'Costo estándar', valor: ({ v }: { v: Presentacion }) => v.costoEstandar, numerica: true },
                   { titulo: 'Costo promedio', valor: ({ v }: { v: Presentacion }) => v.costoPromedio, numerica: true },
@@ -1081,9 +1046,7 @@ export const CatalogoPage: React.FC = () => {
   );
 };
 
-// ============================================================
 // Formularios
-// ============================================================
 const Marco: React.FC<{ titulo: string; onCerrar: () => void; children: React.ReactNode }> = ({
   titulo, onCerrar, children,
 }) => (

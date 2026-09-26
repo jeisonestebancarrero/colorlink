@@ -1,44 +1,8 @@
--- ============================================================
--- País, barrios y centros poblados
--- ============================================================
--- Pintuco despacha a TODO el país, así que el formulario no puede ofrecer
--- solo las ciudades donde hay punto de venta. Los 33 departamentos y los 1.122
--- municipios ya están completos (ver 20260902100001). Esto agrega el nivel de
--- abajo y el de arriba.
---
--- SOBRE LOS BARRIOS, QUE ES LO IMPORTANTE DE ENTENDER:
--- No existe un listado oficial de barrios de todo Colombia. DIVIPOLA llega
--- hasta municipio; los barrios urbanos los define cada alcaldía en su POT y
--- cada una los publica —o no— en su propio portal y con su propio formato.
--- Inventar los barrios de 1.122 municipios sería inventar datos con apariencia
--- oficial, y eso no se hace.
---
--- Lo que sí da cobertura nacional REAL desde el primer día son los CENTROS
--- POBLADOS del DANE: corregimientos, inspecciones y caseríos, con código
--- oficial. Son 7.057 y cubren 934 municipios. Para un envío a zona rural o a
--- un pueblo, ese es justamente el dato que necesita el transportador.
---
--- Así que esta tabla mezcla los dos, cada uno marcado con su procedencia:
---   * CENTRO_POBLADO / DANE     — 7.057, oficial, nacional
---   * BARRIO / ALCALDIA         — oficiales donde la alcaldía los publica
---                                 (hoy Barranquilla, 181)
---   * BARRIO / CLIENTE          — el que escribe un cliente cuando su barrio
---                                 no está en ninguna lista
---
--- El índice único por municipio impide duplicados: "El Poblado", "el poblado"
--- y " El Poblado " son el mismo barrio y solo entra una vez. El primer cliente
--- de un municipio escribe su barrio; los siguientes ya lo eligen de la lista.
--- El portal interno puede revisar lo que entró por 'CLIENTE'.
---
--- FUENTES:
---   Centros poblados: https://www.datos.gov.co/resource/xaxy-8nri.json (DANE)
---   Barrios Barranquilla (POT): https://www.datos.gov.co/resource/qui6-qeux.json
+-- País, barrios y centros poblados. No hay listado oficial nacional de barrios:
+-- se cargan centros poblados del DANE (xaxy-8nri) y barrios de alcaldías que los
+-- publican (Barranquilla, qui6-qeux); el resto lo registra el cliente sin duplicados.
 
--- ------------------------------------------------------------
--- País
--- ------------------------------------------------------------
--- Solo Colombia por ahora, como se pidió. La tabla existe para que sumar otro
--- país sea una fila y no una migración de esquema. Código ISO 3166-1.
+-- Solo Colombia por ahora; sumar un país es una fila. Código ISO 3166-1.
 create table if not exists public.countries (
   code       text primary key,
   name       text not null,
@@ -51,21 +15,17 @@ insert into public.countries (code, name, phone_code, is_active) values
 on conflict (code) do update
   set name = excluded.name, phone_code = excluded.phone_code;
 
--- El departamento cuelga del país: hoy todos de Colombia.
 alter table public.departments
   add column if not exists country_code text references public.countries(code);
 update public.departments set country_code = 'CO' where country_code is null;
 alter table public.departments alter column country_code set not null;
 alter table public.departments alter column country_code set default 'CO';
 
--- ------------------------------------------------------------
--- Barrios y centros poblados
--- ------------------------------------------------------------
 create table if not exists public.neighborhoods (
   id                uuid primary key default gen_random_uuid(),
   municipality_code text not null references public.municipalities(code),
   name              text not null,
-  -- Nombre tal como lo publica la fuente. Nulo cuando lo escribió un cliente.
+    -- Nombre exacto de la fuente; nulo si lo escribió un cliente.
   name_source       text,
   kind              text not null check (kind in ('BARRIO', 'CENTRO_POBLADO')),
   source            text not null check (source in ('DANE', 'ALCALDIA', 'CLIENTE')),
@@ -78,7 +38,7 @@ create table if not exists public.neighborhoods (
 create index if not exists neighborhoods_municipality_idx
   on public.neighborhoods (municipality_code, name);
 
--- Sin duplicados por municipio, ignorando mayúsculas y espacios de sobra.
+-- Único por municipio, ignorando mayúsculas y espacios sobrantes.
 create unique index if not exists neighborhoods_unico_por_municipio
   on public.neighborhoods (municipality_code, lower(btrim(name)));
 
@@ -93,13 +53,7 @@ create policy neighborhoods_lectura_publica
 
 grant select on public.countries, public.neighborhoods to anon, authenticated;
 
--- ------------------------------------------------------------
--- Registrar un barrio que no está en la lista
--- ------------------------------------------------------------
--- Es la única forma de escribir en la tabla desde el cliente, y no es un
--- INSERT abierto: normaliza el nombre y devuelve el que ya exista en lugar de
--- crear un duplicado. Sin esto habría "El Poblado", "el poblado" y "EL
--- POBLADO" como tres barrios distintos en cuanto entraran tres clientes.
+-- Única escritura desde el cliente: normaliza y devuelve el barrio existente en vez de duplicarlo.
 create or replace function public.registrar_barrio(
   _municipality_code text,
   _nombre            text
@@ -123,7 +77,6 @@ begin
     raise exception 'VALIDATION: esa ciudad no está en el listado oficial' using errcode = '22023';
   end if;
 
-  -- Si ya existe (sin importar mayúsculas), se devuelve ese.
   select n.id into v_id
   from public.neighborhoods n
   where n.municipality_code = _municipality_code
@@ -143,9 +96,6 @@ $$;
 revoke all on function public.registrar_barrio(text, text) from public;
 grant execute on function public.registrar_barrio(text, text) to authenticated;
 
--- ------------------------------------------------------------
--- El barrio en las direcciones, las sedes y el pedido
--- ------------------------------------------------------------
 alter table public.customer_addresses
   add column if not exists neighborhood_id uuid references public.neighborhoods(id);
 alter table public.company_branches
@@ -153,7 +103,6 @@ alter table public.company_branches
 alter table public.orders
   add column if not exists shipping_neighborhood_id uuid references public.neighborhoods(id);
 
--- Y en el perfil, para el registro.
 alter table public.profiles
   add column if not exists country_code       text references public.countries(code) default 'CO',
   add column if not exists municipality_code  text references public.municipalities(code),
@@ -168,9 +117,6 @@ alter table public.companies
   add column if not exists municipality_code text references public.municipalities(code),
   add column if not exists neighborhood_id   uuid references public.neighborhoods(id);
 
--- ------------------------------------------------------------
--- Carga
--- ------------------------------------------------------------
 insert into public.neighborhoods (municipality_code, name, name_source, kind, source, dane_code) values
   ('17050', 'San Rafael', 'SAN RAFAEL', 'CENTRO_POBLADO', 'DANE', '17050006'),
   ('17050', 'La Honda', 'LA HONDA', 'CENTRO_POBLADO', 'DANE', '17050012'),

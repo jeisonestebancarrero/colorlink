@@ -3,15 +3,8 @@ import { readFileSync, existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 /**
- * Inventario por punto de venta.
- *
- * Lo que se vigila:
- *   1. Que un traslado mueva las DOS bodegas o ninguna. Como dos movimientos
- *      sueltos, si el segundo fallaba la mercancía salía de un punto y no
- *      entraba en ninguno: desaparecía del sistema.
- *   2. Que no se pueda trasladar más de lo que hay.
- *   3. Que el resumen por punto no se lo pueda leer un cliente. Saber cuánto
- *      stock tiene Pintuco en cada tienda es información comercial.
+ * Inventario por punto: el traslado mueve las dos bodegas o ninguna, no supera
+ * el stock y el resumen por punto no es visible para clientes.
  */
 
 function leerEnvLocal(): Record<string, string> {
@@ -122,7 +115,7 @@ describe.skipIf(!disponible)('Inventario por punto de venta', () => {
     expect(await saldo(origen)).toBe(antesO - 3);
     expect(await saldo(destino)).toBe(antesD + 3);
 
-    // Se devuelve para dejar el inventario como estaba.
+    // Se devuelve para restaurar el inventario.
     await fetch(`${API}/rest/v1/rpc/transfer_inventory`, {
       method: 'POST',
       headers: cab(tAdmin),
@@ -218,7 +211,7 @@ describe.skipIf(!disponible)('Inventario por punto de venta', () => {
     });
     expect(ajeno.ok).toBe(false);
 
-    // Se deja como estaba.
+    // Restaura el valor original.
     await fetch(`${API}/rest/v1/rpc/set_reorder_point`, {
       method: 'POST',
       headers: cab(tAdmin),

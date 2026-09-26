@@ -1,11 +1,5 @@
--- ============================================================
--- BACK-OFFICE · Tablero de aplicaciones
--- ============================================================
--- El lanzador de módulos toma su identidad de la paleta real de Pintuco:
--- cada aplicación es una muestra de color. Los valores viven en la base y no
--- en el código para que el administrador pueda reordenar el tablero, cambiar
--- un color o una descripción sin desplegar.
--- ============================================================
+-- Color, descripción y distintivo de cada app del lanzador, en la base para que
+-- el administrador los cambie sin desplegar.
 
 alter table public.app_views add column color text;
 alter table public.app_views add column description text;

@@ -1,11 +1,5 @@
--- ============================================================
--- FASES 8-13 — Comercio, servicio y notificaciones
--- ============================================================
--- Carrito, pedidos, pagos, envíos, retiro en tienda, visitas técnicas,
--- garantías, notificaciones, favoritos y auditoría.
--- ============================================================
-
--- ---------- ENUMS ----------
+-- Comercio y servicio: carrito, pedidos, pagos, envíos, visitas, garantías,
+-- notificaciones, favoritos y auditoría.
 create type public.order_status as enum (
   'PENDIENTE','CONFIRMADO','PREPARANDO','ENVIADO',
   'LISTO_PARA_RETIRO','ENTREGADO','CANCELADO'
@@ -27,13 +21,9 @@ create type public.warranty_status as enum ('VIGENTE','VENCIDA','ANULADA','EN_RE
 create type public.notification_type as enum ('info','alert','success','update');
 create type public.favorite_kind as enum ('PRODUCT','COLOR','SOLUTION');
 
--- ============================================================
--- MÓDULO 15 — CARRITO
--- ============================================================
 create table public.carts (
   id         uuid primary key default gen_random_uuid(),
   user_id    uuid not null references auth.users (id) on delete cascade,
-  -- Un carrito puede asociarse a un proyecto (MÓDULO 15).
   project_id uuid references public.projects (id) on delete set null,
   is_active  boolean not null default true,
   created_at timestamptz not null default now(),
@@ -60,9 +50,6 @@ create index cart_items_cart_id_idx on public.cart_items (cart_id);
 comment on table public.cart_items is
   'El carrito NO guarda precios: se leen de product_variants al mostrar y al confirmar el pedido (MÓDULO 52).';
 
--- ============================================================
--- MÓDULO 16 — PEDIDOS
--- ============================================================
 create table public.orders (
   id           uuid primary key default gen_random_uuid(),
   order_number text not null unique,
@@ -73,7 +60,7 @@ create table public.orders (
   status public.order_status not null default 'PENDIENTE',
   delivery_method public.delivery_method not null default 'RETIRO_TIENDA',
 
-  -- Dirección congelada en el momento de la compra.
+  -- Dirección congelada al comprar.
   shipping_address text,
   shipping_city    text,
   pickup_location_id uuid references public.pickup_locations (id) on delete set null,
@@ -91,7 +78,7 @@ create table public.orders (
 
   constraint orders_importes_no_negativos
     check (subtotal_cop >= 0 and discount_cop >= 0 and shipping_cop >= 0 and total_cop >= 0),
-  -- El total debe cuadrar: ningún importe puede haber sido inventado.
+  -- El total debe cuadrar con sus componentes.
   constraint orders_total_cuadra
     check (total_cop = subtotal_cop - discount_cop + shipping_cop),
   constraint orders_descuento_no_supera_subtotal check (discount_cop <= subtotal_cop)
@@ -108,9 +95,7 @@ create table public.order_items (
   order_id   uuid not null references public.orders (id) on delete cascade,
   variant_id uuid references public.product_variants (id) on delete set null,
 
-  -- COPIA DEL DATO EN EL MOMENTO DE LA COMPRA (MÓDULO 16).
-  -- Si mañana cambia el precio o el nombre del producto, el pedido histórico
-  -- debe seguir mostrando lo que el cliente compró y pagó.
+  -- Copia al comprar: el histórico no cambia si cambia el catálogo.
   product_name  text not null,
   product_code  text,
   presentation  text,
@@ -127,17 +112,13 @@ create table public.order_items (
 );
 create index order_items_order_id_idx on public.order_items (order_id);
 
--- ============================================================
--- MÓDULO 17 — PAGOS
--- ============================================================
 create table public.payments (
   id         uuid primary key default gen_random_uuid(),
   order_id   uuid not null references public.orders (id) on delete cascade,
   method     public.payment_method not null,
   status     public.payment_status not null default 'PENDIENTE',
   amount_cop numeric(14,2) not null,
-  -- Referencia de la pasarela. NUNCA se almacenan datos de tarjeta:
-  -- ni número, ni CVV, ni fecha de expiración (MÓDULO 17).
+  -- Referencia de la pasarela; nunca datos de tarjeta.
   reference  text,
   gateway    text,
   paid_at    timestamptz,
@@ -151,9 +132,6 @@ create index payments_order_id_idx on public.payments (order_id);
 comment on table public.payments is
   'Estructura preparada para pasarela real. Prohibido almacenar datos sensibles de tarjeta.';
 
--- ============================================================
--- MÓDULO 18 — ENVÍOS
--- ============================================================
 create table public.shipments (
   id         uuid primary key default gen_random_uuid(),
   order_id   uuid not null references public.orders (id) on delete cascade,
@@ -170,9 +148,6 @@ create table public.shipments (
 );
 create index shipments_order_id_idx on public.shipments (order_id);
 
--- ============================================================
--- MÓDULO 22 — VISITAS TÉCNICAS
--- ============================================================
 create table public.technical_visits (
   id            uuid primary key default gen_random_uuid(),
   project_id    uuid not null references public.projects (id) on delete cascade,
@@ -189,9 +164,6 @@ create table public.technical_visits (
 );
 create index technical_visits_project_id_idx on public.technical_visits (project_id);
 
--- ============================================================
--- MÓDULO 23 — GARANTÍAS
--- ============================================================
 create table public.warranties (
   id         uuid primary key default gen_random_uuid(),
   warranty_number text not null unique,
@@ -208,15 +180,12 @@ create table public.warranties (
   updated_at timestamptz not null default now(),
 
   constraint warranties_vigencia_valida check (ends_on > starts_on),
-  -- Una garantía debe amparar algo: un proyecto, un pedido, o ambos.
+  -- Debe amparar un proyecto, un pedido o ambos.
   constraint warranties_con_origen check (project_id is not null or order_id is not null)
 );
 create index warranties_user_id_idx on public.warranties (user_id);
 create sequence public.warranty_number_seq;
 
--- ============================================================
--- MÓDULO 24 — NOTIFICACIONES
--- ============================================================
 create table public.notifications (
   id         uuid primary key default gen_random_uuid(),
   user_id    uuid not null references auth.users (id) on delete cascade,
@@ -233,9 +202,6 @@ create table public.notifications (
 create index notifications_user_id_idx on public.notifications (user_id, created_at desc);
 create index notifications_no_leidas_idx on public.notifications (user_id) where not read;
 
--- ============================================================
--- MÓDULO 25 — FAVORITOS
--- ============================================================
 create table public.favorites (
   id          uuid primary key default gen_random_uuid(),
   user_id     uuid not null references auth.users (id) on delete cascade,
@@ -255,9 +221,6 @@ create table public.favorites (
 create unique index favorites_unico
   on public.favorites (user_id, kind, coalesce(product_id, color_id, solution_id));
 
--- ============================================================
--- MÓDULO 33 — AUDITORÍA
--- ============================================================
 create table public.audit_logs (
   id         uuid primary key default gen_random_uuid(),
   user_id    uuid references auth.users (id) on delete set null,
@@ -270,7 +233,6 @@ create table public.audit_logs (
 create index audit_logs_entity_idx on public.audit_logs (entity, entity_id);
 create index audit_logs_created_at_idx on public.audit_logs (created_at desc);
 
--- Disparadores de updated_at
 create trigger carts_set_updated_at      before update on public.carts      for each row execute function public.set_updated_at();
 create trigger orders_set_updated_at     before update on public.orders     for each row execute function public.set_updated_at();
 create trigger payments_set_updated_at   before update on public.payments   for each row execute function public.set_updated_at();

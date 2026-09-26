@@ -1,53 +1,30 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
 /**
- * Limpieza de las cuentas que crea una prueba.
- *
- * POR QUÉ EXISTE: las dos pruebas que registran usuarios ya borraban al
- * terminar, pero lo hacían recorriendo una lista de ids que iban recogiendo
- * por el camino. Si el `beforeAll` o un `it` se caía a medias, la lista
- * quedaba incompleta y esas cuentas se quedaban en la base para siempre. Así
- * se acumularon 62 usuarios y 71 empresas de prueba, hasta el punto de que la
- * pantalla de Clientes mostraba 72 empresas con el mismo nombre y el negocio
- * real quedaba enterrado debajo.
- *
- * LA FORMA CORRECTA es borrar por PATRÓN, no por lista: todas las cuentas de
- * una corrida comparten el mismo sello de tiempo en el correo, así que una
- * sola pasada las atrapa todas sin importar en qué punto se rompió la prueba.
- *
- * Se limpia además por SUFIJO `.test` en general, para arrastrar lo que
- * hubieran dejado corridas anteriores interrumpidas. Ningún correo real
- * termina en `.test`: es un dominio reservado justamente para esto
- * (RFC 2606), así que el patrón no puede alcanzar a un cliente de verdad.
+ * Limpieza de cuentas de prueba por patrón de correo, no por lista de ids: una prueba
+ * que falla a medias deja la lista incompleta. `.test` es un TLD reservado (RFC 2606).
  */
 
-/** Dominio reservado por la RFC 2606. Ningún correo real termina así. */
+/** TLD reservado (RFC 2606): ningún correo real termina así. */
 export const SUFIJO_DE_PRUEBA = '.test';
 
 export function correoDePrueba(prefijo: string, sello: string | number): string {
   return `${prefijo}.${sello}@correo${SUFIJO_DE_PRUEBA}`;
 }
 
-/**
- * Borra las cuentas de prueba y las empresas que queden sin dueño.
- *
- * @param sello  Si se pasa, solo borra las de esa corrida. Sin él, todas las
- *               que terminen en `.test`, incluidas las de corridas anteriores.
- */
+/** Borra las cuentas de prueba (de la corrida `sello`, o todas las `.test`) y las empresas huérfanas. */
 export async function limpiarCuentasDePrueba(
   admin: SupabaseClient,
   sello?: string | number,
 ): Promise<{ usuarios: number; empresas: number }> {
   let usuarios = 0;
 
-  // `listUsers` pagina: sin recorrer las páginas, una base con muchas cuentas
-  // deja fuera justo las que se acaban de crear.
+  // `listUsers` pagina: sin recorrerlo, las cuentas recién creadas pueden quedar fuera.
   for (let pagina = 1; pagina <= 20; pagina += 1) {
     const { data, error } = await admin.auth.admin.listUsers({ page: pagina, perPage: 200 });
     if (error || !data || data.users.length === 0) break;
 
-    // `listUsers` viene sin tipar en esta versión del SDK; se acota a lo que
-    // se usa en lugar de arrastrar `never`.
+    // `listUsers` viene sin tipar en esta versión del SDK.
     const lista = data.users as Array<{ id: string; email?: string | null }>;
     const objetivo = lista.filter((u) => {
       const correo = (u.email ?? '').toLowerCase();
@@ -63,19 +40,12 @@ export async function limpiarCuentasDePrueba(
     if (lista.length < 200) break;
   }
 
-  // Las empresas que se queden sin ningún perfil, miembro, sede ni operación.
-  // `profiles.company_id` es ON DELETE SET NULL, así que al irse el último
-  // empleado la empresa queda colgando sin que nada la borre.
+  // `profiles.company_id` es ON DELETE SET NULL: la empresa queda colgando al irse el último empleado.
   const empresas = await borrarEmpresasHuerfanas(admin);
   return { usuarios, empresas };
 }
 
-/**
- * Empresas sin dueño ni operación.
- *
- * Se comprueban TODAS las referencias y no solo el perfil: una empresa con un
- * pedido histórico no es basura, aunque hoy no tenga usuarios.
- */
+/** Empresas sin ninguna referencia: una con pedidos históricos no es basura aunque no tenga usuarios. */
 export async function borrarEmpresasHuerfanas(admin: SupabaseClient): Promise<number> {
   const { data: todas } = await admin.from('companies').select('id');
   const ids = ((todas ?? []) as Array<{ id: string }>).map((c) => c.id);
@@ -112,22 +82,8 @@ export function clienteDeServicio(api: string, service: string): SupabaseClient 
 }
 
 /**
- * Crea un pedido de prueba para el cliente indicado.
- *
- * POR QUÉ EXISTE: las pruebas del chat y de la campana usaban un pedido que
- * venía sembrado con los datos de demostración. Al quitar la demo —el sistema
- * pasó a la versión real— esos pedidos desaparecieron y las pruebas se
- * quedaron sin sobre qué trabajar.
- *
- * Una prueba que depende de datos que alguien sembró alguna vez es una prueba
- * frágil: funciona hasta que se limpia la base, y entonces falla por un motivo
- * que no tiene que ver con lo que estaba comprobando. El dato que una prueba
- * necesita lo crea la prueba.
- *
- * Se inserta con la llave de servicio y no por `create_order_from_cart` a
- * propósito: aquí no se está probando el alta de pedidos, solo hace falta un
- * pedido sobre el que conversar. Pasar por el flujo completo ataría estas
- * pruebas a los cambios de aquél.
+ * Crea un pedido de prueba con la llave de servicio, sin pasar por `create_order_from_cart`,
+ * para no atar estas pruebas al flujo de alta de pedidos.
  */
 export async function crearPedidoDePrueba(
   admin: SupabaseClient,
@@ -146,8 +102,7 @@ export async function crearPedidoDePrueba(
       delivery_method: 'RETIRO_TIENDA',
       subtotal_cop: 100000,
       total_cop: 100000,
-      // El disparador `orders_exigir_datos_de_entrega` los exige: un pedido sin
-      // quien reciba es lo que hacía que la mercancía se quedara en la puerta.
+      // Los exige el disparador `orders_exigir_datos_de_entrega`.
       recipient_name: 'PRUEBA AUTOMATIZADA',
       recipient_document_type: 'CC',
       recipient_document_number: '10000000',
@@ -161,12 +116,7 @@ export async function crearPedidoDePrueba(
   return { id: o.id, numero: o.order_number };
 }
 
-/**
- * Borra un pedido de prueba y todo lo que cuelga de él.
- *
- * `invoices` RESTRINGE el borrado del pedido, así que va primero. El resto
- * —líneas, pagos, mensajes, avisos— cae en cascada.
- */
+/** Borra un pedido de prueba: `invoices` restringe el borrado y va primero; el resto cae en cascada. */
 export async function borrarPedidoDePrueba(
   admin: SupabaseClient,
   orderId: string,

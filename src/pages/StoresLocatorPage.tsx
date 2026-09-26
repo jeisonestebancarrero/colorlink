@@ -26,7 +26,6 @@ interface StoresLocatorPageProps {
 }
 
 export const StoresLocatorPage: React.FC<StoresLocatorPageProps> = ({ onNavigate }) => {
-  // FASE 4 — puntos de retiro desde Supabase (tabla pickup_locations).
   const { data: PINTUCO_STORES, isLoading, error, reload } = usePickupStores();
 
   const { selectedStore, setSelectedStore, setIsCartOpen } = useCart();
@@ -52,7 +51,6 @@ export const StoresLocatorPage: React.FC<StoresLocatorPageProps> = ({ onNavigate
     showToast(`Tienda "${st.name}" seleccionada para retiro`, 'success');
   };
 
-  // FASE 4 — estados de carga y error (MÓDULO 37).
   if (isLoading) return <CatalogLoading />;
   if (error) return <CatalogError mensaje={error} onReintentar={reload} />;
 

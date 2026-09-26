@@ -4,24 +4,9 @@ import { resolve } from 'node:path';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
 /**
- * Las vistas de reportes tienen que respetar RLS.
- *
- * EL AGUJERO QUE ESTO VIGILA, y que estuvo abierto de verdad: en PostgreSQL
- * una vista se ejecuta con los permisos de su DUEÑO, no de quien la consulta,
- * salvo que se marque `security_invoker = true`. El dueño es `postgres`, que es
- * superusuario, así que RLS se apagaba dentro de la vista. `invoices` estaba
- * bien protegida y `v_cartera` publicaba su contenido igual: con la llave
- * pública que va dentro del paquete JavaScript, SIN INICIAR SESIÓN, se leían
- * las 4 facturas y los $991.300 de cartera, con nombre de cliente y mora.
- *
- * Es la misma clase de fallo que ya se tapó en las funciones `SECURITY
- * DEFINER` (`resumen_panel`, `analitica_ventas`), entrando por otra puerta. Y
- * es de los que vuelven solos: basta un `create or replace view` futuro sin la
- * opción para reabrirlo, porque la opción NO se hereda al reemplazar la vista.
- * De ahí que esta prueba mire el comportamiento, no la definición.
- *
- * Se prueba SIN SESIÓN a propósito. Que un administrador vea la cartera no
- * demuestra nada; lo que hay que demostrar es que un desconocido no.
+ * Las vistas de reportes deben respetar RLS: sin `security_invoker` corren como su
+ * dueño (`postgres`) y exponen los datos con la anon key. La opción no se hereda con
+ * `create or replace view`, así que se prueba el comportamiento, sin sesión.
  */
 
 function leerEnvLocal(): Record<string, string> {
@@ -43,7 +28,7 @@ const SERVICE = env.SUPABASE_SERVICE_ROLE_KEY ?? '';
 const ADMIN = { email: 'admin@pintuco.demo', password: 'pintuco2025*' };
 const CLIENTE = { email: 'ana.torres@edificarplus.com', password: 'pintuco2025*' };
 
-/** Vistas que NO pueden verse sin sesión, y qué revela cada una. */
+/** Vistas que no pueden verse sin sesión, y qué revela cada una. */
 const RESERVADAS = [
   ['v_cartera', 'quién nos debe, cuánto y desde cuántos días'],
   ['v_costos_catalogo', 'el costo y por tanto el margen de cada producto'],
@@ -66,7 +51,7 @@ async function hayInstancia(): Promise<boolean> {
 const disponible = await hayInstancia();
 
 describe.skipIf(!disponible)('Vistas de reportes y RLS', () => {
-  /** Cliente sin autenticar: lleva la misma llave pública que el navegador. */
+  /** Cliente sin autenticar, con la misma anon key del navegador. */
   let visitante: SupabaseClient;
 
   beforeAll(() => {
@@ -77,9 +62,7 @@ describe.skipIf(!disponible)('Vistas de reportes y RLS', () => {
     it(`${vista} no se puede leer sin sesión (revela ${revela})`, async () => {
       const { data, error } = await visitante.from(vista).select('*').limit(50);
 
-      // Vale cualquiera de las dos formas de negarlo: un error de permisos, o
-      // cero filas porque la política de la tabla base no aplica a `anon`.
-      // Lo que NO vale es que devuelva datos.
+      // Vale un error de permisos o cero filas; lo que no vale es que devuelva datos.
       if (error) {
         expect(error.message).toMatch(/permission denied|does not exist|policy/i);
       } else {
@@ -89,16 +72,14 @@ describe.skipIf(!disponible)('Vistas de reportes y RLS', () => {
   }
 
   it('v_cartera devolvía 4 facturas sin sesión: ya no devuelve ninguna', async () => {
-    // La cifra concreta del agujero, para que la prueba falle de forma
-    // reconocible si se reabre.
+    // Comprobación puntual de la cartera, para que un fallo sea reconocible.
     const { data, error } = await visitante
       .from('v_cartera').select('invoice_number, customer_name, saldo');
     expect(error ? [] : (data ?? [])).toHaveLength(0);
   });
 
   it('el catálogo público SÍ sigue abierto: es la tienda', async () => {
-    // La contrapartida. Si el arreglo hubiera cerrado esto, la tienda dejaría
-    // de mostrar productos a quien no ha iniciado sesión.
+    // Contrapartida: el catálogo debe seguir visible sin sesión.
     const { data, error } = await visitante
       .from('v_variant_availability').select('*').limit(5);
     expect(error).toBeNull();
@@ -129,8 +110,7 @@ describe.skipIf(!disponible)('Vistas de reportes y RLS', () => {
     });
 
     it('el administrador sigue viendo la cartera completa', async () => {
-      // Es la mitad que importa del arreglo: cerrar la fuga sin apagar la
-      // pantalla de tesorería.
+      // El personal de tesorería sigue viendo la cartera.
       const { data, error } = await admin
         .from('v_cartera').select('invoice_number, saldo, company_id');
       expect(error).toBeNull();
@@ -138,14 +118,8 @@ describe.skipIf(!disponible)('Vistas de reportes y RLS', () => {
     });
 
     it('v_cartera atribuye cada saldo a la empresa correcta', async () => {
-      // Se agregó para la pantalla del cupo de crédito: sin `company_id` no
-      // hay forma de saber cuánto debe ya una constructora a la que se le va a
-      // aprobar un cupo.
-      //
-      // Se comprueba que COINCIDA con la del pedido, no que exista alguna con
-      // empresa: al quitar los datos de demostración quedaron solo facturas de
-      // personas naturales, y exigir una empresa hacía fallar la prueba por
-      // cómo son los datos y no por si la vista está bien.
+      // `company_id` alimenta la pantalla de cupo de crédito. Se compara con el del pedido
+      // en vez de exigir una empresa, que depende de los datos presentes.
       const { data } = await admin
         .from('v_cartera').select('invoice_id, company_id, saldo');
       const filas = (data ?? []) as Array<{ invoice_id: string; company_id: string | null }>;
@@ -175,7 +149,7 @@ describe.skipIf(!disponible)('Vistas de reportes y RLS', () => {
 
     it('un cliente no ve la cartera de los demás', async () => {
       const { data, error } = await cliente.from('v_cartera').select('invoice_number, saldo');
-      // Puede ver SUS facturas, nunca las de otro. Hoy no tiene ninguna.
+      // Ve solo sus facturas, nunca las de otro.
       if (!error) {
         for (const f of data ?? []) {
           expect(f).toHaveProperty('invoice_number');

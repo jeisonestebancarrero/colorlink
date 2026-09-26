@@ -6,13 +6,7 @@ import { Button } from '../components/common/Button';
 import { Input } from '../components/common/Input';
 import { RecuperarPasswordModal } from '../components/common/RecuperarPasswordModal';
 
-/**
- * Acceso del personal interno.
- *
- * Deliberadamente sobrio y sin nada comercial: no hay registro, ni acceso con
- * Google, ni enlace a la tienda. Este portal no se autoservicia — las cuentas
- * las crea un administrador.
- */
+/** Acceso del personal: sin registro ni Google; las cuentas las crea un administrador. */
 export const AdminLogin: React.FC = () => {
   const { entrar } = useAdminAuth();
   const [email, setEmail] = useState('');
@@ -104,9 +98,7 @@ export const AdminLogin: React.FC = () => {
         </div>
       </div>
 
-      {/* El personal interno recupera la contraseña por el mismo mecanismo que
-          los clientes: el código llega al correo corporativo. No hay puerta
-          trasera ni un administrador que pueda ver o dictar contraseñas. */}
+      {/* Misma recuperación que el cliente: código al correo; nadie puede ver ni dictar contraseñas. */}
       <RecuperarPasswordModal
         abierto={recuperando}
         onClose={() => setRecuperando(false)}

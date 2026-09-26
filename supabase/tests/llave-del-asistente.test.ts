@@ -4,21 +4,8 @@ import { resolve } from 'node:path';
 import { limpiarCuentasDePrueba, clienteDeServicio } from './limpieza';
 
 /**
- * La llave del asistente se comprueba antes de guardarse.
- *
- * Esto no es una precaución teórica. En el servidor de producción se pegó en
- * esa casilla el SECRETO DE CLIENTE DE GOOGLE (`GOCSPX-…`). La función lo
- * guardó sin protestar y el único síntoma fue que el asistente respondía «no
- * está disponible en este momento», que no señala a ninguna parte. El motivo
- * real solo apareció leyendo lo que contestaba OpenAI.
- *
- * Y el daño no fue la confusión: ese secreto se mandó a OpenAI como credencial
- * en cada intento, y quedó en los registros de un tercero. Un secreto de otro
- * proveedor salió del sistema por haberse escrito en la casilla de al lado.
- *
- * Se comprueba además que el mensaje NOMBRE el prefijo de lo que se pegó: quien
- * se equivoca de casilla necesita saber cuál secreto puso para ir a buscar el
- * correcto, y no le sirve un «llave inválida».
+ * La llave del asistente se valida antes de guardarse: una llave de otro proveedor
+ * acabaría enviada a OpenAI como credencial. El error nombra el prefijo detectado.
  */
 
 function leerEnvLocal(): Record<string, string> {
@@ -87,7 +74,7 @@ describe.skipIf(!disponible)('Llave del asistente · no acepta el secreto de otr
       body: JSON.stringify({ user_id: id, role: 'ADMINISTRADOR' }),
     });
 
-    // Esta es la base de trabajo: la llave real se guarda y se devuelve.
+    // Caso base: la llave válida se guarda y se devuelve.
     const c = await fetch(`${API}/rest/v1/app_settings?select=ai_enabled,ai_api_key,ai_model,ai_provider&limit=1`, { headers: admin() });
     original = ((await c.json()) as Record<string, unknown>[])[0] ?? null;
   });
@@ -116,7 +103,7 @@ describe.skipIf(!disponible)('Llave del asistente · no acepta el secreto de otr
       ai_enabled: true, ai_provider: 'openai', ai_api_key: 'GOCSPX-abc123def456ghi',
     });
     expect(r.mensaje).toContain('GOCSPX-');
-    // Y nunca la llave entera.
+    // Nunca la llave completa.
     expect(r.mensaje).not.toContain('abc123def456ghi');
   });
 

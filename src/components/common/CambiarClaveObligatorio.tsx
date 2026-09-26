@@ -6,15 +6,8 @@ import { Button } from './Button';
 import { Input } from './Input';
 
 /**
- * Cambio obligatorio de la contraseña provisional.
- *
- * Pantalla completa y sin salida —solo cerrar sesión—, igual que el segundo
- * factor: si se pudiera esquivar con Escape no sería una obligación, y la
- * contraseña que un administrador dictó por teléfono seguiría sirviendo.
- *
- * Se explica POR QUÉ aparece. Una pantalla que exige algo sin decir el motivo
- * se lee como un fallo del sistema, y lo primero que hace la gente es llamar a
- * soporte.
+ * Cambio obligatorio de la clave provisional. Pantalla sin salida (solo cerrar sesión)
+ * y con el motivo explicado, para que no se lea como un fallo.
  */
 export const CambiarClaveObligatorio: React.FC<{
   correo: string | null;

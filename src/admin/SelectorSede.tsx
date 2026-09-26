@@ -3,24 +3,11 @@ import { Store, Check, ChevronDown, Lock, Loader2 } from 'lucide-react';
 import { useSedes } from './SedeContext';
 
 /**
- * Selector de sede del portal interno, al estilo del selector de compañías de
- * Odoo: se pueden activar varias a la vez.
- *
- * Por qué varias y no una: un jefe regional necesita ver Medellín e Itagüí
- * juntas para decidir un traslado; obligarlo a alternar entre las dos le
- * esconde justo la comparación que necesita.
- *
- * Lo que ofrece son SOLO las sedes permitidas por el servidor. Y aunque
- * alguien manipule esta lista, RLS sigue negando lo que no tiene asignado: el
- * selector acota la vista, no el acceso.
+ * Selector multisede (como las compañías de Odoo) para comparar sedes juntas.
+ * Acota la vista, no el acceso: RLS sigue filtrando las sedes no asignadas.
  */
 interface Props {
-  /**
-   * 'lateral' — barra de navegación de un módulo (ancho completo).
-   * 'barra'   — cabecera del lanzador de aplicaciones (compacto).
-   * Es el MISMO selector en los dos sitios a propósito: si el lanzador tuviera
-   * uno distinto, la sede elegida allí podría no ser la que se aplica dentro.
-   */
+  /** 'lateral' en la barra del módulo, 'barra' en el lanzador; mismo componente para compartir la selección. */
   variante?: 'lateral' | 'barra';
 }
 
@@ -50,8 +37,7 @@ export const SelectorSede: React.FC<Props> = ({ variante = 'lateral' }) => {
     );
   }
 
-  // Sin sedes permitidas no hay nada que elegir, y decirlo es mejor que
-  // mostrar un desplegable vacío: significa que le quitaron todas las sedes.
+  // Sin sedes permitidas se avisa en lugar de mostrar un desplegable vacío.
   if (permitidas.length === 0) {
     return (
       <div className={`px-2.5 py-2 rounded-lg bg-rose-500/15 border border-rose-400/30 ${

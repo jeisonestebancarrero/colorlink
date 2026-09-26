@@ -1,18 +1,6 @@
--- ¿Mi cuenta tiene contraseña?
---
--- Hace falta para saber si a alguien se le ofrece CREAR una contraseña o
--- CAMBIARLA, y sobre todo si hay que pedirle la actual antes de cambiarla.
---
--- El dato no se puede sacar del cliente. La tentación es mirar las identidades
--- que devuelve `getUser()`, pero engaña: cuando a una cuenta de Google se le
--- pone contraseña, Supabase NO le agrega una identidad de tipo `email`. La
--- pantalla seguiría ofreciendo «crea una contraseña» para siempre, y nunca
--- pediría la actual —que es justo lo que impide que una sesión olvidada en un
--- computador ajeno se quede con la cuenta—.
---
--- Devuelve un booleano y nada más. No expone el hash ni su longitud: saber si
--- una cuenta usa contraseña es algo que su propio dueño ya sabe, pero el hash
--- no tiene por qué salir de la base jamás.
+-- Indica si la cuenta tiene contraseña, para pedir la actual antes de cambiarla.
+-- No sirve mirar identidades en el cliente: agregar contraseña a una cuenta de Google
+-- no crea identidad email. Solo devuelve un booleano, nunca el hash.
 create or replace function public.tengo_password()
 returns boolean
 language sql

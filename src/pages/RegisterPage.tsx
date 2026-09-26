@@ -43,17 +43,8 @@ type TipoCuenta = 'PERSONA' | 'EMPRESA';
 const CLIENTES_EMPRESA = ['Constructor', 'Empresa', 'Profesional', 'Distribuidor'] as const;
 
 /**
- * Registro bifurcado.
- *
- * El formulario anterior era uno solo y le exigía razón social a todo el
- * mundo, así que un particular tenía que inventarse una empresa para poder
- * comprar. Se separa en dos caminos porque los datos son realmente distintos:
- * una persona natural se identifica con su cédula y una empresa con su NIT.
- *
- * El INICIO DE SESIÓN, en cambio, sigue siendo uno solo: cuando entra la
- * contraseña el sistema ya sabe quién eres, y obligar a elegir portal antes
- * de identificarse solo produce el clásico "usuario no existe" por haber
- * tocado la puerta equivocada.
+ * Registro en dos caminos: persona natural (cédula) o empresa (NIT). El inicio de
+ * sesión sigue siendo uno solo porque tras autenticar ya se sabe quién es.
  */
 export const RegisterPage: React.FC<RegisterPageProps> = ({ onNavigate }) => {
   const { registrar, loginWithGoogle, isSubmitting } = useAuth();
@@ -71,8 +62,7 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onNavigate }) => {
       .catch(() => setConGoogle(false));
   }, []);
 
-  // El aviso vive arriba del formulario y el botón está abajo: sin esto, quien
-  // envía un formulario largo no ve nunca por qué no se creó su cuenta.
+  // El aviso queda arriba y el botón abajo: sin esto no se vería por qué falló.
   useEffect(() => {
     if (errors.form) {
       avisoError.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -94,9 +84,7 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onNavigate }) => {
     confirmPassword: '',
   });
 
-  // La ciudad ya no se escribe: se elige del diccionario DIVIPOLA. Antes el
-  // campo venía con 'Medellín' puesto, así que quien no lo tocaba quedaba
-  // registrado en Medellín sin haberlo dicho.
+  // Ciudad desde DIVIPOLA, sin valor por defecto: no se asume ninguna.
   const [ubicacion, setUbicacion] = useState<ValorUbicacion>(UBICACION_VACIA);
   const [erroresUbicacion, setErroresUbicacion] = useState<ErroresUbicacion>({});
 
@@ -160,8 +148,7 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onNavigate }) => {
 
     let neighborhoodId: string | null = null;
     try {
-      // Si el barrio se escribió porque no estaba en la lista, se incorpora
-      // ahora: el servidor lo normaliza y no lo duplica.
+      // El barrio escrito a mano se incorpora; el servidor lo normaliza sin duplicar.
       neighborhoodId = await resolverBarrio(ubicacion);
     } catch (err) {
       setErroresUbicacion({
@@ -204,18 +191,15 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onNavigate }) => {
             },
       );
 
-      // Cuando el NIT ya estaba registrado no se crea una empresa nueva: queda
-      // una solicitud para que el dueño de esa cuenta la apruebe. Mandar a la
-      // persona al tablero sin avisarle la dejaría preguntándose por qué no ve
-      // los proyectos de su compañía.
+      // NIT ya registrado: queda una solicitud de vinculación que aprueba el dueño,
+      // y se avisa para que no espere ver ya los proyectos de la empresa.
       if (vinculacionPendiente) {
         setPendienteAprobacion(true);
         return;
       }
       onNavigate('dashboard');
     } catch (err) {
-      // El servicio ya traduce el error a un mensaje presentable
-      // (p. ej. "Ya existe una cuenta con este correo electrónico").
+      // El servicio ya traduce el error a un mensaje presentable.
       setErrors({
         form:
           err instanceof Error ? err.message : 'No se pudo completar el registro. Intenta de nuevo.',
@@ -248,7 +232,7 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onNavigate }) => {
     </div>
   );
 
-  // ── Resultado: la empresa ya existía y la vinculación quedó en trámite ────
+  // Resultado: la empresa ya existía y la vinculación quedó en trámite
   if (pendienteAprobacion) {
     return (
       <div className="min-h-screen bg-slate-50 flex flex-col justify-center py-12">
@@ -293,7 +277,7 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onNavigate }) => {
     );
   }
 
-  // ── Paso 0: elegir el tipo de cuenta ──────────────────────────────────────
+  // Paso 0: tipo de cuenta
   if (tipoCuenta === null) {
     return (
       <div className="min-h-screen bg-slate-50 flex flex-col justify-center py-12">
@@ -375,7 +359,7 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onNavigate }) => {
     );
   }
 
-  // ── Paso 1: el formulario del camino elegido ──────────────────────────────
+  // Paso 1: formulario del camino elegido
   const esEmpresa = tipoCuenta === 'EMPRESA';
 
   return (
@@ -469,9 +453,8 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onNavigate }) => {
                   options={TIPOS_DOCUMENTO.map((t) => ({ value: t, label: ETIQUETA_DOCUMENTO[t] }))}
                   value={datos.documentType}
                   onChange={(e) => {
-                    // Cambiar de pasaporte a cédula tiene que limpiar las
-                    // letras que ya estaban escritas; si no, quedan guardadas
-                    // en un campo que ya no las admite.
+                    // Al pasar de pasaporte a cédula se limpian las letras que ya
+                    // no admite el campo.
                     const tipo = e.target.value;
                     set('documentType', tipo);
                     set('documentNumber', normalizarDocumento(tipo, datos.documentNumber));
@@ -514,11 +497,8 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onNavigate }) => {
               />
             </div>
 
-            {/* Ubicación y dirección.
-                Despachamos a todo el país, así que están los 33 departamentos
-                y los 1.122 municipios del DANE, no una lista de ciudades
-                principales. Se elige, no se escribe: así no vuelven a
-                aparecer 'Bogotá' y 'Bogotá D.C.' como dos ciudades. */}
+            {/* Todos los municipios del DANE; se eligen para no duplicar ciudades
+                escritas distinto. */}
             <div className="space-y-3 pt-1">
               <p className="text-xs font-bold text-slate-700 uppercase tracking-wide">
                 {esEmpresa ? 'Ubicación de la empresa' : '¿Dónde te encontramos?'}

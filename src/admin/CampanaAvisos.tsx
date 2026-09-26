@@ -3,20 +3,8 @@ import { Bell } from 'lucide-react';
 import { avisoInternoService, type AvisoInterno } from '../services/backoffice';
 
 /**
- * Campana de avisos del portal interno.
- *
- * Va SEPARADA de la de mensajes, igual que en la tienda: un aviso se lee y se
- * archiva —«te asignaron una obra»—, un mensaje espera respuesta. Mezclarlos
- * haría que una asignación tapara una pregunta de un cliente sin contestar.
- *
- * Estos avisos existían desde siempre en `notifications` con destinatarios
- * internos —`assign_to_project` avisa a quien se asigna una obra,
- * `handle_new_user` a quien administra una empresa— pero el portal no los
- * mostraba en ninguna parte: llegaban a la base y nadie los veía.
- *
- * Aquí sí se marca leído al ABRIR el aviso, no al desplegar la lista: es una
- * notificación individual, no una conversación, y quedarían todas marcadas de
- * una pasada solo por mirar el número.
+ * Avisos internos de `notifications`, separados de los mensajes para que no tapen preguntas
+ * sin responder. Cada aviso se marca leído al abrirlo, no al desplegar la lista.
  */
 export const CampanaAvisos: React.FC<{
   /** Para llevar a la obra o al pedido del que habla el aviso. */
@@ -33,8 +21,7 @@ export const CampanaAvisos: React.FC<{
 
   useEffect(() => { void cargar(); }, [cargar]);
 
-  /* La campana muestra PENDIENTES, no historial: con los leídos dentro, el
-     aviso nuevo se pierde entre los ya atendidos y se deja de abrir. */
+  /* Solo pendientes: con los leídos, el aviso nuevo se pierde. */
   const pendientes = avisos.filter((a) => !a.leido);
   const sinLeer = pendientes.length;
 

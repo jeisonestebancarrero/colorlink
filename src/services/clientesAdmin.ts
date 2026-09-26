@@ -1,19 +1,9 @@
 import { supabase } from '../lib/supabase';
 
 /**
- * Clientes empresa vistos desde el portal INTERNO: sus sedes y las
- * direcciones de sus usuarios.
- *
- * Existe porque el despacho necesitaba poder mirar y corregir a dónde va la
- * mercancía de un cliente sin pedirle a la empresa que entre a su perfil. Un
- * teléfono mal escrito o una sede sin indicaciones se resolvían por chat y
- * quedaban solo ahí.
- *
- * Los permisos NO los decide este archivo: `company_branches` deja escribir a
- * quien tenga `users.manage`, y `customer_addresses` deja LEER a quien tenga
- * `orders.read` —leer, no escribir: la dirección personal de un cliente la
- * cambia el cliente—. Aquí solo se consulta qué puede hacer quien mira, para
- * no ofrecer botones que el servidor va a rechazar.
+ * Clientes empresa desde el portal interno: sedes y direcciones de sus usuarios.
+ * Los permisos los aplica la base (`users.manage` escribe sedes, `orders.read` solo
+ * lee direcciones); aquí solo se consulta para no ofrecer botones que fallarán.
  */
 
 export interface ClienteEmpresa {
@@ -26,15 +16,11 @@ export interface ClienteEmpresa {
   status: string;
   sedes: number;
   miembros: number;
-  /** Logotipo de la empresa. Casi siempre null: casi nadie lo ha cargado. */
+  /** Normalmente null. */
   logoUrl: string | null;
 }
 
-/**
- * Cliente persona natural: el maestro de obra, el pintor independiente, el
- * arquitecto que compra a su nombre. Es la otra mitad del negocio y la
- * pantalla no la mostraba.
- */
+/** Cliente persona natural (maestro de obra, pintor, arquitecto). */
 export interface ClientePersona {
   id: string;
   nombre: string;
@@ -67,7 +53,7 @@ export interface FichaPersona {
   id: string;
   firstName: string;
   lastName: string;
-  /** Solo lectura: cambiarlo aquí lo desincronizaría de la cuenta de acceso. */
+  /** Solo lectura: cambiarlo lo desincronizaría de la cuenta de acceso. */
   email: string;
   phone: string;
   address: string;
@@ -98,7 +84,7 @@ export interface FichaEmpresa {
   status: string;
 }
 
-/** Lo que devuelve la base tras guardar: qué cambió y a cuántos se avisó. */
+/** Resultado de guardar: qué cambió y a cuántos se avisó. */
 export interface Resultado {
   cambios: number;
   aviso: boolean;
@@ -137,7 +123,7 @@ function fallo(contexto: string, mensaje: string): Error {
 }
 
 export const clientesAdminService = {
-  /** Empresas cliente con cuántas sedes y cuántos usuarios tiene cada una. */
+  /** Empresas cliente con su número de sedes y usuarios. */
   async listarEmpresas(busqueda = ''): Promise<ClienteEmpresa[]> {
     let q = supabase
       .from('companies')
@@ -145,9 +131,7 @@ export const clientesAdminService = {
       .order('name');
 
     if (busqueda.trim()) {
-      // El nombre y el NIT están normalizados en la base (mayúsculas y sin
-      // puntos), así que buscar en minúsculas o con puntos tiene que
-      // funcionar igual: `ilike` ignora la caja y el NIT se limpia antes.
+      // Nombre y NIT están normalizados en la base: `ilike` ignora la caja y el NIT se limpia antes.
       const t = busqueda.trim();
       const nit = t.replace(/[^0-9A-Za-z-]/g, '');
       q = q.or(`name.ilike.%${t}%,nit.ilike.%${nit}%`);
@@ -188,14 +172,8 @@ export const clientesAdminService = {
   },
 
   /**
-   * Clientes persona natural.
-   *
-   * Va por función de base (`clientes_personas_naturales`) y no por consulta
-   * directa porque distinguir un cliente de un empleado exige leer
-   * `user_roles`, cuya política solo deja ver los roles propios salvo que
-   * seas administrador: un asesor consultándolo desde aquí recibiría una
-   * lista vacía. La función exige `is_staff()`, así que no devuelve nada que
-   * el llamante no pudiera leer ya de `profiles`.
+   * Vía `clientes_personas_naturales` porque distinguir cliente de empleado exige leer
+   * `user_roles`, restringido por RLS; la función exige `is_staff()`.
    */
   async listarPersonas(busqueda = ''): Promise<ClientePersona[]> {
     const { data, error } = await supabase.rpc('clientes_personas_naturales', {
@@ -205,7 +183,7 @@ export const clientesAdminService = {
 
     return ((data ?? []) as Array<Record<string, unknown>>).map((f) => ({
       id: String(f.id),
-      // Un perfil recién creado puede no tener nombre todavía.
+      // Un perfil recién creado puede no tener nombre.
       nombre: (f.nombre as string) ?? '',
       correo: (f.correo as string) ?? null,
       telefono: (f.telefono as string) ?? null,
@@ -220,7 +198,7 @@ export const clientesAdminService = {
     }));
   },
 
-  /** Los datos completos de una persona, para llenar el formulario. */
+  /** Datos completos de una persona para el formulario. */
   async fichaPersona(userId: string): Promise<FichaPersona | null> {
     const { data, error } = await supabase
       .from('profiles')
@@ -251,7 +229,7 @@ export const clientesAdminService = {
     };
   },
 
-  /** Los datos completos de una empresa. */
+  /** Datos completos de una empresa. */
   async fichaEmpresa(companyId: string): Promise<FichaEmpresa | null> {
     const { data, error } = await supabase
       .from('companies')
@@ -279,15 +257,7 @@ export const clientesAdminService = {
     };
   },
 
-  /**
-   * Guarda los cambios de un cliente.
-   *
-   * El aviso al cliente NO se manda desde aquí: lo inserta la misma función de
-   * base, en la misma transacción. Si viviera en el navegador, cualquier otra
-   * pantalla podría cambiar los datos sin avisar, y bastaría con que fallara
-   * la red después del `update` para que el cambio quedara guardado y el
-   * cliente nunca se enterara.
-   */
+  /** El aviso al cliente lo inserta la función de base en la misma transacción, no el navegador. */
   async actualizarPersona(userId: string, datos: Record<string, unknown>): Promise<Resultado> {
     const { data, error } = await supabase.rpc('actualizar_cliente_persona', {
       _user_id: userId, _datos: datos,
@@ -304,13 +274,7 @@ export const clientesAdminService = {
     return leerResultado(data);
   },
 
-  /**
-   * Direcciones personales de los usuarios de una empresa.
-   *
-   * Es solo lectura a propósito. El personal interno tiene que poder ver a
-   * dónde despachar, pero la dirección personal de alguien la corrige esa
-   * persona: `customer_addresses` no tiene política de escritura interna.
-   */
+  /** Solo lectura: `customer_addresses` no tiene política de escritura interna. */
   async direccionesDeEmpresa(companyId: string): Promise<DireccionDeCliente[]> {
     const { data: perfiles, error: e1 } = await supabase
       .from('profiles')
@@ -356,7 +320,7 @@ export const clientesAdminService = {
     }));
   },
 
-  /** ¿Quien mira puede editar las sedes? Lo decide `users.manage`. */
+  /** Lo decide el permiso `users.manage`. */
   async puedoEditarSedes(): Promise<boolean> {
     const { data, error } = await supabase.rpc('has_permission', {
       _code: 'users.manage',

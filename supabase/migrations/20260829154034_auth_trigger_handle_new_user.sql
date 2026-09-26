@@ -1,24 +1,5 @@
--- ============================================================
--- FASE 2 · 05 — Creación automática del perfil al registrarse
--- ============================================================
--- MÓDULO 1: "Crear correctamente el perfil asociado al usuario".
---
--- El trigger corre DENTRO de la transacción de Supabase Auth: si algo falla,
--- no queda un usuario huérfano sin perfil. Los datos llegan en
--- `raw_user_meta_data`, alimentado por el `options.data` de signUp().
---
--- ⚠️  DECISIÓN DE SEGURIDAD — POR QUÉ NO SE VINCULA A UNA EMPRESA EXISTENTE
--- RegisterPage.tsx pide la empresa como texto libre y obligatorio. La opción
--- "cómoda" sería buscar una empresa con ese nombre y unir al usuario a ella.
--- ESO SERÍA UNA FUGA DE DATOS ENTRE TENANTS: bastaría escribir
--- "Constructora Horizonte S.A.S." al registrarse para acceder a los proyectos
--- de esa empresa, saltándose todo el MÓDULO 62.
---
--- Por eso el registro SIEMPRE crea una empresa NUEVA con el usuario como
--- OWNER. Unirse a una empresa que ya existe requerirá invitación de su
--- OWNER/ADMIN (módulo posterior). Se permiten nombres repetidos a propósito:
--- la clave real de negocio es el NIT, no el nombre.
--- ============================================================
+-- Crea perfil, rol y empresa al registrarse, dentro de la transacción de Auth.
+-- Siempre crea una empresa nueva: unir por nombre dejaría entrar a cualquiera en un tenant ajeno.
 
 create or replace function public.handle_new_user()
 returns trigger
@@ -32,8 +13,7 @@ declare
   v_client_type  public.client_type;
   v_city         text;
 begin
-  -- Validación defensiva del enum: si llega un valor desconocido en la
-  -- metadata, se degrada a 'Particular' en vez de reventar el registro.
+  -- Valor desconocido en la metadata: se degrada a 'Particular' en vez de fallar el registro.
   v_client_type := case
     when new.raw_user_meta_data ->> 'client_type'
          in ('Particular', 'Constructor', 'Empresa', 'Profesional', 'Distribuidor')
@@ -44,7 +24,6 @@ begin
   v_city         := nullif(trim(coalesce(new.raw_user_meta_data ->> 'city', '')), '');
   v_company_name := nullif(trim(coalesce(new.raw_user_meta_data ->> 'company', '')), '');
 
-  -- 1) Perfil (1:1 con auth.users)
   insert into public.profiles (
     id, email, first_name, last_name, phone, city, client_type
   )
@@ -59,12 +38,12 @@ begin
   )
   on conflict (id) do nothing;
 
-  -- 2) Rol base. TODO usuario nace como CLIENTE, nunca con más privilegios.
+  -- Todo usuario nace como CLIENTE, sin más privilegios.
   insert into public.user_roles (user_id, role)
   values (new.id, 'CLIENTE')
   on conflict on constraint user_roles_unicos do nothing;
 
-  -- 3) Empresa propia (ver nota de seguridad de la cabecera)
+  -- Empresa propia, nunca una existente (ver cabecera).
   if v_company_name is not null then
     insert into public.companies (name, city, email, status)
     values (v_company_name, v_city, new.email, 'ACTIVA')

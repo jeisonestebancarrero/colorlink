@@ -4,26 +4,9 @@ import { resolve } from 'node:path';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
 /**
- * Editar un cliente desde el portal, y avisarle.
- *
- * Lo que se vigila, que es lo que hace que esto sea «todo conectado» y no dos
- * pantallas sueltas:
- *
- *   1. Que el cliente RECIBA el aviso, con fecha, hora, quién y qué cambió.
- *      Es la mitad que se olvida: el dato se corrige y la persona se entera
- *      cuando le llega el pedido a la dirección vieja.
- *   2. Que el aviso y el cambio vayan JUNTOS. Se comprueba que un fallo al
- *      guardar no deje el aviso suelto, y que guardar sin cambiar nada no
- *      mande aviso: enseñar al cliente a ignorar los avisos es peor que no
- *      mandarlos.
- *   3. Que el aviso diga el valor GUARDADO, no el enviado. Los disparadores
- *      normalizan a mayúsculas y quitan los puntos del documento, así que
- *      anunciar lo enviado le mostraría al cliente algo distinto de lo que ve
- *      en su perfil.
- *   4. Que el cambio se vea DONDE EL CLIENTE ENTRA: se relee el perfil con la
- *      sesión del propio cliente, que es lo que hace la tienda.
- *   5. Que quien no tiene permiso no pueda editar, y que no se pueda editar a
- *      un empleado desde la pantalla de clientes.
+ * Editar un cliente desde el portal: el cambio y el aviso van juntos (sin aviso si
+ * nada cambió), el aviso muestra el valor ya normalizado, el cliente lo ve con su
+ * sesión, y no se puede editar sin permiso ni a un empleado.
  */
 
 function leerEnvLocal(): Record<string, string> {
@@ -66,12 +49,12 @@ describe.skipIf(!disponible || !SERVICE)('Editar un cliente y avisarle', () => {
 
   let idCliente = '';
   let idEmpresa = '';
-  /** Lo que había antes, para dejar la base como se encontró. */
+  /** Perfil original, para restaurarlo. */
   let perfilOriginal: Record<string, unknown> = {};
   let empresaOriginal: Record<string, unknown> = {};
   const avisosCreados: string[] = [];
 
-  /** Marca de tiempo para que cada corrida escriba valores distintos. */
+  /** Sello para que cada corrida escriba valores distintos. */
   const sello = Date.now().toString().slice(-6);
 
   beforeAll(async () => {
@@ -104,8 +87,7 @@ describe.skipIf(!disponible || !SERVICE)('Editar un cliente y avisarle', () => {
   });
 
   afterAll(async () => {
-    // Se deja todo como estaba: son datos de demostración que usan otras
-    // pruebas y las pantallas.
+    // Se restaura: son datos de demostración que usan otras pruebas y las pantallas.
     const { company_id: _omitido, ...perfil } = perfilOriginal;
     await root.from('profiles').update(perfil).eq('id', idCliente);
     await root.from('companies').update(empresaOriginal).eq('id', idEmpresa);
@@ -157,9 +139,7 @@ describe.skipIf(!disponible || !SERVICE)('Editar un cliente y avisarle', () => {
   });
 
   it('el aviso muestra el valor GUARDADO, no el que se envió', async () => {
-    // Se manda sin indicativo y en minúsculas; los disparadores normalizan.
-    // Si el aviso repitiera lo enviado, el cliente vería en su perfil algo
-    // distinto de lo que dice su notificación.
+    // Se envía sin indicativo y en minúsculas; el aviso debe reflejar lo que guardaron los disparadores.
     const { data } = await admin.rpc('actualizar_cliente_persona', {
       _user_id: idCliente,
       _datos: { address: `calle ${sello} # 20 - 30 sur` },
@@ -180,8 +160,7 @@ describe.skipIf(!disponible || !SERVICE)('Editar un cliente y avisarle', () => {
   });
 
   it('el cliente ve el dato nuevo DONDE ÉL ENTRA', async () => {
-    // Es la comprobación de que está conectado de punta a punta: se relee con
-    // la sesión del propio cliente, igual que hace la tienda.
+    // Se relee con la sesión del cliente, como hace la tienda.
     const { data } = await cliente
       .from('profiles').select('address, phone').eq('id', idCliente).single();
     const suyo = data as { address: string; phone: string };

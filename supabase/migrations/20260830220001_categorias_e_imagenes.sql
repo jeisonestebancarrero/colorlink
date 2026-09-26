@@ -1,14 +1,7 @@
--- ============================================================
--- Categorías administrables e imágenes de producto
--- ============================================================
+-- Categorías administrables y bucket de imágenes de producto.
 
--- ------------------------------------------------------------
--- 1. Crear y editar categorías
--- ------------------------------------------------------------
--- Las categorías existían pero solo se podían tocar con SQL. Y hay una
--- distinción que la pantalla debe respetar: `kind` separa las categorías de
--- PRODUCTOS de las de SOLUCIONES (los kits). Mezclarlas hace que un producto
--- termine clasificado en una categoría de kits y desaparezca de la tienda.
+-- kind separa categorías de productos y de soluciones (kits); mezclarlas oculta
+-- productos en la tienda.
 create or replace function public.upsert_category(_datos jsonb)
 returns uuid
 language plpgsql
@@ -35,8 +28,7 @@ begin
     raise exception 'TIPO_INVALIDO: el tipo de categoría no es válido' using errcode = '22023';
   end if;
 
-  -- El slug se deriva del nombre si no lo escriben. Es lo que la tienda usa
-  -- en la URL, así que va sin tildes ni espacios.
+    -- El slug va en la URL de la tienda: sin tildes ni espacios.
   if v_slug is null then
     v_slug := translate(lower(v_nombre), 'áéíóúüñÁÉÍÓÚÜÑ', 'aeiouunAEIOUUN');
     v_slug := regexp_replace(v_slug, '[^a-z0-9]+', '-', 'g');
@@ -90,11 +82,7 @@ $$;
 revoke all on function public.upsert_category(jsonb) from public, anon;
 grant execute on function public.upsert_category(jsonb) to authenticated;
 
--- ------------------------------------------------------------
--- 2. Bucket público para las imágenes de producto
--- ------------------------------------------------------------
--- Público igual que el de las tiendas: la foto de un producto es la vitrina,
--- la ve cualquiera que entre a comprar.
+-- Bucket público: las fotos de producto son la vitrina.
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values (
   'productos', 'productos', true, 5242880,

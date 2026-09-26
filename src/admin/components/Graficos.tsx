@@ -1,32 +1,8 @@
 import React, { useId, useMemo, useState } from 'react';
 
 /**
- * Gráficos del tablero, en SVG y sin librería.
- *
- * POR QUÉ CADA TIPO (la elección no es estética, responde a qué pregunta
- * contesta cada gráfico):
- *
- *  · Serie de tiempo → LÍNEA con área. El tiempo es continuo: la línea muestra
- *    la tendencia y la estacionalidad de un vistazo. Las barras, que separan
- *    visualmente cada periodo, invitan a comparar meses sueltos y esconden la
- *    forma de la curva, que es justo lo que se quiere ver mes a mes.
- *
- *  · Un año contra otro → VARIAS LÍNEAS sobre el mismo eje enero-diciembre.
- *    Superponer los años es la única forma de ver si diciembre siempre sube o
- *    si este diciembre subió. Una tabla da las cifras, no el patrón.
- *
- *  · Ranking de puntos, categorías o productos → BARRAS HORIZONTALES ordenadas.
- *    Son categorías sin orden natural y con nombres largos; la barra horizontal
- *    deja leer la etiqueta completa y la comparación es por longitud, que es
- *    la que el ojo juzga mejor.
- *
- *  · Composición → BARRA 100 % APILADA, no una torta. Con más de cuatro partes
- *    los ángulos dejan de ser comparables; una barra apilada mantiene la
- *    comparación por longitud y ordena las partes.
- *
- *  · Rentabilidad contra volumen → DISPERSIÓN. Es la única forma de ver la
- *    relación entre dos variables y encontrar el producto que se vende mucho y
- *    deja poco, que ningún ranking por separado revela.
+ * Gráficos SVG sin librería: línea para series de tiempo, líneas superpuestas por año,
+ * barra 100 % apilada en lugar de torta y dispersión para margen contra volumen.
  */
 
 export interface PuntoSerie {
@@ -48,7 +24,7 @@ interface LineaProps {
   alto?: number;
 }
 
-/** Serie de tiempo. Área bajo la línea para dar peso al volumen acumulado. */
+/** Serie de tiempo con área bajo la línea. */
 export const GraficoLinea: React.FC<LineaProps> = ({
   datos, formato, color = '#004F9F', color2 = '#059669',
   nombre = 'Ingresos', nombre2, onElegir, alto = 220,
@@ -95,7 +71,7 @@ export const GraficoLinea: React.FC<LineaProps> = ({
             </linearGradient>
           </defs>
 
-          {/* Rejilla: cuatro líneas bastan para leer una magnitud sin ruido. */}
+          {/* Rejilla de cuatro líneas. */}
           {[0, 25, 50, 75, 100].map((p) => (
             <line
               key={p} x1="0" x2="100" y1={escalaY((max * p) / 100)} y2={escalaY((max * p) / 100)}
@@ -118,9 +94,7 @@ export const GraficoLinea: React.FC<LineaProps> = ({
 
         </svg>
 
-        {/* Los marcadores van en HTML, no en el SVG: con
-            preserveAspectRatio="none" el lienzo se estira en horizontal y un
-            <circle> se dibujaría como una elipse aplastada. */}
+        {/* Marcadores en HTML: con preserveAspectRatio="none" un <circle> saldría como elipse. */}
         {puntos.map((p, i) => (
           <span
             key={p.d.clave}
@@ -137,8 +111,7 @@ export const GraficoLinea: React.FC<LineaProps> = ({
           />
         ))}
 
-        {/* Zonas de interacción: una por punto, del alto del gráfico, para que
-            no haya que acertarle al círculo. */}
+        {/* Zona de interacción por punto, a toda la altura. */}
         <div className="absolute inset-0 flex">
           {datos.map((p, i) => (
             <button
@@ -192,7 +165,6 @@ export const GraficoLinea: React.FC<LineaProps> = ({
   );
 };
 
-// ============================================================
 export interface SerieAnual {
   anio: number;
   /** 12 posiciones, enero a diciembre. `null` = mes sin ventas. */
@@ -231,8 +203,7 @@ export const GraficoAnios: React.FC<{
           ))}
 
           {series.map((s, si) => {
-            // Los meses sin ventas cortan la línea en vez de dibujar un cero
-            // que no ocurrió.
+            // Un mes sin ventas corta la línea en vez de dibujar un cero.
             const tramos: string[] = [];
             let actual = '';
             s.meses.forEach((v, m) => {
@@ -253,7 +224,7 @@ export const GraficoAnios: React.FC<{
           })}
         </svg>
 
-        {/* Marcadores en HTML por la misma razón que en el gráfico de línea. */}
+        {/* Marcadores en HTML, como en el gráfico de línea. */}
         {series.map((s, si) =>
           s.meses.map((v, m) =>
             v === null ? null : (
@@ -309,7 +280,6 @@ export const GraficoAnios: React.FC<{
   );
 };
 
-// ============================================================
 export interface PuntoDispersion {
   etiqueta: string;
   x: number;
@@ -317,14 +287,7 @@ export interface PuntoDispersion {
   peso: number;
 }
 
-/**
- * Rentabilidad contra volumen.
- *
- * Las líneas de la mediana parten el plano en cuatro: arriba-derecha son los
- * productos que se venden y además dejan margen; abajo-derecha los que se
- * venden mucho y no dejan nada, que es el hallazgo que ningún ranking por
- * separado muestra.
- */
+/** Margen contra volumen; las medianas separan cuadrantes (abajo-derecha: mucha venta, poco margen). */
 export const GraficoDispersion: React.FC<{
   datos: PuntoDispersion[];
   ejeX: string;
@@ -344,10 +307,7 @@ export const GraficoDispersion: React.FC<{
   const maxX = Math.max(1, ...datos.map((d) => d.x));
   const maxPeso = Math.max(1, ...datos.map((d) => d.peso));
 
-  // El eje del margen NO arranca en cero. En una dispersión lo que importa es
-  // la posición relativa entre productos, y anclar en cero cuando todos los
-  // márgenes caen entre 38 % y 45 % los apila en una franja donde no se
-  // distingue nada. Se usa el rango real con un margen del 10 % a cada lado.
+  // El eje de margen usa el rango real ±10 %, no cero: anclado en cero los puntos se apilan.
   const ys = datos.map((d) => d.y);
   const crudoMin = Math.min(...ys);
   const crudoMax = Math.max(...ys);
@@ -378,8 +338,7 @@ export const GraficoDispersion: React.FC<{
 
         </svg>
 
-        {/* Burbujas en HTML: en el lienzo estirado saldrían ovaladas y el
-            tamaño dejaría de leerse como magnitud. */}
+        {/* Burbujas en HTML para que el lienzo estirado no las deforme. */}
         {datos.map((d, i) => {
           const lado = 10 + (d.peso / maxPeso) * 22;
           return (
@@ -443,8 +402,7 @@ export const GraficoDispersion: React.FC<{
   );
 };
 
-// ============================================================
-/** Composición: barra 100 % apilada. Sustituye a la torta. */
+/** Composición: barra 100 % apilada. */
 export const BarraComposicion: React.FC<{
   partes: Array<{ etiqueta: string; valor: number }>;
   formato: (n: number) => string;

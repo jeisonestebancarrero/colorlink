@@ -1,21 +1,6 @@
 /**
- * Reiniciar el segundo factor de un usuario — Edge Function
- * ============================================================
- * Sin esto, perder el teléfono equivale a perder la cuenta para siempre: el
- * propio interesado no puede retirar su factor porque para hacerlo necesita
- * superarlo, que es justamente lo que no puede.
- *
- * Retirar factores ajenos exige la clave `service_role`, que jamás puede
- * estar en el navegador; de ahí que pase por aquí.
- *
- * Quién puede hacerlo lo decide la BASE de datos con `is_admin()`, no este
- * código. Y `is_admin()` a su vez exige que el administrador haya superado su
- * propio segundo factor: quien reinicia el de otro tiene que estar protegido,
- * o el reinicio se convierte en la puerta trasera que anula todo el esquema.
- *
- * Queda registrado en `audit_logs`: reiniciar el doble factor de alguien es
- * exactamente el movimiento que haría quien intenta apoderarse de una cuenta,
- * así que tiene que dejar rastro con nombre y fecha.
+ * Retira los factores MFA de otro usuario (teléfono perdido); requiere service_role.
+ * is_admin() exige que el administrador tenga su propio MFA; toda acción queda en audit_logs.
  */
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { CORS } from '../_shared/cors.ts';

@@ -1,25 +1,5 @@
--- ============================================================
--- Nunca enviar correo a direcciones que no existen
--- ============================================================
--- La suite de pruebas crea usuarios desechables con direcciones del tipo
--- `persona.<marca de tiempo>@correo.test`, y el disparador de bienvenida las
--- tomaba como direcciones reales: cada corrida de `npm test` mandaba una
--- docena de correos por la cuenta de Gmail configurada.
---
--- El daño es triple: se gasta la cuota de envío de la cuenta, cada mensaje
--- rebota —`.test` es un dominio reservado por la RFC 2606 y no existe— y esos
--- rebotes caen en la bandeja del dueño de la cuenta. Además, enviar a un
--- dominio ajeno que quedó en los datos de demostración es mandarle correo a un
--- desconocido desde una base de desarrollo.
---
--- Dos barreras, en este orden:
---   1. Los dominios reservados y de demostración NUNCA reciben correo, en
---      ningún ambiente. No es configurable porque no hay caso legítimo.
---   2. `email_allowlist`: si tiene direcciones, solo esas reciben. Es lo que
---      protege una base de desarrollo poblada con datos que parecen reales.
---
--- Lo omitido queda registrado en `email_log` como OMITIDO, con el destinatario
--- que habría tenido: si algo deja de llegar, se ve por qué.
+-- Filtro de destinatarios: los dominios reservados nunca reciben correo y, si
+-- email_allowlist tiene valores, solo esas direcciones. Lo omitido queda en email_log.
 alter table public.internal_config
   add column if not exists email_allowlist text[];
 
@@ -50,11 +30,11 @@ begin
 
   v_dominio := lower(split_part(_destino, '@', 2));
 
-  -- 1. Dominios que no existen ni pueden existir.
+    -- Dominios reservados (RFC 2606) y de demostración.
   if v_dominio ~ '\.(test|invalid|localhost|example|demo)$'
      or v_dominio in ('example.com', 'example.org', 'example.net') then
     v_motivo := 'dominio reservado o de demostración';
-  -- 2. Lista blanca del ambiente.
+    -- Lista blanca del ambiente.
   elsif v_c.email_allowlist is not null
         and array_length(v_c.email_allowlist, 1) > 0
         and not (lower(_destino) = any (select lower(x) from unnest(v_c.email_allowlist) x)) then

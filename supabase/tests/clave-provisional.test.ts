@@ -5,20 +5,8 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { limpiarCuentasDePrueba, correoDePrueba } from './limpieza';
 
 /**
- * Contraseña provisional: obligar a cambiarla.
- *
- * EL FALLO QUE ESTO CIERRA: `admin-create-user` genera una contraseña
- * provisional y su comentario decía «se pide cambiarla», pero nada la pedía.
- * Quien entraba con ella se quedaba con ella. Como esa contraseña se entrega
- * de viva voz o por chat —no se envía por correo—, seguía siendo válida meses
- * después en manos de cualquiera que hubiera visto el mensaje.
- *
- * Lo que se vigila:
- *   1. Que una cuenta marcada obligue a cambiarla.
- *   2. Que al cambiarla se retire la marca, y no antes.
- *   3. Que nadie pueda quitarle la marca a OTRO.
- *   4. Que una cuenta normal no quede marcada por accidente: marcar a todo el
- *      mundo dejaría al equipo entero fuera el día del despliegue.
+ * Contraseña provisional: la cuenta marcada debe cambiarla, la marca se retira
+ * solo al cambiarla, nadie la quita a otro y las cuentas normales no nacen marcadas.
  */
 
 function leerEnvLocal(): Record<string, string> {
@@ -77,7 +65,7 @@ describe.skipIf(!disponible || !SERVICE)('Contraseña provisional', () => {
     if (error || !data.user) throw new Error(`alta: ${error?.message}`);
     idNuevo = data.user.id;
 
-    // Es lo que hace la función de borde al crear la cuenta.
+    // Replica lo que hace `admin-create-user` al crear la cuenta.
     await root.from('profiles').update({ must_change_password: true }).eq('id', idNuevo);
   });
 
@@ -118,7 +106,7 @@ describe.skipIf(!disponible || !SERVICE)('Contraseña provisional', () => {
     expect((data as { must_change_password: boolean }).must_change_password).toBe(false);
     await suyo.auth.signOut();
 
-    // Y la contraseña nueva es la que entra ahora.
+    // La contraseña nueva es la que entra ahora.
     const otro = createClient(API, ANON, { auth: { persistSession: false } });
     const r = await otro.auth.signInWithPassword({ email: correo, password: DEFINITIVA });
     expect(r.error).toBeNull();
@@ -126,9 +114,8 @@ describe.skipIf(!disponible || !SERVICE)('Contraseña provisional', () => {
   });
 
   it('nadie puede quitarle la marca a otro', async () => {
-    // `confirmar_cambio_de_clave` no recibe a quién: actúa sobre `auth.uid()`.
-    // Se vuelve a marcar la cuenta y se comprueba que el administrador,
-    // llamándola, se la quita a SÍ MISMO y no al otro.
+    // `confirmar_cambio_de_clave` actúa sobre `auth.uid()`: el admin que la llama
+    // se quita la marca a sí mismo, no al otro.
     await root.from('profiles').update({ must_change_password: true }).eq('id', idNuevo);
 
     const { error } = await admin.rpc('confirmar_cambio_de_clave');
@@ -140,8 +127,7 @@ describe.skipIf(!disponible || !SERVICE)('Contraseña provisional', () => {
   });
 
   it('las cuentas que ya existían NO quedan marcadas', async () => {
-    // Marcar a todo el mundo por defecto dejaría al equipo entero fuera el día
-    // del despliegue.
+    // Marcar a todos por defecto bloquearía al equipo en el despliegue.
     const { data } = await root
       .from('profiles').select('email, must_change_password')
       .in('email', [

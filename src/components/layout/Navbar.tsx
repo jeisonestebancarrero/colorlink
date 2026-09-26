@@ -47,8 +47,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onNavigate,
   currentPage,
 }) => {
-  // FASE 4 — sugerencias del buscador desde Supabase. La caché del servicio
-  // deduplica esta consulta con la de la página que esté abierta.
+  // La caché del servicio deduplica esta consulta con la de la página abierta.
   const { data: PINTUCO_PRODUCTS } = useProducts();
 
   const { user, logout } = useAuth();
@@ -66,8 +65,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showComprarMenu, setShowComprarMenu] = useState(false);
   const [posMenuComprar, setPosMenuComprar] = useState<{ top: number; left: number } | null>(null);
-  // Pasar del botón al menú cruza un hueco de nada; sin esta espera el menú se
-  // cerraba justo al ir a usarlo.
+  // Retardo al cerrar: sin él el menú se cierra al cruzar el hueco desde el botón.
   const temporizadorMenuComprar = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const mantenerMenuComprar = () => {
@@ -84,13 +82,7 @@ export const Navbar: React.FC<NavbarProps> = ({
     temporizadorMenuComprar.current = setTimeout(() => setShowComprarMenu(false), 150);
   };
 
-  /**
-   * ¿La fila azul se sale de la pantalla?
-   *
-   * Solo entonces se atenúa el borde derecho. Un degradado fijo dejaría la
-   * última entrada medio apagada aunque quepa entera, que es un defecto
-   * distinto del que se quería arreglar. Se mide de verdad en vez de suponerlo.
-   */
+  /** Si la fila azul desborda: solo entonces se atenúa el borde derecho. */
   const tiraRef = useRef<HTMLDivElement | null>(null);
   const [hayMasALaDerecha, setHayMasALaDerecha] = useState(false);
 
@@ -99,8 +91,7 @@ export const Navbar: React.FC<NavbarProps> = ({
     if (!tira) return;
 
     const medir = () => {
-      // 2 px de margen: los navegadores redondean y sin él el degradado
-      // parpadea cuando el ancho queda justo.
+      // 2 px de margen por el redondeo del navegador; evita que el degradado parpadee.
       setHayMasALaDerecha(
         tira.scrollWidth - tira.clientWidth - tira.scrollLeft > 2,
       );
@@ -120,7 +111,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   const searchContainerRef = useRef<HTMLDivElement>(null);
 
-  // Close search dropdown on click outside
+  // Cerrar sugerencias al hacer clic fuera
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (
@@ -136,7 +127,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   const { conversaciones, total: mensajesSinLeer } = useMensajes();
 
-  /** Lo pendiente de leer, que es lo que la campana debe mostrar. */
+  /** Solo lo pendiente de leer: es lo que muestra la campana. */
   const sinLeer = notifications.filter((n) => !n.read);
   const [showMensajes, setShowMensajes] = useState(false);
 
@@ -172,7 +163,7 @@ export const Navbar: React.FC<NavbarProps> = ({
     }).format(num);
   };
 
-  // Smart Intent Detection based on search input
+  // Detección de intención a partir del texto buscado
   const queryLower = searchQuery.toLowerCase();
   const isHumidityIntent =
     queryLower.includes('humed') ||
@@ -198,11 +189,8 @@ export const Navbar: React.FC<NavbarProps> = ({
       icon: ShoppingBag,
       hasDropdown: true,
     },
-    // Etiquetas cortas donde el distintivo ya dice el resto: «Soluciones por
-    // Superficie [Kits]» y «Calculadora de Pintura» ocupaban el ancho de dos
-    // entradas para no añadir nada que el icono y el distintivo no dijeran ya.
-    // Con nueve elementos en una sola fila, cada palabra de más se la quita a
-    // la siguiente.
+    // Etiquetas cortas: son nueve entradas en una fila y el icono y el distintivo
+    // ya dan el contexto.
     { id: 'colors', label: 'Encuentra tu Color', icon: Palette, badge: 'Visualizador' },
     { id: 'solutions', label: 'Soluciones', icon: Package, badge: 'Kits' },
     { id: 'calculator', label: 'Calculadora', icon: Calculator },
@@ -222,7 +210,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   return (
     <header id="colorlink-main-navbar" className="sticky top-0 z-40 bg-white border-b border-slate-200 shadow-xs">
-      {/* 1. TOP CORPORATE STRIP */}
+      {/* Franja corporativa */}
       <div className="bg-[#002244] text-white text-[11px] py-1.5 px-4 sm:px-6 lg:px-8 flex items-center justify-between font-medium">
         <div className="flex items-center gap-4 truncate">
           <div className="flex items-center gap-1.5 text-blue-100">
@@ -259,14 +247,12 @@ export const Navbar: React.FC<NavbarProps> = ({
         </div>
       </div>
 
-      {/* 2. MAIN BRAND & SMART OMNISEARCH ROW */}
+      {/* Marca y buscador */}
       <div className="px-4 sm:px-6 lg:px-8 border-b border-slate-100 bg-white">
         <div className="flex items-center justify-between h-16 gap-2 sm:gap-4">
-          {/* Mobile Menu Button + Official Logo */}
-          {/* `min-w-0` es lo que permite que el logotipo se encoja. Sin él, un
-              elemento flexible no baja de lo que ocupa su contenido —así lo
-              define el valor `auto` de `min-width`— y empuja la página entera
-              hacia la derecha por mucho `truncate` que lleve dentro. */}
+          {/* Botón de menú móvil y logotipo */}
+          {/* `min-w-0` deja encoger el logotipo; sin él el flex no baja de su
+              contenido y desborda la página. */}
           <div className="flex items-center gap-2 sm:gap-3 min-w-0">
             <button
               onClick={onOpenMobileMenu}
@@ -276,15 +262,12 @@ export const Navbar: React.FC<NavbarProps> = ({
               <Menu className="w-5 h-5" />
             </button>
 
-            {/* Identidad de marca. El logotipo oficial se configura desde
-                Administración → Configuración, o se deja en
-                assets/brand/pintuco-logo.svg. */}
-            {/* Sin la palabra en teléfono: aquí compite con el carrito, los
-                mensajes, los avisos y la cuenta, y saldría cortada. */}
+            {/* Logotipo configurable en Administración → Configuración. */}
+            {/* Sin la palabra en móvil: no cabe junto a los controles. */}
             <BrandLogo onClick={() => onNavigate('dashboard')} palabraEnMovil={false} />
           </div>
 
-          {/* Center: Intelligent Omnisearch with Intent Recognition */}
+          {/* Buscador con detección de intención */}
           <div ref={searchContainerRef} className="hidden md:flex flex-1 max-w-xl mx-4 relative">
             <form onSubmit={handleSearchSubmit} className="w-full relative">
               <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -465,8 +448,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           </div>
 
           {/* Right Action Controls */}
-          {/* `shrink-0`: estos controles no se encogen. Un carrito a medio
-              dibujar no es un carrito. Quien cede es el logotipo. */}
+          {/* `shrink-0`: los controles no ceden; el que se encoge es el logotipo. */}
           <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
             {/* Active Project Quick Button */}
             {activeProject && (
@@ -495,13 +477,8 @@ export const Navbar: React.FC<NavbarProps> = ({
               )}
             </button>
 
-            {/* Campana de MENSAJES.
-                Separada de la de notificaciones a propósito: una notificación
-                se lee y se archiva, un mensaje espera respuesta. Mezclarlas
-                haría que un «tu pedido salió» tapara una pregunta sin
-                contestar.
-                El número NO baja al desplegar esta lista: solo al abrir la
-                conversación. Ver un aviso no es haberlo atendido. */}
+            {/* Mensajes separados de las notificaciones: un mensaje espera respuesta.
+                El contador baja al abrir la conversación, no al desplegar la lista. */}
             <div className="relative">
               <button
                 onClick={() => {
@@ -519,8 +496,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   <span className="absolute top-1 right-1 min-w-4 h-4 px-1 bg-[#004F9F] text-white
                                    text-[10px] font-black rounded-full flex items-center justify-center
                                    ring-2 ring-white">
-                    {/* Por encima de nueve el número deja de importar y solo
-                        estorba en un círculo de 16 px. */}
+                    {/* Más de nueve no cabe en 16 px. */}
                     {mensajesSinLeer > 9 ? '9+' : mensajesSinLeer}
                   </span>
                 )}
@@ -549,8 +525,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                           key={c.orderId}
                           onClick={() => {
                             setShowMensajes(false);
-                            // Lleva a la conversación; marcarla leída es cosa
-                            // del chat al abrirse, no de este clic.
+                            // Marcar como leída lo hace el chat al abrirse.
                             onNavigate('orders', c.numero);
                           }}
                           className="w-full p-3.5 text-left hover:bg-slate-50 cursor-pointer transition-colors"
@@ -612,11 +587,8 @@ export const Navbar: React.FC<NavbarProps> = ({
                     )}
                   </div>
 
-                  {/* Solo las SIN LEER.
-                      La campana es una bandeja de pendientes, no un historial:
-                      con las leídas dentro, el aviso nuevo se pierde entre
-                      quince ya atendidos y la gente deja de abrirla. El
-                      historial completo sigue a un clic. */}
+                  {/* Solo las no leídas: la campana es bandeja de pendientes, el
+                      historial sigue a un clic. */}
                   <div className="max-h-72 overflow-y-auto divide-y divide-slate-100">
                     {sinLeer.length === 0 ? (
                       <p className="text-center py-6 text-xs text-slate-400">
@@ -646,8 +618,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     )}
                   </div>
 
-                  {/* Nada se pierde: lo leído sigue estando, solo que fuera de
-                      la bandeja de pendientes. */}
+                  {/* Lo leído queda en el historial. */}
                   {notifications.length > 0 && (
                     <button
                       onClick={() => { setShowNotifications(false); onNavigate('notifications'); }}
@@ -708,9 +679,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                       <Building2 className="w-4 h-4 text-slate-400" />
                       <span>Mis Proyectos y Obras B2B</span>
                     </button>
-                    {/* Faltaba, y es lo que más se busca desde este menú: en un
-                        teléfono la barra de módulos no se ve y este desplegable
-                        es el único camino a los pedidos. */}
+                    {/* En móvil la barra de módulos no se ve: este es el único acceso a pedidos. */}
                     <button
                       onClick={() => {
                         setShowUserMenu(false);
@@ -764,16 +733,13 @@ export const Navbar: React.FC<NavbarProps> = ({
         </div>
       </div>
 
-      {/* 3. PRIMARY CATEGORY & SECTION NAVIGATION STRIP */}
+      {/* Navegación por secciones */}
       <nav className="bg-[#004F9F] text-white px-4 sm:px-6 lg:px-8 hidden md:block">
-        {/* `gap-4` entre la lista y el botón: sin él, «Puntos de Retiro»
-            quedaba pegado a «Diagnosticar mi Superficie» y encima cortado por
-            la mitad. `min-w-0` es lo que permite que la lista se encoja en vez
-            de empujar al botón fuera de la pantalla. */}
+        {/* `gap-4` separa lista y botón; `min-w-0` deja encoger la lista en vez de
+            empujar el botón fuera de pantalla. */}
         <div className="flex items-center justify-between gap-4">
-          {/* Si aun así no cabe, la fila se desplaza. El degradado del borde
-              avisa de que hay más a la derecha; sin él el corte parece un
-              fallo, porque la barra de desplazamiento va oculta. */}
+          {/* Si no cabe, la fila se desplaza; el degradado indica que hay más
+              porque la barra de desplazamiento está oculta. */}
           <div
             ref={tiraRef}
             className="flex items-center gap-1.5 overflow-x-auto py-1 min-w-0 scrollbar-none"
@@ -807,9 +773,8 @@ export const Navbar: React.FC<NavbarProps> = ({
                       <ChevronDown className="w-3 h-3 text-blue-200" />
                     </button>
 
-                    {/* El menú va a `document.body`: dentro de la tira quedaba
-                        recortado por su `overflow-x-auto` y su máscara, y nunca
-                        se veía. */}
+                    {/* Portal a `document.body`: dentro de la tira lo recortaban el
+                        overflow y la máscara. */}
                     {showComprarMenu && posMenuComprar && createPortal(
                       <div
                         className="fixed w-80 bg-white text-slate-900 rounded-2xl shadow-2xl border border-slate-200 p-3 z-[60] animate-in fade-in slide-in-from-top-2 duration-150"
@@ -877,9 +842,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             })}
           </div>
 
-          {/* El botón es una ACCIÓN, no una entrada más del menú. La línea lo
-              separa para que se lea así y para que no parezca que «Puntos de
-              Retiro» y «Diagnosticar» son del mismo grupo. */}
+          {/* Separado con una línea: es una acción, no otra entrada del menú. */}
           <div className="hidden lg:flex items-center gap-2 shrink-0 py-1 pl-4 border-l border-white/20">
             <button
               onClick={() => onNavigate('create-project')}

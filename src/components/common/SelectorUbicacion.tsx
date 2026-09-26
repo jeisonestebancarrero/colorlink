@@ -3,18 +3,8 @@ import { Loader2 } from 'lucide-react';
 import { ubicacionService, type Barrio, type Departamento, type Municipio, type Pais } from '../../services/ubicaciones';
 
 /**
- * País → Departamento → Ciudad → Barrio, todo de listado cerrado.
- *
- * Se usa igual en el registro, en el perfil, en el carrito y en las sedes de la
- * empresa: si cada pantalla resolviera la ciudad a su manera, volveríamos a
- * tener 'Bogotá' en una y 'Bogotá D.C.' en otra, que es el problema que esto
- * viene a cerrar.
- *
- * El barrio es el único campo que admite escribir, y solo cuando su municipio
- * no tiene lista. No existe listado oficial de barrios de todo Colombia
- * (DIVIPOLA llega hasta municipio), así que lo que escribe el primer cliente
- * de ese municipio queda incorporado y los siguientes ya lo eligen. El
- * servidor normaliza el nombre, de modo que no se duplica.
+ * País → departamento → ciudad → barrio de listas cerradas, compartido por todas las pantallas.
+ * Solo el barrio admite texto libre (DIVIPOLA no llega a barrios); el servidor lo normaliza y lo incorpora.
  */
 
 export interface ValorUbicacion {
@@ -63,8 +53,7 @@ export const SelectorUbicacion: React.FC<Props> = ({
   const [cargandoMunicipios, setCargandoMunicipios] = useState(false);
   const [cargandoBarrios, setCargandoBarrios] = useState(false);
   const [fallo, setFallo] = useState<string | null>(null);
-  // Escribir el barrio solo se ofrece si el municipio no tiene lista, o si la
-  // persona dice explícitamente que el suyo no aparece.
+  // Texto libre solo si el municipio no tiene lista o el barrio no aparece.
   const [barrioAMano, setBarrioAMano] = useState(false);
 
   useEffect(() => {
@@ -104,7 +93,7 @@ export const SelectorUbicacion: React.FC<Props> = ({
       .then((b) => {
         if (!activo) return;
         setBarrios(b);
-        // Un municipio sin lista no puede dejar al cliente sin poder seguir.
+        // Sin lista, se pasa a texto libre para no bloquear al cliente.
         setBarrioAMano(b.length === 0);
       })
       .catch((e) => activo && setFallo(e instanceof Error ? e.message : 'Error de carga'))
@@ -158,8 +147,7 @@ export const SelectorUbicacion: React.FC<Props> = ({
             onChange={(e) => onChange({
               ...valor,
               departmentCode: e.target.value,
-              // Cambiar de departamento invalida la ciudad y el barrio: dejarlos
-              // puestos guardaría un municipio que no pertenece al departamento.
+              // Cambiar de departamento invalida ciudad y barrio.
               municipalityCode: '',
               neighborhoodId: null,
               neighborhoodName: '',
@@ -312,13 +300,7 @@ export const SelectorUbicacion: React.FC<Props> = ({
   );
 };
 
-/**
- * Deja la ubicación lista para guardar: si el barrio se escribió a mano, lo
- * registra en el servidor y devuelve su id.
- *
- * Vive aquí y no en cada pantalla para que ninguna se olvide de hacerlo y
- * termine guardando una dirección con el barrio en blanco.
- */
+/** Registra en el servidor el barrio escrito a mano y devuelve su id; centralizado para que ninguna pantalla lo olvide. */
 export async function resolverBarrio(valor: ValorUbicacion): Promise<string | null> {
   if (valor.neighborhoodId) return valor.neighborhoodId;
   const nombre = valor.neighborhoodName.trim();

@@ -6,20 +6,8 @@ import { Button } from '../components/common/Button';
 import { Input } from '../components/common/Input';
 
 /**
- * El cableado del correo, que es distinto del SMTP.
- *
- * El SMTP es el buzón por el que sale el mensaje. Esto es lo que hace que la
- * base de datos LLEGUE hasta ese buzón: a qué dirección llama, con qué llave,
- * y a dónde apuntan los enlaces que van dentro del correo.
- *
- * Existe porque al desplegar a un servidor nuevo esto quedaba en blanco y el
- * correo moría en silencio: `enviar_correo` descartaba los mensajes con
- * «falta configurar la URL de las funciones» y quedaban en el registro como
- * OMITIDO. Sin pantalla, la única salida era entrar a la base de datos.
- *
- * La URL de las funciones se propone sola a partir del Supabase que esta misma
- * aplicación está usando: escribirla a mano es una fuente de erratas y no hay
- * ninguna razón para pedirla.
+ * Conexión de la base con el envío (URL de funciones, llave, URL de enlaces), aparte del SMTP.
+ * Si falta, `enviar_correo` marca los mensajes como OMITIDO. La URL se deduce del Supabase actual.
  */
 export const EntornoCorreoPanel: React.FC = () => {
   const [estado, setEstado] = useState<EstadoEntornoCorreo | null>(null);
@@ -91,12 +79,7 @@ export const EntornoCorreoPanel: React.FC = () => {
     }
   };
 
-  /**
-   * Dispara la prueba y espera a que la bitácora diga en qué paró.
-   *
-   * El envío es asíncrono —la base encola y la función responde después—, así
-   * que hay que sondear. Sin esto el botón diría «enviado» sin saber nada.
-   */
+  /** Dispara la prueba y sondea la bitácora: el envío es asíncrono. */
   const probar = async () => {
     setResultado(null);
     setProbando(true);
@@ -271,9 +254,7 @@ export const EntornoCorreoPanel: React.FC = () => {
         </Button>
       </div>
 
-      {/* La prueba que de verdad importa. La del bloque de arriba llama a la
-          función DESDE EL NAVEGADOR y se salta este cableado: puede llegar esa
-          y no llegar ni un correo automático. */}
+      {/* Prueba desde la base; la del SMTP sale del navegador y no valida esta conexión. */}
       <div className="pt-4 border-t border-slate-100">
         <p className="text-xs font-semibold text-slate-700 mb-1">
           Probar el camino completo

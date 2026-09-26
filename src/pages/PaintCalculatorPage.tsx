@@ -31,23 +31,21 @@ export const PaintCalculatorPage: React.FC<PaintCalculatorPageProps> = ({ onNavi
   const { showToast } = useProjects();
   const { data: PINTUCO_PRODUCTS } = useProducts();
 
-  // FASE 7 — resultado calculado EN EL SERVIDOR.
+  // Resultado calculado en el servidor.
   const [resultado, setResultado] = useState<ResultadoCalculo | null>(null);
 
-  // Mode: 'quick' or 'detailed'
   const [calcMode, setCalcMode] = useState<'quick' | 'detailed'>('quick');
 
-  // Quick inputs
-  const [areaM2, setAreaM2] = useState<number>(85); // Default 85 m2
+  // Modo rápido
+  const [areaM2, setAreaM2] = useState<number>(85);
 
-  // Detailed inputs
+  // Modo detallado
   const [wallHeight, setWallHeight] = useState<number>(2.6);
   const [wallWidth, setWallWidth] = useState<number>(10.0);
   const [wallCount, setWallCount] = useState<number>(4);
-  const [doorsCount, setDoorsCount] = useState<number>(2); // 2m² each
-  const [windowsCount, setWindowsCount] = useState<number>(2); // 1.5m² each
+  const [doorsCount, setDoorsCount] = useState<number>(2); // 2 m² por puerta
+  const [windowsCount, setWindowsCount] = useState<number>(2); // 1,5 m² por ventana
 
-  // General parameters
   const [surfaceType, setSurfaceType] = useState<'sellada' | 'porosa' | 'nueva'>('sellada');
   const [selectedProductId, setSelectedProductId] = useState<string>('prod-koraza-5');
   const [coats, setCoats] = useState<number>(2);
@@ -55,7 +53,7 @@ export const PaintCalculatorPage: React.FC<PaintCalculatorPageProps> = ({ onNavi
   const selectedProduct =
     PINTUCO_PRODUCTS.find((p) => p.id === selectedProductId) || PINTUCO_PRODUCTS[0];
 
-  // Calculate Net Area
+  // Área neta: muros menos puertas y ventanas
   const calculatedArea =
     calcMode === 'quick'
       ? areaM2
@@ -66,21 +64,13 @@ export const PaintCalculatorPage: React.FC<PaintCalculatorPageProps> = ({ onNavi
           )
         );
 
-  // Surface factor multiplier
+  // Factor por estado de la superficie
   const surfaceFactor =
     surfaceType === 'nueva' ? 1.25 : surfaceType === 'porosa' ? 1.35 : 1.0;
 
   /**
-   * FASE 7 — El cálculo se hace en el servidor (MÓDULO 14).
-   *
-   * Antes convivían DOS motores incompatibles: éste y el de
-   * generatePreliminaryAnalysis. Daban resultados distintos para la misma
-   * obra, y este además caía en `spreadRateM2PerGal || 22`, que asignaba en
-   * silencio el rendimiento de una pintura a una brocha.
-   * Ahora hay un único motor, calculate_paint, que lee rendimiento y precio
-   * de la base y rechaza los productos sin rendimiento. El otro se movió a la
-   * base el 4 de septiembre de 2026 (`diagnosticar_proyecto`) y usa el mismo
-   * rendimiento de ficha, así que las dos pantallas por fin coinciden.
+   * Cálculo único en el servidor (`calculate_paint`): usa el rendimiento y precio de la
+   * base y rechaza productos sin rendimiento, igual que `diagnosticar_proyecto`.
    */
   const presentacionGalon =
     selectedProduct?.presentations.find((p) => p.label.includes('1 Galón')) ||

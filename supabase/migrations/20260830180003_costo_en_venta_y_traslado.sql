@@ -1,16 +1,8 @@
--- ============================================================
--- Que el costo llegue hasta donde se necesita
--- ============================================================
--- Tener el costo en la recepción no basta si se pierde en el camino. Faltaban
--- dos eslabones, y sin ellos el margen habría salido mal en silencio.
--- ============================================================
+-- Propaga el costo al traslado entre bodegas y lo congela en la línea del pedido;
+-- sin ambos, el margen sale mal en silencio.
 
--- ------------------------------------------------------------
--- 1. El traslado se lleva el costo consigo
--- ------------------------------------------------------------
--- Sin esto, mover mercancía de Medellín a Cali dejaba a Cali con esas
--- unidades en costo cero: al venderlas, el margen habría salido del 100 %.
--- La mercancía no se abarata por cambiar de bodega.
+-- El traslado lleva el costo: sin esto el destino recibe unidades a costo cero
+-- y su margen sale del 100 %.
 create or replace function public.transfer_inventory(
   _variant_id  uuid,
   _origen      uuid,
@@ -78,9 +70,7 @@ begin
   v_entrada := public.register_inventory_movement(
     _variant_id, _destino, 'TRASLADO_ENTRADA', _cantidad, v_ref, _notas);
 
-  -- El destino promedia lo que ya tenía con lo que le llega, al costo del
-  -- origen. El origen no cambia de costo: sacar unidades no altera lo que
-  -- costaron las que quedan.
+    -- El destino promedia con el costo del origen; el origen no cambia de costo.
   if coalesce(v_costo_o, 0) > 0 then
     update public.inventory
        set avg_cost_cop = case
@@ -100,18 +90,8 @@ begin
 end;
 $$;
 
--- ------------------------------------------------------------
--- 2. La venta congela el costo
--- ------------------------------------------------------------
--- El precio ya se congelaba en la línea del pedido; el costo no existía.
--- Ahora se guarda el costo vigente en ese instante, de modo que la utilidad
--- de un pedido de marzo no se mueva cuando en septiembre suba un proveedor.
---
--- Se toma el costo de la bodega desde la que se despacha. Si el pedido es a
--- domicilio y todavía no hay bodega asignada, se usa el promedio de las
--- bodegas que sí tienen costo; y si no hay ninguno, el costo estándar de la
--- referencia. Nunca se inventa un cero: un cero da margen del 100 % y eso
--- ensucia la analítica sin que nadie lo note.
+-- Costo vigente para congelar en la venta: bodega de despacho, si no promedio de
+-- bodegas con costo, si no el estándar. Nunca cero, que daría margen del 100 %.
 create or replace function public.costo_vigente(_variant_id uuid, _location_id uuid)
 returns numeric
 language sql
@@ -133,7 +113,6 @@ $$;
 revoke all on function public.costo_vigente(uuid, uuid) from public, anon;
 grant execute on function public.costo_vigente(uuid, uuid) to authenticated;
 
--- La función se reescribe completa con el añadido del costo.
 CREATE OR REPLACE FUNCTION public.create_order_from_cart(_delivery_method text, _pickup_location_id uuid DEFAULT NULL::uuid, _shipping_address text DEFAULT NULL::text, _shipping_city text DEFAULT NULL::text, _project_id uuid DEFAULT NULL::uuid, _notes text DEFAULT NULL::text)
  RETURNS uuid
  LANGUAGE plpgsql
@@ -182,7 +161,7 @@ begin
 
   select p.company_id into v_company_id from public.profiles p where p.id = v_user_id;
 
-  -- Cabecera con importes en cero: se rellenan tras sumar las líneas.
+    -- Importes en cero; se rellenan tras sumar las líneas.
   insert into public.orders (
     order_number, user_id, company_id, project_id, status, delivery_method,
     shipping_address, shipping_city, pickup_location_id, pickup_code, notes
@@ -196,7 +175,7 @@ begin
   )
   returning id into v_order_id;
 
-  -- Líneas: el precio se toma de la variante EN ESTE INSTANTE y se congela.
+    -- El precio se toma de la variante en este instante y se congela.
   for r in
     select ci.quantity,
            v.id as variant_id, v.label, v.price_cop,
@@ -221,16 +200,14 @@ begin
     ) values (
       v_order_id, r.variant_id, r.product_name, r.product_code, r.label,
       r.color_name, r.price_cop, r.quantity, r.price_cop * r.quantity, r.image_url,
-      -- El costo se congela junto con el precio. Si se dejara para después,
-      -- la utilidad de este pedido cambiaría cada vez que suba un proveedor.
+        -- El costo se congela con el precio para que la utilidad no cambie después.
       public.costo_vigente(r.variant_id, _pickup_location_id)
     );
 
     v_subtotal := v_subtotal + (r.price_cop * r.quantity);
   end loop;
 
-  -- Descuento por kit: 8%, la misma regla que aplicaba el frontend, ahora
-  -- calculada en el servidor sobre precios que el cliente no controla.
+    -- Descuento por kit del 8 %, calculado en el servidor.
   if exists (
     select 1 from public.cart_items ci
     where ci.cart_id = v_cart_id and ci.kit_solution_id is not null
@@ -238,7 +215,7 @@ begin
     v_descuento := round(v_subtotal * 0.08, 2);
   end if;
 
-  -- Envío: gratis al retirar en tienda o por encima de 500.000 COP.
+    -- Envío gratis al retirar en tienda o por encima de 500.000 COP.
   if v_metodo = 'ENVIO' and (v_subtotal - v_descuento) < 500000 then
     v_envio := 25000;
   end if;
@@ -250,20 +227,18 @@ begin
          total_cop    = v_subtotal - v_descuento + v_envio
    where id = v_order_id;
 
-  -- Envío o retiro asociado.
   if v_metodo = 'ENVIO' then
     insert into public.shipments (order_id, address, city, status)
     values (v_order_id, _shipping_address, _shipping_city, 'PENDIENTE');
   end if;
 
-  -- Pago pendiente (MÓDULO 17): la pasarela real se integrará después.
+    -- Pago pendiente hasta que la pasarela lo confirme.
   insert into public.payments (order_id, method, status, amount_cop)
   values (v_order_id, 'PSE', 'PENDIENTE', v_subtotal - v_descuento + v_envio);
 
-  -- El carrito se cierra, no se borra: queda el rastro de qué se convirtió.
+    -- El carrito se cierra, no se borra, para conservar el rastro.
   update public.carts set is_active = false where id = v_cart_id;
 
-  -- Notificación y auditoría.
   insert into public.notifications (user_id, order_id, type, title, message, action_required, action_label)
   select v_user_id, v_order_id, 'success', 'Pedido confirmado',
          'Tu pedido ' || o.order_number || ' fue creado por ' ||

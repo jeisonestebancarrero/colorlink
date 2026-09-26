@@ -1,27 +1,10 @@
--- ============================================================
--- El costo es para el personal, no para «cualquiera con cuenta»
--- ============================================================
--- La migración anterior concedía `cost_cop` al rol `authenticated`, dando por
--- hecho que ese rol significaba «personal interno». No: en Supabase
--- `authenticated` es CUALQUIERA que haya iniciado sesión, y en esta
--- plataforma la inmensa mayoría son clientes. Cualquier cliente registrado
--- podía leer el costo de todo el catálogo con una sola petición.
---
--- Un GRANT no distingue roles de negocio; RLS sí. Como no se puede conceder
--- una columna «solo si eres personal», el costo sale de la tabla y se expone
--- por una vista que sí puede preguntarlo.
---
--- Lo mismo con el costo congelado de las líneas de pedido: el cliente lee sus
--- propias líneas para ver qué compró, y ahí no puede ir el costo.
+-- authenticated incluye a los clientes: el costo sale de las tablas y se expone
+-- por vistas que comprueban si quien consulta es personal interno.
 
 revoke select (cost_cop) on public.product_variants from authenticated;
 revoke select (unit_cost_cop) on public.order_items from authenticated;
 
--- ------------------------------------------------------------
--- Los costos, para quien tiene por qué verlos
--- ------------------------------------------------------------
--- `security_invoker` es obligatorio: sin él la vista correría con los
--- permisos de quien la creó y devolvería los costos a cualquiera.
+-- security_invoker obligatorio: sin él la vista expone los costos a cualquiera.
 create or replace view public.v_costos_catalogo
 with (security_invoker = true) as
 select
@@ -33,7 +16,7 @@ select
   v.sku,
   v.price_cop,
   v.cost_cop      as costo_estandar,
-  -- Costo real por bodega: lo que de verdad se pagó, según las recepciones.
+    -- Costo real por bodega, según las recepciones.
   (select round(avg(i.avg_cost_cop), 2)
      from public.inventory i
     where i.variant_id = v.id and i.avg_cost_cop > 0) as costo_promedio,
@@ -54,12 +37,8 @@ where public.is_staff();
 
 grant select on public.v_costos_catalogo to authenticated;
 
--- ------------------------------------------------------------
--- Fijar el costo estándar de una referencia
--- ------------------------------------------------------------
--- Es solo una referencia para lo que nunca se ha comprado; el costo real
--- sigue saliendo de las recepciones. Se deja explícito en el comentario
--- porque la tentación de teclear aquí «el costo» y darlo por bueno es alta.
+-- Costo estándar: solo referencia para lo que nunca se ha comprado; el real sale
+-- de las recepciones.
 create or replace function public.set_standard_cost(_variant_id uuid, _costo numeric)
 returns void
 language plpgsql

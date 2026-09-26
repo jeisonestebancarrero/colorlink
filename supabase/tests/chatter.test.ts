@@ -2,14 +2,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { readFileSync, existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-/**
- * Chatter y trazabilidad.
- *
- * Estas pruebas existen porque `post_message` estuvo roto sin que nada lo
- * delatara: la trazabilidad automática escribe directo en la tabla y sí
- * funcionaba, así que el hilo mostraba eventos y parecía sano, mientras
- * ningún humano podía escribir un mensaje.
- */
+/** Chatter y trazabilidad: `post_message` puede romperse mientras los eventos automáticos siguen apareciendo. */
 
 function env(): Record<string, string> {
   const ruta = resolve(process.cwd(), '.env.local');
@@ -25,15 +18,7 @@ function env(): Record<string, string> {
 const E = env();
 const API = E.VITE_SUPABASE_URL ?? '';
 const ANON = E.VITE_SUPABASE_ANON_KEY ?? '';
-/**
- * Hace falta para LIMPIAR, no para probar.
- *
- * `orders` no tiene política de DELETE —a propósito: un pedido no se borra,
- * se cancela— así que la limpieza que iba con el token del personal afectaba
- * CERO filas y no daba error. Cada corrida dejaba un pedido y sus siete
- * mensajes en la base; por eso los números de pedido iban por el 400 y la
- * campana de mensajes sin leer arrancaba con basura.
- */
+/** Solo para limpiar: `orders` no tiene política de DELETE, y con token de personal el borrado afecta 0 filas sin error. */
 const SERVICE = E.SUPABASE_SERVICE_ROLE_KEY ?? '';
 const anon = () => ({ apikey: ANON, 'Content-Type': 'application/json' });
 const auth = (t: string) => ({ ...anon(), Authorization: `Bearer ${t}` });
@@ -65,11 +50,8 @@ describe.skipIf(!disponible)('Chatter · mensajes, notas internas y trazabilidad
   beforeAll(async () => {
     [tCliente, tStaff, tAjeno] = await Promise.all([
       login('carlos.mendoza@constructorahorizonte.com', 'pintuco2025*'),
-      // La cuenta de personal para pruebas es admin@pintuco.demo, no
-      // admin@colorlink.com: esa es la que usa una persona de verdad, y
-      // cuando alguien le activa la verificación en dos pasos, todas las
-      // sesiones que no la superan pierden permisos y esta suite empieza a
-      // fallar con 403 sin relación aparente con el chatter.
+      // Se usa la cuenta demo de personal: si una cuenta real activa 2FA, sus sesiones
+      // sin verificar pierden permisos y la suite falla con 403.
       login('admin@pintuco.demo', 'pintuco2025*'),
       login('ana.torres@edificarplus.com', 'pintuco2025*'),
     ]);
@@ -93,8 +75,7 @@ describe.skipIf(!disponible)('Chatter · mensajes, notas internas y trazabilidad
       .then((r) => r.json());
     orderId = await rpc(tCliente, 'create_order_from_cart', {
       _delivery_method: 'RETIRO_TIENDA', _pickup_location_id: loc.id,
-      // Quién recibe es obligatorio desde 20260902100002: sin nombre, documento
-      // y teléfono, el punto de retiro no sabe a quién le entrega.
+      // Destinatario obligatorio: el punto de retiro necesita saber a quién entrega.
       _recipient_name: 'Carlos Mendoza',
       _recipient_document_type: 'CC',
       _recipient_document_number: '71234567',
@@ -108,8 +89,7 @@ describe.skipIf(!disponible)('Chatter · mensajes, notas internas y trazabilidad
       console.warn('[chatter] sin SUPABASE_SERVICE_ROLE_KEY: el pedido de prueba queda en la base');
       return;
     }
-    // Con la llave de servicio, que sí puede borrar. Los mensajes, las líneas
-    // y los envíos caen en cascada con el pedido.
+    // Con la llave de servicio; mensajes, líneas y envíos caen en cascada.
     const r = await fetch(`${API}/rest/v1/orders?id=eq.${orderId}`, {
       method: 'DELETE',
       headers: { apikey: SERVICE, Authorization: `Bearer ${SERVICE}` },
@@ -179,9 +159,7 @@ describe.skipIf(!disponible)('Chatter · mensajes, notas internas y trazabilidad
   });
 
   it('la trazabilidad se escribe sola al cambiar el estado', async () => {
-    // Desde que existe la pasarela, un pedido sin cobro no puede avanzar: el
-    // disparador `orders_exigir_cobro` lo impide. Se cobra primero, que es
-    // además el orden real de los hechos.
+    // `orders_exigir_cobro` impide avanzar un pedido sin cobro: se cobra primero.
     await rpc(tStaff, 'iniciar_pago', { _order_id: orderId, _metodo: 'PSE' });
     await rpc(tStaff, 'simular_pago', { _order_id: orderId, _aprobar: true });
 

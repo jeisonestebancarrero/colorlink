@@ -1,16 +1,5 @@
--- ============================================================
--- El asiento de la factura se hace cuando la factura ya tiene cifras
--- ============================================================
--- El disparador estaba en el INSERT de `invoices`, y ahí la factura todavía
--- vale cero: `issue_pos_invoice` crea la cabecera en ceros, recorre las
--- líneas del pedido y solo al final actualiza subtotal, base, IVA y total.
--- El asiento salía con todas las cifras en cero y lo detenía la restricción
--- que exige que una línea sea débito o crédito, nunca ninguno de los dos.
---
--- Se mueve al UPDATE que fija los totales, que es el momento en que la
--- factura existe de verdad. La condición del WHEN evita que un cambio
--- posterior vuelva a disparar el asiento.
--- ============================================================
+-- El asiento de la factura pasa del INSERT al UPDATE que fija los totales: al
+-- insertar la factura vale cero. El WHEN evita que se dispare de nuevo.
 
 drop trigger if exists factura_genera_asiento on public.invoices;
 
@@ -25,9 +14,7 @@ declare
   v_costo numeric(16,2);
   v_lineas jsonb;
 begin
-  -- Segunda barrera contra el doble asiento: si por cualquier camino futuro
-  -- esta función se llamara dos veces para la misma factura, la contabilidad
-  -- quedaría inflada al doble y nadie lo notaría hasta el cierre.
+    -- Segunda barrera contra el doble asiento.
   if exists (
     select 1 from public.journal_entries
      where invoice_id = new.id and status = 'REGISTRADO'
@@ -35,7 +22,6 @@ begin
     return new;
   end if;
 
-  -- Pago en tienda entra a Caja; a crédito queda en Clientes.
   v_cuenta_cobro := case when new.payment_method ilike '%tienda%' then '1105' else '1305' end;
 
   select coalesce(sum(oi.quantity * oi.unit_cost_cop), 0)
@@ -50,8 +36,7 @@ begin
                        'debito', 0, 'credito', new.taxable_base_cop)
   );
 
-  -- El IVA solo se acredita si lo hubo. Una línea en cero no pasa la
-  -- restricción de débito-o-crédito, y con razón: no es un movimiento.
+    -- Sin IVA no hay línea: un cero no pasa la restricción débito-o-crédito.
   if new.tax_cop > 0 then
     v_lineas := v_lineas || jsonb_build_array(
       jsonb_build_object('cuenta', '2408', 'detalle', 'IVA generado',
@@ -70,8 +55,7 @@ begin
                          'debito', 0, 'credito', new.shipping_cop));
   end if;
 
-  -- El costo solo se asienta si se conoce. Meter un cero fingiría un margen
-  -- del 100 % en los libros, que es peor que no registrarlo.
+    -- Sin costo conocido no se asienta: un cero fingiría margen del 100 %.
   if v_costo > 0 then
     v_lineas := v_lineas || jsonb_build_array(
       jsonb_build_object('cuenta', '6135', 'detalle', 'Costo de ' || new.invoice_number,

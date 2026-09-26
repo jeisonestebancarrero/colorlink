@@ -1,27 +1,10 @@
 import { defineConfig } from 'vitest/config';
 
-/**
- * Configuración de pruebas independiente de `vite.config.ts`.
- *
- * Se mantiene separada a propósito: `vite.config.ts` es configuración del
- * frontend existente y no debe modificarse. Las pruebas de esta fase cubren
- * lógica pura de negocio (motor de cálculo, validaciones, transiciones de
- * estado), por lo que no necesitan el entorno DOM ni los plugins de React.
- */
+/** Separada de vite.config.ts: las pruebas son de lógica y base, sin DOM ni plugins de React. */
 export default defineConfig({
   test: {
     environment: 'node',
-    /**
-     * Los archivos corren de UNO EN UNO, no en paralelo.
-     *
-     * Las pruebas de integración comparten la base local y varias usan el
-     * carrito del MISMO cliente de demostración (solo puede haber un carrito
-     * activo por persona). En paralelo se pisan entre ellas y la suite falla
-     * de forma intermitente sin que haya nada roto en el código, que es la
-     * peor clase de prueba: la que enseña a ignorar los fallos.
-     *
-     * El costo es despreciable: la suite completa tarda unos segundos.
-     */
+    /** En serie: las pruebas de integración comparten la base y el carrito único del cliente demo. */
     fileParallelism: false,
     include: ['src/**/*.test.ts', 'supabase/tests/**/*.test.ts'],
     coverage: {

@@ -1,19 +1,5 @@
--- ============================================================
--- Qué pasa cuando la empresa YA está registrada
--- ============================================================
--- `companies.nit` es único, y con razón: dos empresas con el mismo NIT son la
--- misma empresa. Pero eso significaba que el segundo empleado que intentara
--- registrar su compañía hacía estallar el trigger de alta y perdía la cuenta
--- completa con un error 500 sin explicación.
---
--- El caso es totalmente legítimo y frecuente: el jefe de compras se registra
--- hoy, el residente de obra mañana. Ahora ese segundo registro:
---   · SÍ crea la cuenta personal (no se pierde nada),
---   · NO crea empresa duplicada,
---   · NO se vincula solo a la empresa existente —eso sería regalar acceso a
---     los proyectos y precios de un tercero a quien acierte el NIT—,
---   · deja una SOLICITUD que el dueño de esa cuenta empresarial aprueba.
--- ============================================================
+-- NIT ya registrado: el alta crea la cuenta personal sin empresa y deja una
+-- solicitud que aprueba el dueño. Vincular solo por acertar el NIT regalaría acceso.
 
 create type public.join_request_status as enum ('PENDIENTE', 'APROBADA', 'RECHAZADA');
 
@@ -28,8 +14,7 @@ create table public.company_join_requests (
   created_at     timestamptz not null default now()
 );
 
--- Una sola solicitud viva por persona y empresa: reintentar el registro no
--- debe inundar al dueño de notificaciones idénticas.
+-- Una solicitud viva por persona y empresa: reintentar no duplica avisos.
 create unique index solicitud_vinculacion_unica
   on public.company_join_requests (company_id, user_id)
   where status = 'PENDIENTE';
@@ -38,12 +23,10 @@ create index solicitud_vinculacion_empresa on public.company_join_requests (comp
 
 alter table public.company_join_requests enable row level security;
 
--- Quien solicita ve su propia solicitud (para saber que quedó en trámite).
 create policy solicitud_propia_select on public.company_join_requests
   for select to authenticated
   using (user_id = (select auth.uid()));
 
--- El dueño o administrador de la empresa ve las solicitudes dirigidas a ella.
 create policy solicitud_empresa_select on public.company_join_requests
   for select to authenticated
   using (
@@ -56,14 +39,10 @@ create policy solicitud_empresa_select on public.company_join_requests
     or (select public.is_admin())
   );
 
--- Nadie escribe directamente: se crean desde el trigger de alta y se
--- resuelven por la función de abajo, que es la que valida quién decide.
+-- Sin escritura directa: nacen en el trigger de alta y se resuelven con resolve_join_request.
 revoke insert, update, delete on public.company_join_requests from authenticated, anon;
 grant select on public.company_join_requests to authenticated;
 
--- ============================================================
--- Aprobar o rechazar la vinculación
--- ============================================================
 create or replace function public.resolve_join_request(
   _request_id uuid,
   _aprobar    boolean
@@ -84,8 +63,7 @@ begin
     raise exception 'ALREADY_RESOLVED: esta solicitud ya fue resuelta' using errcode = '23505';
   end if;
 
-  -- Solo el dueño/administrador de ESA empresa decide. Un administrador de la
-  -- plataforma también, para poder destrabar casos de soporte.
+  -- Decide el dueño/admin de la empresa, o un admin de plataforma para soporte.
   if not (
     public.is_admin()
     or exists (
@@ -139,9 +117,7 @@ $$;
 revoke all on function public.resolve_join_request(uuid, boolean) from public, anon;
 grant execute on function public.resolve_join_request(uuid, boolean) to authenticated;
 
--- ============================================================
--- El alta deja de romperse por un NIT repetido
--- ============================================================
+-- El alta ya no falla por un NIT repetido: genera una solicitud de vinculación.
 create or replace function public.handle_new_user()
 returns trigger
 language plpgsql
@@ -183,7 +159,7 @@ begin
   v_first_name := nullif(trim(coalesce(new.raw_user_meta_data ->> 'first_name', '')), '');
   v_last_name  := nullif(trim(coalesce(new.raw_user_meta_data ->> 'last_name', '')), '');
 
-  -- Proveedor externo (Google): solo llega el nombre completo.
+  -- Proveedor externo: solo llega el nombre completo.
   if v_first_name is null then
     v_full_name := nullif(trim(coalesce(
       new.raw_user_meta_data ->> 'full_name',
@@ -217,7 +193,7 @@ begin
   on conflict on constraint user_roles_unicos do nothing;
 
   if v_company_name is not null then
-    -- ¿Ese NIT ya está registrado? Entonces no se crea nada: se pide permiso.
+    -- NIT existente: no se crea empresa, se pide vinculación.
     select id into v_existente
       from public.companies
      where v_company_nit is not null and nit = v_company_nit;
@@ -227,7 +203,6 @@ begin
       values (v_existente, new.id, v_company_nit)
       on conflict do nothing;
 
-      -- Avisar a quienes pueden decidir.
       insert into public.notifications (user_id, title, message, type)
       select m.user_id,
              'Solicitud de vinculación',
@@ -237,13 +212,11 @@ begin
        where m.company_id = v_existente
          and m.company_role in ('OWNER', 'ADMIN');
 
-      -- La cuenta personal queda creada y utilizable; simplemente sin empresa
-      -- hasta que la aprueben.
+      -- La cuenta queda utilizable, sin empresa hasta la aprobación.
       return new;
     end if;
 
-    -- Se crea SIEMPRE una empresa nueva, nunca se vincula por nombre: bastaría
-    -- escribir el nombre de otra constructora para acceder a sus proyectos.
+    -- Siempre empresa nueva: vincular por nombre daría acceso a otra compañía.
     insert into public.companies (name, nit, city, email, status)
     values (v_company_name, v_company_nit, v_city, new.email, 'ACTIVA')
     returning id into v_company_id;

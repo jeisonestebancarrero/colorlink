@@ -4,29 +4,9 @@ import { resolve } from 'node:path';
 import { limpiarCuentasDePrueba, clienteDeServicio } from './limpieza';
 
 /**
- * Cambiarle el rol a alguien que ya existe.
- *
- * Al dar de alta a una persona sí se le eligen roles; editarlos después no se
- * podía desde ninguna pantalla, aunque `grant_role` y `revoke_role` llevaban
- * ahí desde el principio. Ahora el panel de accesos los expone, así que las
- * reglas del servidor pasan a estar al alcance de un clic y conviene fijarlas.
- *
- * Lo que se vigila, en orden de gravedad:
- *   1. Que un usuario cualquiera NO pueda ascenderse a administrador. Es la
- *      escalada de privilegios más obvia que tiene el sistema.
- *   2. Que un administrador de verdad SÍ pueda otorgar y retirar.
- *   3. Que otorgar dos veces el mismo rol no lo duplique.
- *
- * Falta a propósito el caso del ÚLTIMO administrador. `revoke_role` se niega a
- * dejar el sistema sin ninguno, pero comprobarlo exigiría retirarle el rol a
- * los administradores REALES de la base y devolvérselo después; si la prueba
- * se cae en medio, el portal queda sin nadie que pueda repartir roles. No vale
- * la pena arriesgar eso por cubrir una guarda de cuatro líneas.
- *
- * Ojo con `service_role`: NO sirve para probar estas funciones. Saltan RLS
- * pero `is_admin()` mira `auth.uid()`, que con la llave de servicio es nulo,
- * así que responden FORBIDDEN igual que a un desconocido. Hay que iniciar
- * sesión como una persona con el rol puesto.
+ * Editar roles: un usuario no puede ascenderse a admin, un admin otorga y retira, y
+ * otorgar dos veces no duplica. El caso del último admin se omite: exigiría quitar el rol a los admins reales.
+ * `service_role` no sirve aquí: `is_admin()` mira `auth.uid()`, que con esa llave es nulo.
  */
 
 function leerEnvLocal(): Record<string, string> {
@@ -98,7 +78,6 @@ async function revocar(token: string, userId: string, rol: string) {
   return { ok: r.ok, mensaje: j?.message ?? '' };
 }
 
-/** El id de una cuenta a partir de su correo. */
 async function idDe(correo: string): Promise<string> {
   const r = await fetch(
     `${API}/rest/v1/profiles?select=id&email=eq.${encodeURIComponent(correo)}`,
@@ -107,7 +86,6 @@ async function idDe(correo: string): Promise<string> {
   return ((await r.json()) as { id: string }[])[0]?.id ?? '';
 }
 
-/** Cuántas veces aparece ese rol para esa persona. */
 async function vecesConElRol(userId: string, rol: string): Promise<number> {
   const r = await fetch(
     `${API}/rest/v1/user_roles?select=id&user_id=eq.${userId}&role=eq.${rol}`,
@@ -129,9 +107,7 @@ describe.skipIf(!disponible)('Editar roles · lo que el servidor no deja hacer',
     await registrar(VICTIMA);
     idVictima = await idDe(VICTIMA.email);
 
-    // El jefe se vuelve administrador por escritura directa con la llave de
-    // servicio, que es la única forma de sembrar el PRIMER administrador:
-    // `grant_role` exige ya serlo.
+    // El primer admin se siembra con la llave de servicio: `grant_role` exige ya serlo.
     await fetch(`${API}/rest/v1/user_roles`, {
       method: 'POST',
       headers: admin(),
@@ -163,8 +139,7 @@ describe.skipIf(!disponible)('Editar roles · lo que el servidor no deja hacer',
   });
 
   it('otorgar dos veces el mismo rol no lo duplica', async () => {
-    // Es lo que pasa al hacer doble clic en la casilla, o al reintentar tras
-    // una respuesta lenta.
+    // Simula un doble clic o un reintento.
     await otorgar(tokenJefe, idVictima, 'ASESOR');
     expect(await vecesConElRol(idVictima, 'ASESOR')).toBe(1);
   });
@@ -180,7 +155,7 @@ describe.skipIf(!disponible)('Editar roles · lo que el servidor no deja hacer',
     const r = await revocar(tokenDonNadie, idVictima, 'ASESOR');
     expect(r.ok).toBe(false);
     expect(r.mensaje).toContain('FORBIDDEN');
-    // Y sobre todo: el rol sigue ahí.
+    // El rol sigue ahí.
     expect(await vecesConElRol(idVictima, 'ASESOR')).toBe(1);
     await revocar(tokenJefe, idVictima, 'ASESOR');
   });

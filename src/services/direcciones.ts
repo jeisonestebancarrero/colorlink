@@ -1,15 +1,8 @@
 import { supabase } from '../lib/supabase';
 
 /**
- * Direcciones del cliente y sedes de la empresa.
- *
- * Son dos cosas distintas a propósito. Una constructora despacha a la obra
- * —una dirección suelta que puede cambiar cada mes— o a una de sus sedes, que
- * son fijas y las administra la empresa. Meterlas en la misma tabla obligaría
- * a elegir una sola de las dos formas de despachar.
- *
- * Nada de esto se lee sin sesión: la dirección de una persona es dato
- * personal, y `carts`/`customer_addresses` niegan el acceso anónimo.
+ * Direcciones del cliente (obras, cambiantes) y sedes de la empresa (fijas) van por
+ * separado. Nada se lee sin sesión: son datos personales.
  */
 
 export interface DireccionCliente {
@@ -40,7 +33,7 @@ export interface SedeEmpresa {
   isDefault: boolean;
 }
 
-/** Un solo `select` para las dos: la ciudad y el barrio vienen del diccionario. */
+/** Un solo `select` para ambas: ciudad y barrio vienen del diccionario. */
 const SELECT_UBIC =
   'municipalities ( name, departments ( name ) ), neighborhoods ( name )';
 
@@ -112,8 +105,7 @@ export const direccionService = {
     const userId = sesion.session?.user?.id;
     if (!userId) throw new Error('Inicia sesión para guardar una dirección.');
 
-    // Marcar esta como principal exige desmarcar la otra: el índice único de
-    // la base solo admite una, y el error crudo no le dice nada al cliente.
+    // El índice único admite una sola principal: se desmarca la anterior antes.
     if (datos.isDefault) await this.desmarcarPrincipales();
 
     const { error } = await supabase.from('customer_addresses').insert({
@@ -151,7 +143,7 @@ export const direccionService = {
     return this.listar();
   },
 
-  /** Deja sin marca de principal a todas menos la indicada. */
+  /** Quita la marca de principal a todas menos la indicada. */
   async desmarcarPrincipales(exceptoId?: string): Promise<void> {
     let q = supabase.from('customer_addresses').update({ is_default: false }).eq('is_default', true);
     if (exceptoId) q = q.neq('id', exceptoId);
@@ -172,13 +164,7 @@ export interface DatosSede {
 }
 
 export const sedeService = {
-  /**
-   * Sedes activas de la empresa del usuario.
-   *
-   * No recibe `company_id`: RLS ya limita las filas a la empresa de quien
-   * pregunta. Pasarlo desde el navegador sería darle a elegir de qué empresa
-   * lee.
-   */
+  /** Sin `company_id`: RLS ya limita a la empresa de quien pregunta. */
   async listar(): Promise<SedeEmpresa[]> {
     const { data, error } = await supabase
       .from('company_branches')
@@ -207,13 +193,7 @@ export const sedeService = {
     }));
   },
 
-  /**
-   * Sedes de UNA empresa concreta. Para el portal interno.
-   *
-   * `listar()` no sirve ahí: RLS le deja ver al personal con `users.manage`
-   * las sedes de TODOS los clientes, así que sin este filtro la pantalla de un
-   * cliente mostraría las sedes de todos mezcladas.
-   */
+  /** Sedes de una empresa para el portal interno; con `users.manage` RLS deja ver las de todos. */
   async listarDeEmpresa(companyId: string): Promise<SedeEmpresa[]> {
     const { data, error } = await supabase
       .from('company_branches')
@@ -279,10 +259,7 @@ export const sedeService = {
     return this.listar();
   },
 
-  /**
-   * Desactivar en lugar de borrar: los pedidos ya despachados apuntan a la
-   * sede, y borrarla dejaría esos pedidos sin destino en el histórico.
-   */
+  /** Se desactiva en lugar de borrar: los pedidos históricos apuntan a la sede. */
   async desactivar(id: string): Promise<SedeEmpresa[]> {
     const { error } = await supabase
       .from('company_branches')
@@ -292,13 +269,7 @@ export const sedeService = {
     return this.listar();
   },
 
-  /**
-   * ¿Puede quien pregunta administrar las sedes de su empresa?
-   *
-   * Lo decide RLS (solo OWNER y ADMIN escriben); esto se consulta para no
-   * ofrecerle un botón que el servidor le va a rechazar. No es un control de
-   * seguridad: la seguridad está en la política, no en ocultar el botón.
-   */
+  /** Solo para ocultar el botón; la seguridad la aplica RLS (OWNER y ADMIN escriben). */
   async puedoAdministrar(): Promise<boolean> {
     const { data: sesion } = await supabase.auth.getSession();
     const userId = sesion.session?.user?.id;

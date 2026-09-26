@@ -6,16 +6,8 @@ import {
 } from 'lucide-react';
 
 /**
- * Los iconos de los módulos, en un solo sitio.
- *
- * El nombre lo define `app_views.icon` en la base, así que el mapa tiene que
- * cubrir lo que hay ahí. Estaba dentro de `AdminLayout` y le faltaban tres:
- * `PackagePlus`, `Store` y `Building2`, de modo que Recepciones, Puntos de
- * venta y Clientes salían en el menú con un círculo genérico.
- *
- * Se listan uno a uno a propósito. `import * as Iconos from 'lucide-react'`
- * funciona, pero mete el paquete completo en el bundle: más de 500 KB para
- * dibujar diecisiete entradas de menú.
+ * Mapa de `app_views.icon` a componentes; debe cubrir los nombres de la base.
+ * Importados uno a uno: `import *` de lucide-react mete todo el paquete en el bundle.
  */
 export const ICONOS_DE_MODULO: Record<string, React.FC<{ className?: string }>> = {
   LayoutDashboard, ShoppingBag, Truck, Package, PackagePlus, FolderKanban,
@@ -23,22 +15,12 @@ export const ICONOS_DE_MODULO: Record<string, React.FC<{ className?: string }>> 
   Users, Store, Settings, Building2, ShieldCheck,
 };
 
-/** Si llega un nombre desconocido se dibuja un círculo, no se rompe el menú. */
+/** Respaldo para nombres desconocidos. */
 export function iconoDeModulo(nombre: string | null | undefined) {
   return ICONOS_DE_MODULO[nombre ?? ''] ?? Circle;
 }
 
-/**
- * El icono del módulo en una placa, para ponerlo junto al título.
- *
- * Es EL MISMO icono que el módulo tiene en el menú lateral, no uno decorativo
- * elegido aparte: con la barra azul oculta —que es lo normal— el título es la
- * única señal de en qué módulo se está, y que coincida con el menú es lo que
- * lo hace reconocible de un vistazo.
- *
- * Va `aria-hidden`: el título ya dice el nombre, y un lector de pantalla
- * anunciando «icono» antes de cada encabezado solo estorba.
- */
+/** Icono del menú junto al título del módulo; `aria-hidden` porque el título ya lo nombra. */
 export const IconoModulo: React.FC<{ nombre: string; className?: string }> = ({
   nombre, className = '',
 }) => {

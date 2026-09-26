@@ -9,27 +9,8 @@ import { Button } from '../components/common/Button';
 import { Input } from '../components/common/Input';
 
 /**
- * Roles: crearlos y decidir qué aplicación ve cada uno.
- *
- * Esto faltaba entero. `set_role_view` existía en la base desde el principio
- * pero sin pantalla: decir «que Bodega ya no vea Inventario» solo se podía
- * hacer entrando a la base. Lo único configurable desde el portal era la
- * excepción POR PERSONA, y eso obliga a repetir la misma configuración en cada
- * alta y a que dos personas del mismo cargo acaben con accesos distintos sin
- * que nadie lo note.
- *
- * DOS COSAS QUE CONVIENE SABER ANTES DE USARLA:
- *
- *   · Un rol creado NO se puede eliminar. En PostgreSQL un valor de enum se
- *     añade pero no se borra, así que lo que se hace es ARCHIVARLO: deja de
- *     ofrecerse y de aparecer, pero el valor queda. Piensa el nombre antes.
- *   · Un rol nuevo nace SIN NADA. Heredar los permisos de otro sería la forma
- *     más silenciosa de dar acceso de más.
- *
- * Esta pantalla decide qué se VE. Lo que se puede HACER dentro de cada
- * aplicación son los permisos, que están en su propia matriz: ver una pantalla
- * y poder escribir en ella son dos cosas distintas, y quien reparte accesos
- * tiene que poder decidirlas por separado.
+ * Roles y módulos visibles por rol (`set_role_view`); los permisos van en su propia matriz.
+ * Un rol no se puede borrar (valor de enum), solo archivar, y nace sin accesos.
  */
 export const RolesPanel: React.FC = () => {
   const [cfg, setCfg] = useState<ConfiguracionRoles | null>(null);
@@ -58,9 +39,7 @@ export const RolesPanel: React.FC = () => {
     const clave = `${rol}:${viewCode}`;
     setOcupado(clave);
     setError('');
-    // Se pinta el cambio antes de que responda el servidor: una matriz de 17
-    // columnas en la que cada clic tarda medio segundo es inservible. Si
-    // falla, se recarga y vuelve a su sitio.
+    // Optimista; si falla, se recarga.
     setCfg((c) => {
       if (!c) return c;
       const actuales = c.porRol[rol] ?? [];
@@ -182,7 +161,7 @@ export const RolesPanel: React.FC = () => {
         </form>
       )}
 
-      {/* La matriz. Roles en filas, aplicaciones en columnas. */}
+      {/* Roles en filas, aplicaciones en columnas. */}
       <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
@@ -193,8 +172,7 @@ export const RolesPanel: React.FC = () => {
                 </th>
                 {cfg.vistas.map((v) => (
                   <th key={v.code} className="px-2 py-3 font-bold text-slate-500 text-[10px]">
-                    {/* En vertical: diecisiete columnas horizontales no caben
-                        en ninguna pantalla. */}
+                    {/* Encabezado vertical para que quepan las columnas. */}
                     <span className="block whitespace-nowrap [writing-mode:vertical-rl] rotate-180 mx-auto h-24">
                       {v.label}
                     </span>
@@ -334,9 +312,7 @@ const EditarRol: React.FC<{
       <Input label="Para qué es" value={descripcion} onChange={(e) => setDescripcion(e.target.value)} />
 
       <div className="flex flex-wrap justify-between gap-2 pt-1">
-        {/* Archivar solo tiene sentido en los que no son del sistema y no los
-            tiene nadie puesto. La base lo comprueba igual; aquí solo se evita
-            ofrecer un botón que va a fallar. */}
+        {/* Solo roles propios sin usuarios; la base también lo valida. */}
         {!rol.delSistema && rol.personas === 0 ? (
           <Button size="sm" variant="ghost" onClick={() => void guardar('archivar')}
             className="text-rose-600 hover:bg-rose-50"

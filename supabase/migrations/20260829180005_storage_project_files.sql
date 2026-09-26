@@ -1,19 +1,5 @@
--- ============================================================
--- FASE 5 · 05 — Supabase Storage para archivos de proyecto
--- ============================================================
--- MÓDULO 31. Resuelve el riesgo R6 de la auditoría: hoy FileUploader crea
--- una URL `blob:` con URL.createObjectURL y la guarda en localStorage. Esa
--- URL muere al recargar la página, así que las fotos de un proyecto se
--- pierden siempre.
---
--- El bucket es PRIVADO: las imágenes de una obra pueden mostrar patologías,
--- direcciones y datos del cliente. El acceso se sirve con URLs firmadas de
--- vigencia corta, nunca con enlaces públicos permanentes.
---
--- CONVENIO DE RUTA:  <project_id>/<uuid>.<ext>
--- La primera carpeta ES el id del proyecto, y las políticas lo usan para
--- delegar el permiso en public.can_access_project().
--- ============================================================
+-- Bucket privado de archivos de proyecto (las fotos muestran direcciones y datos del
+-- cliente); se sirve con URLs firmadas. Ruta: <project_id>/<uuid>.<ext>.
 
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values (
@@ -28,9 +14,8 @@ values (
 )
 on conflict (id) do nothing;
 
--- Extrae el id de proyecto de la primera carpeta de la ruta.
--- Devuelve NULL si el primer segmento no es un UUID, de modo que una ruta
--- mal formada no concede acceso a nada.
+-- Id de proyecto de la primera carpeta; NULL si no es un UUID, así una ruta mal
+-- formada no concede acceso.
 create or replace function public.storage_project_id(_name text)
 returns uuid
 language plpgsql

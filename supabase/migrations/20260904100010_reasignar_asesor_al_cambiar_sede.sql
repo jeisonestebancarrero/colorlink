@@ -1,15 +1,5 @@
--- ============================================================
--- Si cambia la sede del pedido, se revisa el asesor
--- ============================================================
--- El asesor se elige por la sede del pedido. Cuando esa sede cambia —el
--- cliente mueve el retiro a otro punto, o alguien corrige el pedido desde el
--- portal— el asesor asignado puede dejar de cubrirla, y entonces pasa lo peor:
--- el pedido conserva un dueño que **su propia RLS le oculta**. Nadie lo ve y
--- figura como atendido.
---
--- Sale más caro que no tener asesor: un pedido sin asignar al menos aparece en
--- el reparto de huérfanos.
--- ============================================================
+-- Al cambiar la sede del pedido se reasigna el asesor si ya no la cubre: RLS le
+-- ocultaría un pedido que figura como atendido.
 
 create or replace function public.orders_revisar_asesor_por_sede()
 returns trigger
@@ -18,9 +8,7 @@ security definer
 set search_path = ''
 as $$
 begin
-  -- Solo si el asesor actual ya no puede con la sede nueva. Si sigue
-  -- cubriéndola, no se toca: cambiar de asesor sin motivo le quita al cliente
-  -- la persona con la que ya venía hablando.
+  -- Si el asesor sigue cubriendo la sede no se cambia: el cliente conserva su interlocutor.
   if new.advisor_id is not null
      and not exists (
        select 1 from public.asesores_para_sede(new.pickup_location_id) a

@@ -10,7 +10,6 @@ import { CartDrawer } from './components/cart/CartDrawer';
 import { Asistente } from './components/chat/Asistente';
 import { CompleteProfileModal } from './components/common/CompleteProfileModal';
 
-// Pages
 import { LandingPage } from './pages/LandingPage';
 import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
@@ -30,40 +29,18 @@ import { CambiarClaveObligatorio } from './components/common/CambiarClaveObligat
 import { claveTemporalService } from './services/claveTemporal';
 
 /**
- * FASE 2 — Páginas accesibles sin sesión iniciada.
- * Cualquier otra vista exige autenticación. Esta app no usa librería de
- * enrutado (la navegación es estado local), así que la protección de rutas
- * se aplica aquí, en el mismo punto donde se decide qué renderizar.
- *
- * La tienda, la carta de color y el localizador de tiendas son públicos: son
- * catálogo comercial y las políticas RLS ya permiten leerlos sin sesión. Así
- * un visitante puede mirar productos antes de decidir registrarse, y el botón
- * "Volver a la tienda" del login lleva a algún sitio útil.
- * Lo privado (proyectos, carrito, pedidos, perfil) sigue exigiendo sesión.
+ * Páginas accesibles sin sesión. No hay router: la protección de rutas se aplica
+ * aquí. Catálogo y simuladores son públicos porque RLS ya permite leerlos sin sesión.
  */
 const PUBLIC_PAGES = [
   'landing', 'login', 'register',
-  // Catálogo y simuladores: se pueden usar sin cuenta. Sus políticas RLS ya
-  // permiten leer sin sesión, y el menú superior los ofrece siempre — si no
-  // fueran públicos, pulsarlos devolvería al visitante a la landing sin
-  // explicación, que es justo lo que ocurría.
   'store', 'colors', 'stores', 'solutions', 'calculator',
 ];
 
 function AppContent() {
   const { user, isAuthenticated, isLoading, logout } = useAuth();
 
-  /**
-   * ¿Le pusieron una contraseña provisional?
-   *
-   * Pasa cuando el personal le reinicia el acceso en modo temporal. Esa
-   * contraseña se entrega por teléfono o por chat, así que tiene que cambiarla
-   * antes de seguir; si no, sigue siendo válida en manos de cualquiera que
-   * haya visto el mensaje.
-   *
-   * `null` mientras se averigua, para no pintar la tienda y quitarla medio
-   * segundo después.
-   */
+  /** Contraseña provisional asignada por el personal: debe cambiarse antes de seguir. `null` mientras se consulta. */
   const [debeCambiarClave, setDebeCambiarClave] = React.useState<boolean | null>(null);
 
   React.useEffect(() => {
@@ -76,18 +53,13 @@ function AppContent() {
   }, [isAuthenticated]);
   const { activeProjectId } = useProjects();
 
-  // Current page view state
-  // La página vive en la URL: recargar ya no devuelve a la landing, «atrás»
-  // funciona y el enlace de un pedido se puede compartir.
+  // La página vive en la URL: recargar conserva la vista y los enlaces se pueden compartir.
   const {
     pagina: currentPage, param: pageParam, navegar, reemplazar,
   } = useRutaTienda();
 
-  // If user logs in while on landing/login/register, auto redirect to dashboard
-  //
-  // 'landing' se incluye porque la landing es una página COMPLETA, con su
-  // propia cabecera. Al renderizarla dentro de AppLayout se veían dos barras
-  // superpuestas. Quien ya tiene sesión no necesita la página de captación.
+  // Con sesión, login/registro/landing redirigen al dashboard; la landing trae su
+  // propia cabecera y duplicaría la de AppLayout.
   useEffect(() => {
     if (
       isAuthenticated &&
@@ -97,12 +69,7 @@ function AppContent() {
     }
   }, [isAuthenticated, currentPage, reemplazar]);
 
-  /**
-   * FASE 2 — Protección de rutas (MÓDULO 1).
-   * Al cerrar sesión, expirar el token o cerrar sesión desde otra pestaña,
-   * devuelve al usuario a la landing en lugar de dejar una vista privada
-   * renderizada sin datos.
-   */
+  /** Sin sesión (logout, token expirado u otra pestaña) vuelve a la landing. */
   useEffect(() => {
     if (!isLoading && !isAuthenticated && !PUBLIC_PAGES.includes(currentPage)) {
       reemplazar('landing');
@@ -114,7 +81,6 @@ function AppContent() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // If auth is loading
   if (isLoading) {
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center text-white">
@@ -128,8 +94,7 @@ function AppContent() {
     );
   }
 
-  // Contraseña provisional: se cambia antes de poder usar la tienda. Va antes
-  // que cualquier vista privada, incluido el carrito.
+  // La contraseña provisional se cambia antes de cualquier vista privada, incluido el carrito.
   if (isAuthenticated && debeCambiarClave) {
     return (
       <>
@@ -143,7 +108,7 @@ function AppContent() {
     );
   }
 
-  // Guardia de render: si no hay sesión, ninguna vista privada llega a pintarse.
+  // Guardia de render: sin sesión no se pinta ninguna vista privada.
   if (!isAuthenticated && !PUBLIC_PAGES.includes(currentPage)) {
     return (
       <>
@@ -153,7 +118,6 @@ function AppContent() {
     );
   }
 
-  // Standalone landing / login / register pages
   if (currentPage === 'landing' && !isAuthenticated) {
     return (
       <>
@@ -181,7 +145,6 @@ function AppContent() {
     );
   }
 
-  // Application views
   const renderCurrentPage = () => {
     switch (currentPage) {
       case 'landing':
@@ -215,9 +178,7 @@ function AppContent() {
           />
         );
       case 'orders':
-        // El número del pedido viaja en la URL (`/mis-pedidos/ORD-PNT-000106`)
-        // para que la campana pueda abrir la conversación exacta y para que el
-        // enlace se pueda compartir, igual que en el portal interno.
+        // El número viaja en la URL para que la campana abra la conversación exacta.
         return <MisPedidosPage onNavigate={handleNavigate} numeroAbierto={pageParam} />;
       case 'notifications':
         return <NotificationsPage onNavigate={handleNavigate} />;
@@ -232,8 +193,7 @@ function AppContent() {
     <AppLayout currentPage={currentPage} onNavigate={handleNavigate}>
       {renderCurrentPage()}
       <CartDrawer onNavigate={handleNavigate} />
-      {/* Asistente automático: responde consultando el sistema y, cuando no
-          sabe, pasa la conversación al equipo por el hilo del pedido. */}
+      {/* Responde consultando el sistema; si no sabe, escala al hilo del pedido. */}
       <Asistente onNavigate={handleNavigate} />
       {/* Pide los datos que Google no entrega, una sola vez. */}
       <CompleteProfileModal />
@@ -242,13 +202,7 @@ function AppContent() {
   );
 }
 
-/**
- * Enchufa la campana de mensajes a la sesión de la TIENDA.
- *
- * El proveedor es neutro —lo comparten las dos aplicaciones— y recibe `activo`
- * por propiedad; este envoltorio es el que sabe de qué contexto de sesión sale
- * ese dato aquí.
- */
+/** Conecta la campana (proveedor compartido entre apps) a la sesión de la tienda. */
 const CampanaConSesion: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isAuthenticated } = useAuth();
   return <MensajesProvider activo={isAuthenticated}>{children}</MensajesProvider>;
@@ -259,8 +213,7 @@ export default function App() {
     <AuthProvider>
       <ProjectProvider>
         <CartProvider>
-          {/* La campana solo tiene sentido con sesión, y necesita saber
-              cuándo se inicia y cuándo se cierra. */}
+          {/* La campana depende del inicio y cierre de sesión. */}
           <CampanaConSesion>
             <AppContent />
           </CampanaConSesion>

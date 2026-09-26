@@ -1,11 +1,5 @@
--- ============================================================
--- Configurar la pasarela y el crédito de cada empresa
--- ============================================================
--- Las llaves de Wompi se guardan por función, no con un UPDATE directo: los
--- secretos no se pueden leer de vuelta desde el navegador (el GRANT por
--- columna lo impide), así que la pantalla necesita poder escribirlos sin
--- leerlos. La función también evita que se encienda el cobro real sin tener
--- con qué cobrar.
+-- Las llaves de Wompi se escriben por función porque el navegador no puede leer
+-- los secretos; además impide activar el cobro real sin llaves.
 create or replace function public.configurar_pasarela(_datos jsonb)
 returns jsonb
 language plpgsql
@@ -27,7 +21,7 @@ begin
 
   select id into v_id from public.app_settings limit 1;
 
-  -- Cobrar de verdad sin llaves dejaría al cliente en una pantalla muerta.
+    -- Cobro real sin llaves dejaría al cliente sin poder pagar.
   if v_activa and not v_prueba then
     if coalesce(v_publica, (select wompi_public_key from public.app_settings where id = v_id)) is null
        or coalesce(v_integ, (select wompi_integrity_secret from public.app_settings where id = v_id)) is null then
@@ -39,8 +33,7 @@ begin
   update public.app_settings
      set payments_enabled = v_activa,
          payments_test_mode = v_prueba,
-         -- Un campo vacío significa "no lo cambies", no "bórralo": la pantalla
-         -- nunca puede mostrar el secreto guardado, así que llega en blanco.
+           -- Vacío significa «no cambiar»: la pantalla nunca recibe el secreto guardado.
          wompi_public_key = coalesce(v_publica, wompi_public_key),
          wompi_integrity_secret = coalesce(v_integ, wompi_integrity_secret),
          wompi_events_secret = coalesce(v_eventos, wompi_events_secret),
@@ -59,9 +52,7 @@ $$;
 revoke all on function public.configurar_pasarela(jsonb) from public;
 grant execute on function public.configurar_pasarela(jsonb) to authenticated;
 
--- ------------------------------------------------------------
--- Estado de la pasarela sin revelar los secretos
--- ------------------------------------------------------------
+-- Estado de la pasarela sin revelar los secretos.
 create or replace function public.estado_pasarela()
 returns jsonb
 language plpgsql
@@ -79,8 +70,7 @@ begin
     'activa', coalesce(v_c.payments_enabled, false),
     'prueba', coalesce(v_c.payments_test_mode, true),
     'llave_publica', v_c.wompi_public_key,
-    -- De los secretos solo se dice si están puestos. Devolverlos sería
-    -- filtrarlos a cualquiera que abra la consola del navegador.
+      -- De los secretos solo se informa si están configurados.
     'tiene_integridad', v_c.wompi_integrity_secret is not null,
     'tiene_eventos', v_c.wompi_events_secret is not null
   );
@@ -90,9 +80,6 @@ $$;
 revoke all on function public.estado_pasarela() from public;
 grant execute on function public.estado_pasarela() to authenticated;
 
--- ------------------------------------------------------------
--- Crédito de una empresa
--- ------------------------------------------------------------
 create or replace function public.fijar_credito_empresa(
   _company_id uuid,
   _a_credito  boolean,

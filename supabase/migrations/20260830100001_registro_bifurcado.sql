@@ -1,16 +1,5 @@
--- ============================================================
--- Registro bifurcado: persona natural o empresa
--- ============================================================
--- POR QUÉ EL REGISTRO SE BIFURCA Y EL LOGIN NO:
--- Al iniciar sesión el sistema ya sabe quién eres en cuanto entra la
--- contraseña; preguntar "¿qué portal?" antes de identificarse solo genera el
--- clásico "usuario no existe" por haber elegido la puerta equivocada.
--- Al registrarse sí cambian los datos: una persona natural no tiene NIT, ni
--- razón social, ni representante legal.
---
--- Hasta ahora el formulario exigía empresa a TODO el mundo, así que un
--- particular tenía que inventarse una razón social para poder comprar.
--- ============================================================
+-- Registro como persona natural o empresa: documento en el perfil y empresa solo
+-- cuando el usuario la declara.
 
 create type public.document_type as enum ('CC', 'CE', 'NIT', 'PASAPORTE', 'PEP');
 
@@ -25,9 +14,6 @@ create unique index profiles_documento_unico
   on public.profiles (document_type, document_number)
   where document_number is not null;
 
--- ============================================================
--- Alta de usuario adaptada a las dos formas de registro
--- ============================================================
 create or replace function public.handle_new_user()
 returns trigger
 language plpgsql
@@ -68,15 +54,14 @@ begin
   v_first_name := nullif(trim(coalesce(new.raw_user_meta_data ->> 'first_name', '')), '');
   v_last_name  := nullif(trim(coalesce(new.raw_user_meta_data ->> 'last_name', '')), '');
 
-  -- Proveedor externo (Google): solo llega el nombre completo.
+  -- Proveedor externo: solo llega el nombre completo.
   if v_first_name is null then
     v_full_name := nullif(trim(coalesce(
       new.raw_user_meta_data ->> 'full_name',
       new.raw_user_meta_data ->> 'name', '')), '');
     if v_full_name is not null then
       v_first_name := split_part(v_full_name, ' ', 1);
-      -- Todo lo que sigue al primer espacio son apellidos: en Colombia son
-      -- habituales dos y partirlos sería peor.
+      -- Todo tras el primer espacio son apellidos (en Colombia suelen ser dos).
       v_last_name := coalesce(
         nullif(trim(substr(v_full_name, length(split_part(v_full_name, ' ', 1)) + 1)), ''),
         v_last_name);
@@ -103,12 +88,8 @@ begin
   values (new.id, 'CLIENTE')
   on conflict on constraint user_roles_unicos do nothing;
 
-  -- Solo la vía "empresa" crea empresa. Un particular ya no está obligado a
-  -- inventarse una razón social para poder comprar.
-  --
-  -- Se crea SIEMPRE una empresa nueva, nunca se vincula a una existente:
-  -- bastaría escribir el nombre de otra constructora para acceder a sus
-  -- proyectos. Unirse a una empresa ya registrada exigirá invitación.
+  -- Solo la vía empresa crea empresa, y siempre nueva: vincular por nombre daría
+  -- acceso a los proyectos de otra compañía.
   if v_company_name is not null then
     insert into public.companies (name, nit, city, email, status)
     values (v_company_name, v_company_nit, v_city, new.email, 'ACTIVA')
@@ -128,9 +109,7 @@ begin
 end;
 $$;
 
--- ============================================================
--- La factura POS debe mostrar el documento de una persona natural
--- ============================================================
+-- La factura muestra el documento de la persona natural cuando no hay empresa.
 create or replace function public.issue_pos_invoice(_order_id uuid)
 returns uuid
 language plpgsql
@@ -186,7 +165,7 @@ begin
     v_conf.company_city, v_conf.company_phone, v_conf.tax_regime,
     -- Empresa si la hay; si no, la persona natural.
     coalesce(v_perfil.empresa, v_perfil.nombre),
-    -- Identificación: NIT de la empresa, o el documento de la persona.
+    -- NIT de la empresa o documento de la persona.
     coalesce(
       v_perfil.nit_empresa,
       case when v_perfil.document_number is not null

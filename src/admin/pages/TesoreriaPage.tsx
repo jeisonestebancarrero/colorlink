@@ -21,13 +21,7 @@ import { ExportarBoton } from '../ExportarBoton';
 import { IconoModulo } from '../IconosDeModulo';
 import { RegistrarEgreso } from '../RegistrarEgreso';
 
-/**
- * Tesorería: recaudos, cartera y conciliación bancaria.
- *
- * Cierra el circuito del dinero. Tesorería mueve dinero real; contabilidad
- * lo clasifica. Mantenerlas separadas es lo que permite saber quién responde
- * por una diferencia.
- */
+/** Recaudos, egresos, cartera y conciliación. Tesorería mueve el dinero; contabilidad lo clasifica. */
 export const TesoreriaPage: React.FC = () => {
   const { filtroSedes } = useSedes();
   const { sedeAislada, aislar, filtroEfectivo } = useAislamientoDeSede();
@@ -118,8 +112,7 @@ export const TesoreriaPage: React.FC = () => {
     }
   };
 
-  // `occurred_on` es una columna `date`: un recaudo del día 1 se mostraba
-  // como del último día del mes anterior, y eso descuadra una conciliación.
+  // `occurred_on` es `date`: parsearla como UTC la corre al día anterior.
   const fecha = (iso: string) =>
     formatearFecha(iso, { day: '2-digit', month: 'short', year: 'numeric' });
 
@@ -131,8 +124,7 @@ export const TesoreriaPage: React.FC = () => {
 
   const totalCartera = cartera.reduce((s, c) => s + c.saldo, 0);
   const vencida = cartera.filter((c) => c.dias > 30).reduce((s, c) => s + c.saldo, 0);
-  // Acotado a las sedes ACTIVAS. Un egreso sin sede se conserva: no pertenece
-  // a ninguna tienda y esconderlo al elegir una sede lo haría desaparecer.
+  // Filtra por sedes activas, pero conserva los egresos sin sede.
   const movDeSedesActivas = movimientos.filter((m) => sedeVisible(m.locationId, filtroSedes));
   const movVisibles = movimientos.filter((m) => sedeVisible(m.locationId, filtroEfectivo));
   const sinConciliar = movVisibles.filter((m) => !m.conciliado).length;
@@ -157,8 +149,7 @@ export const TesoreriaPage: React.FC = () => {
       </div>
 
       <div className="flex justify-end gap-2">
-        {/* Faltaba por completo: solo se podía cobrar, así que la caja del
-            sistema decía más dinero del que había. */}
+        {/* Registro de pagos para que la caja cuadre. */}
         {puede('treasury.manage') && cuentas.length > 0 && (
           <Button variant="outline" size="sm" onClick={() => setEgresando(true)}
             className="text-xs font-bold"
@@ -185,8 +176,7 @@ export const TesoreriaPage: React.FC = () => {
         />
       </div>
 
-      {/* La cartera es del cliente, no de una sede: solo se desglosan los
-          movimientos, que sí ocurren en una tienda. */}
+      {/* La cartera es del cliente; solo los movimientos se desglosan por sede. */}
       <ContadorPorSede
         sedeAislada={sedeAislada}
         onAislar={aislar}

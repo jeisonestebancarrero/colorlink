@@ -1,18 +1,5 @@
--- ============================================================
--- MÓDULO 17 — Tesorería: recaudos y conciliación
--- ============================================================
--- Cierra el circuito del dinero: pedido -> factura -> RECAUDO -> movimiento
--- bancario -> conciliación.
---
--- Hasta ahora `payments` guardaba la intención de pago que crea el pedido,
--- pero nadie podía registrar que el dinero LLEGÓ, ni contra qué cuenta, ni
--- cuadrarlo con el extracto del banco.
---
--- SEPARACIÓN DELIBERADA ENTRE TESORERÍA Y CONTABILIDAD:
--- tesorería mueve dinero real (entra, sale, se concilia); contabilidad lo
--- clasifica. Mezclarlas es lo que hace que nadie sepa quién es responsable
--- de una diferencia.
--- ============================================================
+-- Tesorería: cuentas, recaudos y conciliación bancaria. Registra el dinero real;
+-- la clasificación contable es otro módulo.
 
 create type public.account_kind as enum ('BANCARIA', 'CAJA', 'PASARELA');
 create type public.treasury_direction as enum ('INGRESO', 'EGRESO');
@@ -40,13 +27,11 @@ create table public.treasury_movements (
   concept    text not null,
   reference  text,
 
-  -- Trazabilidad hacia el origen. Un recaudo siempre debe poder responder
-  -- "¿de qué factura viene?".
+  -- Origen del movimiento: todo recaudo debe llevar a su factura.
   payment_id uuid references public.payments (id)  on delete set null,
   order_id   uuid references public.orders (id)    on delete set null,
   invoice_id uuid references public.invoices (id)  on delete set null,
 
-  -- Conciliación con el extracto bancario.
   reconciled     boolean not null default false,
   reconciled_at  timestamptz,
   reconciled_by  uuid references public.profiles (id) on delete set null,
@@ -56,7 +41,7 @@ create table public.treasury_movements (
   created_at timestamptz not null default now(),
 
   constraint treasury_movements_importe_positivo check (amount_cop > 0),
-  -- Un movimiento conciliado debe decir contra qué línea del extracto.
+  -- Conciliado implica referencia del extracto.
   constraint treasury_movements_conciliado_con_ref
     check (not reconciled or (reconciled_at is not null and bank_statement_ref is not null))
 );
@@ -68,9 +53,6 @@ create index treasury_movements_pendientes_idx on public.treasury_movements (acc
 comment on table public.treasury_movements is
   'Dinero que entra y sale de verdad. La clasificación contable es otro módulo.';
 
--- ------------------------------------------------------------
--- Saldo por cuenta, derivado de los movimientos.
--- ------------------------------------------------------------
 create or replace view public.v_saldos_cuenta
 with (security_invoker = true) as
   select
@@ -83,9 +65,7 @@ with (security_invoker = true) as
   left join public.treasury_movements m on m.account_id = a.id
   group by a.id;
 
--- ------------------------------------------------------------
--- Cartera: lo facturado menos lo recaudado.
--- ------------------------------------------------------------
+-- Cartera: facturado menos recaudado.
 create or replace view public.v_cartera
 with (security_invoker = true) as
   select
@@ -102,9 +82,6 @@ with (security_invoker = true) as
   where i.status = 'EMITIDA'
   group by i.id;
 
--- ============================================================
--- Registrar un recaudo
--- ============================================================
 create or replace function public.registrar_recaudo(
   _invoice_id uuid,
   _account_id uuid,
@@ -146,8 +123,7 @@ begin
 
   v_saldo := v_factura.total_cop - v_recaudado;
 
-  -- No se admite cobrar de más: un sobrepago silencioso descuadra la cartera
-  -- y aparece semanas después como una diferencia que nadie sabe explicar.
+  -- Sin sobrepagos: descuadrarían la cartera.
   if _amount > v_saldo then
     raise exception 'OVERPAYMENT: el recaudo (%) supera el saldo pendiente (%)', _amount, v_saldo
       using errcode = '22023';
@@ -180,9 +156,6 @@ begin
 end;
 $$;
 
--- ============================================================
--- Conciliar contra el extracto
--- ============================================================
 create or replace function public.conciliar_movimiento(
   _movement_id uuid, _bank_ref text, _conciliado boolean default true
 )
@@ -209,9 +182,6 @@ begin
 end;
 $$;
 
--- ============================================================
--- RLS
--- ============================================================
 alter table public.bank_accounts       enable row level security;
 alter table public.treasury_movements  enable row level security;
 
@@ -219,8 +189,7 @@ revoke all on public.bank_accounts, public.treasury_movements from anon, authent
 grant select on public.bank_accounts, public.treasury_movements to authenticated;
 grant select on public.v_saldos_cuenta, public.v_cartera to authenticated;
 
--- Solo tesorería, contabilidad y administración ven el dinero. Un asesor o
--- un cliente no tienen nada que hacer aquí.
+-- Solo tesorería, contabilidad y administración ven el dinero.
 create policy "cuentas_finanzas" on public.bank_accounts
   for select to authenticated
   using ( (select public.is_admin())
@@ -242,7 +211,7 @@ revoke execute on function public.conciliar_movimiento(uuid, text, boolean)     
 grant execute on function public.registrar_recaudo(uuid, uuid, numeric, text, text, date) to authenticated;
 grant execute on function public.conciliar_movimiento(uuid, text, boolean)                 to authenticated;
 
--- Cuentas iniciales de demostración.
+-- Cuentas de demostración.
 insert into public.bank_accounts (name, kind, bank_name, account_number, opening_balance) values
   ('Cuenta corriente principal', 'BANCARIA', 'Bancolombia', '***4821', 0),
   ('Caja punto de venta',        'CAJA',     null,          null,      0),

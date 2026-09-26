@@ -2,18 +2,8 @@ import React, { useState } from 'react';
 import { ImageOff } from 'lucide-react';
 
 /**
- * Imagen que no se rompe cuando su URL falla.
- *
- * El navegador, ante una URL que no devuelve una imagen, pinta su icono de
- * roto. En un catálogo eso se lee como «el producto está mal cargado», y no
- * dice qué producto ni por qué. Aquí, cuando la carga falla, se muestra un
- * marcador limpio con el nombre y —para quien administra— la pista de que la
- * URL no sirve.
- *
- * CASO REAL que lo motivó: un producto tenía guardada
- * `https://www.google.com/imgres?q=Brocha...`, que es la página de RESULTADOS
- * de Google Imágenes, no una imagen. Devuelve 200 y `text/html`, así que no
- * hay forma de detectarlo antes de intentar pintarlo.
+ * Imagen con marcador si la URL falla. Una URL puede responder 200 con HTML
+ * (p. ej. resultados de Google Imágenes), así que solo se detecta al pintarla.
  */
 
 interface Props {
@@ -31,8 +21,7 @@ export const ImagenConRespaldo: React.FC<Props> = ({
 }) => {
   const [fallo, setFallo] = useState(false);
 
-  // `key` en el src: si el producto cambia de imagen, hay que volver a
-  // intentarlo. Sin esto, un fallo anterior dejaría el marcador para siempre.
+  // `key={src}` reinicia el fallo cuando cambia la imagen.
   const sinImagen = !src || src.trim() === '' || fallo;
 
   if (sinImagen && respaldo && !fallo) {
@@ -68,21 +57,8 @@ export const ImagenConRespaldo: React.FC<Props> = ({
 };
 
 /**
- * Pista rápida mientras se escribe, ANTES de intentar cargar.
- *
- * No es la validación definitiva —esa es `verificarImagen`, que carga la
- * imagen de verdad—, sino un aviso inmediato para los dos errores que ya
- * ocurrieron de verdad en este catálogo:
- *
- *   1. `https://www.google.com/imgres?q=Brocha...` — la página de RESULTADOS
- *      de Google Imágenes. Es el enlace que se copia al hacer clic derecho
- *      sobre el resultado, en lugar de sobre la foto.
- *   2. `https://www.pintuco.com.co/productos/brocha-.../` — la página del
- *      producto en el sitio de Pintuco. Termina en `/` y no es un archivo.
- *
- * Los dos son PÁGINAS, no imágenes, y el navegador solo puede pintar su icono
- * de roto. Cargar por URL sigue siendo perfectamente válido: lo que se ataja
- * es pegar la dirección equivocada.
+ * Aviso inmediato mientras se escribe, para URLs que son páginas y no imágenes
+ * (resultados de buscadores, páginas de producto). La validación real es `verificarImagen`.
  */
 export function urlDeImagenSospechosa(url: string): string | null {
   const u = url.trim();
@@ -114,8 +90,7 @@ export function urlDeImagenSospechosa(url: string): string | null {
     return 'Ese es el enlace del pin, no la imagen. Copia la dirección de la foto.';
   }
 
-  // Una ruta que termina en `/` es una página, no un archivo. Es exactamente
-  // la forma de la URL del producto en pintuco.com.co.
+  // Una ruta terminada en `/` es una página, no un archivo (p. ej. producto en pintuco.com.co).
   if (ruta.endsWith('/') && ruta !== '/') {
     return 'Esa parece la página del producto, no la imagen. '
       + 'Haz clic derecho sobre la FOTO y elige «Copiar dirección de la imagen».';
@@ -125,16 +100,8 @@ export function urlDeImagenSospechosa(url: string): string | null {
 }
 
 /**
- * Verificación DEFINITIVA: intenta cargar la imagen.
- *
- * Es la única comprobación que no se puede engañar. Las pistas por patrón
- * atajan los errores conocidos, pero no cubren una URL que simplemente ya no
- * existe, un host caído o una página cualquiera que no se parezca a las que se
- * conocen —y eso es justo lo que pasó dos veces en este catálogo—.
- *
- * Se usa `new Image()` y no `fetch` a propósito: `fetch` a otro dominio choca
- * con CORS y falla incluso cuando la imagen es válida. El navegador sí puede
- * PINTAR una imagen de otro dominio, así que se le pregunta a él.
+ * Validación definitiva: carga la imagen. Usa `new Image()` y no `fetch` porque
+ * `fetch` a otro dominio falla por CORS aunque la imagen sea válida.
  */
 export function verificarImagen(
   url: string,
@@ -157,8 +124,7 @@ export function verificarImagen(
       resolve(r);
     };
 
-    // Un host que no responde deja la promesa colgada para siempre: sin este
-    // tope, el formulario se quedaría «verificando» sin decir nada.
+    // Sin tope, un host que no responde deja el formulario «verificando» indefinidamente.
     const reloj = setTimeout(() => terminar({
       ok: false,
       aviso: 'La imagen tardó demasiado en responder. Revisa la dirección.',

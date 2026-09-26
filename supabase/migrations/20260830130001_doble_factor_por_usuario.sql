@@ -1,22 +1,5 @@
--- ============================================================
--- Doble factor exigible por persona, no solo por rol
--- ============================================================
--- La regla base sigue siendo "todo el personal interno lo necesita", porque
--- es la correcta. Pero hay excepciones legítimas: el operario de bodega que
--- trabaja desde un equipo compartido sin teléfono corporativo, o el asesor
--- que todavía no ha recibido el suyo.
---
--- La excepción se guarda por persona y solo la mueve un administrador, de la
--- misma forma que los accesos a las aplicaciones: la línea base la da el rol
--- y la excepción se ve aparte, para que sea auditable quién está exento.
---
--- Lo que la excepción NO hace: si alguien YA registró su aplicación de
--- códigos, seguirá teniendo que usarla. Eximir a esa persona apagaría una
--- protección activa sin que ella se entere, y convertiría el interruptor en
--- una forma de degradar la seguridad de otro por la puerta de atrás. Para
--- quitarle el factor a alguien está "Reiniciar verificación", que es un acto
--- explícito y queda en la auditoría.
--- ============================================================
+-- Exención de MFA por persona, solo por un administrador y auditada. No apaga un
+-- factor ya registrado; para retirarlo está "Reiniciar verificación".
 
 alter table public.profiles
   add column mfa_exento boolean not null default false;
@@ -24,12 +7,9 @@ alter table public.profiles
 comment on column public.profiles.mfa_exento is
   'El administrador eximió a esta persona de registrar el segundo factor. No desactiva el que ya tenga registrado.';
 
--- La columna la escribe solo un administrador, mediante la función de abajo.
+-- Solo la escribe un administrador vía set_mfa_requerido.
 revoke update (mfa_exento) on public.profiles from authenticated, anon;
 
--- ============================================================
--- Conmutar la exigencia
--- ============================================================
 create or replace function public.set_mfa_requerido(
   _user_id   uuid,
   _requerido boolean
@@ -47,9 +27,7 @@ begin
       using errcode = '42501';
   end if;
 
-  -- Nadie se exime a sí mismo. Quien administra el sistema es justamente
-  -- quien no puede quedar sin segundo factor, y permitirlo convertiría este
-  -- interruptor en el primer clic de cualquiera que tomara esa cuenta.
+  -- Nadie se exime a sí mismo: sería lo primero que haría quien robe una cuenta admin.
   if _user_id = auth.uid() and not _requerido then
     raise exception 'SELF_EXEMPT: no puedes eximirte a ti mismo del segundo factor'
       using errcode = '42501';
@@ -60,8 +38,7 @@ begin
     where f.user_id = _user_id and f.status = 'verified'
   ) into v_tiene_factor;
 
-  -- Eximir a alguien que ya lo tiene activo no lo desactiva —y decirle que sí
-  -- sería mentirle—, así que se rechaza y se le indica el camino correcto.
+  -- Eximir no desactiva un factor activo: se rechaza e indica la vía correcta.
   if not _requerido and v_tiene_factor then
     raise exception
       'ALREADY_ENROLLED: esta persona ya tiene su aplicación de códigos registrada; usa "Reiniciar verificación" si necesitas retirarla'
@@ -83,9 +60,7 @@ $$;
 revoke all on function public.set_mfa_requerido(uuid, boolean) from public, anon;
 grant execute on function public.set_mfa_requerido(uuid, boolean) to authenticated;
 
--- ============================================================
--- El estado que lee la interfaz respeta la excepción
--- ============================================================
+-- El estado que lee la interfaz respeta la exención.
 create or replace function public.mi_estado_mfa()
 returns jsonb
 language sql
@@ -114,9 +89,7 @@ as $$
   );
 $$;
 
--- ============================================================
--- Estado del segundo factor de OTRA persona, para el panel de administración
--- ============================================================
+-- Estado MFA de otra persona, para el panel de administración.
 create or replace function public.estado_mfa_usuario(_user_id uuid)
 returns jsonb
 language plpgsql

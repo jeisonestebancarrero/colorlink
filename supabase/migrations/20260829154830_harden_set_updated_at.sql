@@ -1,14 +1,4 @@
--- ============================================================
--- FASE 2 · 07 — Endurecimiento de public.set_updated_at()
--- ============================================================
--- La verificación del esquema detectó que esta función trigger era la única
--- del esquema `public` sin `search_path` fijado. El riesgo real es bajo (es
--- SECURITY INVOKER y no consulta ninguna tabla), pero se corrige para que
--- TODA función siga la misma regla y la verificación quede limpia.
---
--- MÓDULO 3: no se reescribe la migración original ya aplicada; la corrección
--- viaja en una migración incremental nueva.
--- ============================================================
+-- Fija search_path en set_updated_at, la única función de public que no lo tenía.
 
 create or replace function public.set_updated_at()
 returns trigger

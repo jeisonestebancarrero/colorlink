@@ -1,11 +1,5 @@
--- ============================================================
--- BACK-OFFICE · 04 — Facturación POS
--- ============================================================
--- Documento impreso profesional con los datos de la tienda, los del cliente
--- y el desglose de impuestos. NO es facturación electrónica DIAN: no genera
--- CUFE, ni XML UBL, ni requiere proveedor tecnológico. Si más adelante se
--- quiere pasar a electrónica, esta tabla es la base sobre la que se añade.
--- ============================================================
+-- Factura POS impresa con desglose de IVA. No es facturación electrónica DIAN
+-- (sin CUFE ni XML UBL), aunque sirve de base para ella.
 
 create type public.invoice_status as enum ('EMITIDA','ANULADA');
 
@@ -16,9 +10,7 @@ create table public.invoices (
   user_id        uuid not null references auth.users (id)    on delete restrict,
   status         public.invoice_status not null default 'EMITIDA',
 
-  -- ---- Copia de los datos del emisor en el momento de emitir ----
-  -- Si mañana cambia la dirección o el NIT de la tienda, las facturas ya
-  -- emitidas deben seguir mostrando lo que se imprimió aquel día.
+  -- Copia del emisor al emitir: la factura no cambia si cambian los datos de la tienda.
   issuer_name    text not null,
   issuer_nit     text,
   issuer_address text,
@@ -26,7 +18,7 @@ create table public.invoices (
   issuer_phone   text,
   issuer_regime  text,
 
-  -- ---- Copia de los datos del cliente ----
+  -- Copia del cliente.
   customer_name    text not null,
   customer_document text,
   customer_email   text,
@@ -34,7 +26,6 @@ create table public.invoices (
   customer_address text,
   customer_city    text,
 
-  -- ---- Importes ----
   subtotal_cop numeric(14,2) not null default 0,
   discount_cop numeric(14,2) not null default 0,
   taxable_base_cop numeric(14,2) not null default 0,
@@ -69,8 +60,7 @@ create table public.invoice_items (
   presentation text,
   quantity     numeric(12,2) not null,
   unit_price_cop numeric(14,2) not null,
-  -- El IVA se guarda POR LÍNEA: distintos productos pueden tributar distinto
-  -- y la factura debe poder desglosarlo por tarifa.
+  -- IVA por línea: cada producto puede tener su tarifa.
   tax_rate     numeric(5,2) not null default 19.00,
   tax_cop      numeric(14,2) not null default 0,
   subtotal_cop numeric(14,2) not null,
@@ -82,7 +72,6 @@ create table public.invoice_items (
 );
 create index invoice_items_invoice_id_idx on public.invoice_items (invoice_id);
 
--- Cada producto puede tener su propia tarifa de IVA.
 alter table public.products
   add column tax_rate numeric(5,2) not null default 19.00;
 alter table public.products
@@ -91,9 +80,6 @@ alter table public.products
 comment on column public.products.tax_rate is
   'Tarifa de IVA del producto. Por defecto 19%; algunos insumos pueden estar exentos o excluidos.';
 
--- ============================================================
--- Emitir factura POS a partir de un pedido
--- ============================================================
 create or replace function public.issue_pos_invoice(_order_id uuid)
 returns uuid
 language plpgsql
@@ -156,9 +142,7 @@ begin
   )
   returning id into v_invoice;
 
-  -- Líneas con IVA desglosado.
-  -- Los precios de catálogo en Colombia se manejan con IVA incluido, así que
-  -- se separa la base gravable del impuesto en lugar de sumarlo encima.
+  -- Los precios incluyen IVA: se separa la base del impuesto en vez de sumarlo.
   for r in
     select oi.product_name, oi.product_code, oi.presentation, oi.quantity,
            oi.unit_price_cop, oi.subtotal_cop,
@@ -200,9 +184,6 @@ begin
 end;
 $$;
 
--- ============================================================
--- RLS
--- ============================================================
 alter table public.invoices      enable row level security;
 alter table public.invoice_items enable row level security;
 

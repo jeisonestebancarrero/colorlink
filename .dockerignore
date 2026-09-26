@@ -8,9 +8,6 @@
 **/.env
 **/.env.*
 !**/.env.example
-# Artefactos de desarrollo de Supabase: no forman parte del bundle del frontend
+# Estado local del CLI de Supabase; no va en la imagen.
 supabase/.branches
 supabase/.temp
-# El compose y los Dockerfile viven dentro del repositorio desde el 3 de
-# septiembre de 2026, así que el contexto de construcción es la raíz del
-# proyecto y estas rutas ya no llevan el prefijo `COLOR-LINK/`.

@@ -3,22 +3,8 @@ import { BadgeCheck, Loader2 } from 'lucide-react';
 import { rolService, usuarioService, ETIQUETA_ROL, type RolConfigurable } from '../services/admin';
 
 /**
- * Cambiarle el rol a alguien que YA existe.
- *
- * Al dar de alta a una persona sí se le eligen roles; lo que faltaba era
- * poder tocarlos después. Un ascenso, un cambio de área o una salida obligaban
- * a entrar a la base de datos, y era además la única forma de nombrar al
- * primer administrador.
- *
- * Los roles se leen de la configuración y no de una lista fija en el código:
- * el portal deja crear roles propios, y una lista fija los volvería
- * inasignables —crearlos habría sido un callejón sin salida—.
- *
- * Cada cambio sale de inmediato contra el servidor en vez de acumularse hasta
- * un botón «Guardar». Con permisos conviene que lo que se ve sea lo que hay:
- * un formulario a medio guardar deja dudando si la persona ya tiene el acceso.
- * Quien manda es `grant_role` / `revoke_role`, que exigen ser administrador y
- * se niegan a dejar el sistema sin ninguno.
+ * Roles de un usuario existente, leídos del catálogo para incluir roles propios. Cada cambio se
+ * aplica al instante vía `grant_role`/`revoke_role`, que exigen admin e impiden quedar sin ninguno.
  */
 export const RolesDelUsuarioPanel: React.FC<{
   userId: string;

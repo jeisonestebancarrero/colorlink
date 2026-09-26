@@ -7,18 +7,7 @@ import { SedesDelUsuarioPanel } from './SedesDelUsuarioPanel';
 import { RolesDelUsuarioPanel } from './RolesDelUsuarioPanel';
 import { PermisosDelUsuarioPanel } from './PermisosDelUsuarioPanel';
 
-/**
- * Accesos de una persona concreta.
- *
- * Muestra las tres capas por separado, porque confundirlas es lo que hace
- * imposible auditar quién puede qué:
- *   — lo que le concede su ROL (la línea base)
- *   — la EXCEPCIÓN personal, si alguien se la puso
- *   — el resultado EFECTIVO, que es lo que la persona ve al entrar
- *
- * Así se puede dar Analítica a un asesor concreto sin dársela a todos los
- * asesores, y retirarle un módulo sin tocar su rol.
- */
+/** Accesos de una persona en tres capas separadas: lo que da el rol, la excepción personal y el efectivo. */
 export const AccesoUsuarioPanel: React.FC<{
   usuario: UsuarioAdmin;
   onCerrar: () => void;
@@ -62,8 +51,7 @@ export const AccesoUsuarioPanel: React.FC<{
     setGuardando(a.code);
     setError('');
     try {
-      // Si el resultado deseado coincide con lo que ya da el rol, se borra la
-      // excepción en vez de guardar una redundante: menos reglas que auditar.
+      // Si coincide con lo que da el rol, se borra la excepción en vez de guardarla redundante.
       const deseado = !a.efectivo;
       if (deseado === a.porRol) {
         await aplicacionService.restablecerUsuario(usuario.id, a.code);
@@ -191,24 +179,20 @@ export const AccesoUsuarioPanel: React.FC<{
             <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-lg font-medium">{error}</div>
           )}
 
-          {/* Antes los roles solo se veían. Cambiarlos —un ascenso, un cambio
-              de área, una salida— obligaba a entrar a la base de datos. */}
+          {/* Roles editables. */}
           <div className="rounded-xl border border-slate-200 p-3.5">
             <RolesDelUsuarioPanel
               userId={usuario.id}
               rolesActuales={roles}
               onCambio={(nuevos) => {
                 setRoles(nuevos);
-                // El acceso base cambia con el rol: hay que releerlo, y con
-                // los roles NUEVOS —el estado todavía no se actualizó—.
+                // Relee el acceso base con los roles nuevos: el estado aún no se actualizó.
                 void cargar(nuevos);
               }}
             />
           </div>
 
-          {/* Sedes permitidas. Va junto a los accesos porque es lo mismo:
-              acota qué puede ver, solo que por ubicación en lugar de por
-              módulo. Solo para personal interno: un cliente no opera sedes. */}
+          {/* Sedes permitidas; solo personal interno. */}
           {!roles.every((r) => r.startsWith('CLIENTE')) && (
             <div className="rounded-xl border border-slate-200 p-3.5">
               <SedesDelUsuarioPanel
@@ -219,18 +203,14 @@ export const AccesoUsuarioPanel: React.FC<{
             </div>
           )}
 
-          {/* Excepciones de permiso por persona. Solo para personal interno,
-              como las sedes: a un cliente no se le dan permisos del portal. */}
+          {/* Excepciones de permiso; solo personal interno. */}
           {!roles.every((r) => r.startsWith('CLIENTE')) && (
             <div className="rounded-xl border border-slate-200 p-3.5">
               <PermisosDelUsuarioPanel userId={usuario.id} roles={roles} />
             </div>
           )}
 
-          {/* Restablecer la contraseña de otra persona.
-              El camino por correo es el preferido: el administrador nunca
-              llega a conocerla. La temporal existe porque en obra el correo
-              corporativo no siempre es alcanzable. */}
+          {/* Restablecer contraseña: por correo es preferible (el admin no la conoce); la temporal es para obra sin correo. */}
           <div className="rounded-xl border border-slate-200 p-3.5 space-y-2.5">
             <div className="flex items-center gap-2 text-xs font-bold text-slate-700">
               <KeyRound className="w-3.5 h-3.5 text-slate-500" />
@@ -279,11 +259,7 @@ export const AccesoUsuarioPanel: React.FC<{
                   correo siempre que puedas: así la contraseña la elige solo la persona. Esto queda
                   registrado en la auditoría, y al entrar el sistema le pedirá cambiarla.
                 </p>
-                {/* Se puede ESCRIBIR o dejar en blanco.
-                    Escribirla sirve cuando hay que dictarla por teléfono, que
-                    en obra pasa. Dejarla en blanco es lo preferible: nadie
-                    elige una débil por comodidad. En los dos casos la persona
-                    tendrá que cambiarla al entrar. */}
+                {/* En blanco se genera una segura; escrita sirve para dictarla. Siempre se exige cambiarla al entrar. */}
                 <Input
                   label="Contraseña (opcional)"
                   type="text"
@@ -338,10 +314,7 @@ export const AccesoUsuarioPanel: React.FC<{
             )}
           </div>
 
-          {/* Perder el teléfono no puede equivaler a perder la cuenta: el
-              propio interesado no puede retirar su factor, porque para eso
-              tendría que superarlo. Solo un administrador puede destrabarlo,
-              y queda registrado en la auditoría. */}
+          {/* Solo un admin puede reiniciar el factor de otro (queda auditado); el usuario tendría que superarlo. */}
           <div className="rounded-xl border border-slate-200 p-3.5 space-y-2.5">
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2 text-xs font-bold text-slate-700">
@@ -367,14 +340,8 @@ export const AccesoUsuarioPanel: React.FC<{
               )}
             </div>
 
-            {/* Exigirla o no, persona por persona. Hay casos legítimos: el
-                operario de bodega en un equipo compartido sin teléfono
-                corporativo. La regla base la sigue dando el rol. */}
-            {/* El interruptor se muestra SIEMPRE, incluso con el factor
-                activo. Antes se ocultaba en ese caso y no quedaba ninguna vía
-                visible para quitar la exigencia: solo el botón de reiniciar,
-                que retira el factor pero lo vuelve a pedir en el siguiente
-                ingreso. Era un callejón sin salida. */}
+            {/* Exigencia de MFA por persona; la regla base la da el rol. */}
+            {/* Visible aun con factor activo: reiniciar no quita la exigencia. */}
             {mfa?.esInterno && (
               <label
                 className={`flex items-start gap-2.5 p-2.5 rounded-lg border ${
