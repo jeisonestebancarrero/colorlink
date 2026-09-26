@@ -67,13 +67,17 @@ export const Modal: React.FC<ModalProps> = ({
   };
 
   return createPortal(
+    // Sin `items-center`: con él, un cuadro más alto que la ventana se
+    // desbordaba por arriba y el encabezado —título y botón de cerrar— quedaba
+    // fuera de la zona desplazable. `m-auto` centra igual cuando cabe y, cuando
+    // no, deja el cuadro arriba y se baja con la rueda.
     <div
       id="colorlink-modal-portal"
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200"
+      className="fixed inset-0 z-50 flex justify-center p-4 overflow-y-auto bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200"
       onClick={onClose}
     >
       <div
-        className={`relative w-full ${maxWidthClasses[maxWidth]} bg-white rounded-xl shadow-2xl border border-slate-200 overflow-hidden transform transition-all my-8`}
+        className={`relative w-full ${maxWidthClasses[maxWidth]} bg-white rounded-xl shadow-2xl border border-slate-200 overflow-hidden transform transition-all m-auto`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}

@@ -7,6 +7,7 @@ import { EntornoCorreoPanel } from '../EntornoCorreoPanel';
 import { PasarelaPanel } from '../PasarelaPanel';
 import { AsistentePanel } from '../AsistentePanel';
 import { IconoModulo } from '../IconosDeModulo';
+import { useAdminAuth } from '../AdminAuthContext';
 
 /**
  * Configuración de la empresa, del correo saliente y de la pasarela de pagos.
@@ -17,6 +18,27 @@ import { IconoModulo } from '../IconosDeModulo';
  * la que ya estuviera guardada.
  */
 export const ConfiguracionPage: React.FC = () => {
+  const { acceso } = useAdminAuth();
+  if (!acceso.isAdmin) return <SoloAdministrador />;
+  return <Configuracion />;
+};
+
+/**
+ * Todo lo que se guarda aquí —datos fiscales, correo, pasarela de pagos, llave
+ * del asistente— lo exige `is_admin` en la base. Quien tenga la vista por una
+ * excepción ve este aviso en lugar de formularios que fallan al guardar.
+ */
+const SoloAdministrador: React.FC = () => (
+  <div className="bg-white rounded-xl border border-slate-200 shadow-2xs p-8 text-center max-w-lg mx-auto">
+    <p className="text-sm font-bold text-slate-800">Solo el administrador cambia la configuración</p>
+    <p className="text-sm text-slate-500 font-medium mt-1.5">
+      Aquí están los datos de facturación, el correo saliente, la pasarela de pagos y
+      el asistente. Si algo debe cambiar, pídeselo al administrador.
+    </p>
+  </div>
+);
+
+const Configuracion: React.FC = () => {
   const [empresa, setEmpresa] = useState<DatosEmpresa | null>(null);
   const [smtp, setSmtp] = useState<EstadoSmtp | null>(null);
   const [cargando, setCargando] = useState(true);

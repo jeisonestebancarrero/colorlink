@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { UserPlus, ShieldCheck, Copy, Check } from 'lucide-react';
 import {
-  usuarioService, ROLES_INTERNOS, ETIQUETA_ROL, type UsuarioAdmin,
+  usuarioService, rolService, ETIQUETA_ROL, type UsuarioAdmin,
 } from '../../services/admin';
 import { Button } from '../../components/common/Button';
 import { ExportarBoton } from '../ExportarBoton';
@@ -51,6 +51,13 @@ export const UsuariosPage: React.FC = () => {
   const [ubicacion, setUbicacion] = useState<ValorUbicacion>(UBICACION_VACIA);
 
   useEffect(() => { void cargar(soloInternos); }, [soloInternos]);
+
+  // Los roles que se ofrecen al crear salen del catálogo configurable, así
+  // aparecen también los creados desde Permisos.
+  const [rolesDisponibles, setRolesDisponibles] = useState<{ codigo: string; etiqueta: string }[]>([]);
+  useEffect(() => {
+    rolService.internosActivos().then(setRolesDisponibles).catch(() => setRolesDisponibles([]));
+  }, []);
 
   const crear = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -281,11 +288,11 @@ export const UsuariosPage: React.FC = () => {
                 Roles <span className="text-slate-400 font-medium">— determinan qué pantallas verá</span>
               </label>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-52 overflow-y-auto pr-1">
-                {ROLES_INTERNOS.map((r) => (
+                {rolesDisponibles.map(({ codigo: r, etiqueta }) => (
                   <label key={r} className="flex items-center gap-2 px-2.5 py-2 rounded-lg border border-slate-200 hover:border-slate-300 cursor-pointer text-xs font-semibold text-slate-700">
                     <input type="checkbox" checked={form.roles.includes(r)} onChange={() => alternarRol(r)}
                       className="rounded border-slate-300 text-[#004F9F] focus:ring-[#004F9F]" />
-                    {ETIQUETA_ROL[r]}
+                    {etiqueta}
                   </label>
                 ))}
               </div>

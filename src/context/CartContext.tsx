@@ -14,6 +14,7 @@ import {
 import {
   UBICACION_VACIA, resolverBarrio, validarUbicacion, type ValorUbicacion,
 } from '../components/common/SelectorUbicacion';
+import { fechaLocal } from '../utils/fechaLocal';
 
 interface CartContextType {
   cartItems: CartItem[];
@@ -153,7 +154,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [pickupDate, setPickupDate] = useState<string>(() => {
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
-    return tomorrow.toISOString().split('T')[0];
+    return fechaLocal(tomorrow);
   });
   const [destino, setDestino] = useState<DestinoEnvio>(DESTINO_VACIO);
   const [direccionesGuardadas, setDireccionesGuardadas] = useState<DireccionCliente[]>([]);

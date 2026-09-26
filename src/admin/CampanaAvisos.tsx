@@ -21,7 +21,9 @@ import { avisoInternoService, type AvisoInterno } from '../services/backoffice';
 export const CampanaAvisos: React.FC<{
   /** Para llevar a la obra o al pedido del que habla el aviso. */
   onIr?: (ruta: string, id?: string) => void;
-}> = ({ onIr }) => {
+  /** En la barra lateral va al pie de la pantalla y abre hacia arriba. */
+  haciaArriba?: boolean;
+}> = ({ onIr, haciaArriba = false }) => {
   const [avisos, setAvisos] = useState<AvisoInterno[]>([]);
   const [abierto, setAbierto] = useState(false);
 
@@ -72,8 +74,9 @@ export const CampanaAvisos: React.FC<{
       {abierto && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setAbierto(false)} />
-          <div className="absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-2xl
-                          border border-slate-200 py-2 z-50 overflow-hidden">
+          <div className={`absolute w-80 bg-white rounded-xl shadow-2xl border border-slate-200 py-2 z-50 overflow-hidden ${
+            haciaArriba ? 'left-0 bottom-full mb-2' : 'right-0 mt-2'
+          }`}>
             <div className="px-4 py-2 border-b border-slate-100 flex items-center justify-between gap-2">
               <h3 className="text-xs font-extrabold text-slate-900">Avisos</h3>
               {sinLeer > 0 && (

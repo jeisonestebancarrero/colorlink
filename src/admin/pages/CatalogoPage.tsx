@@ -651,7 +651,9 @@ export const CatalogoPage: React.FC = () => {
             Lo que Pintuco vende y a qué precio. Es lo que el cliente ve en la tienda.
           </p>
         </div>
-        {escribe && (
+        {/* En Kits no va: el panel trae su propio «Nuevo kit», y aquí el
+            botón decía «Nuevo color» y abría el editor de colores. */}
+        {escribe && pestana !== 'kits' && (
           <Button
             variant="pintuco"
             leftIcon={<Plus className="w-4 h-4" />}

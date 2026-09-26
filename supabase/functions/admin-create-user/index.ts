@@ -11,12 +11,6 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { CORS } from '../_shared/cors.ts';
 
-const ROLES_VALIDOS = [
-  'CLIENTE', 'CLIENTE_B2B', 'ASESOR', 'TECNICO', 'ADMINISTRADOR',
-  'BODEGA', 'DESPACHO', 'FACTURACION', 'TESORERIA', 'CONTABILIDAD',
-  'SERVICIO_CLIENTE', 'MARKETING', 'GERENCIA',
-];
-
 interface Peticion {
   email: string;
   firstName: string;
@@ -85,15 +79,20 @@ Deno.serve(async (req: Request) => {
       422
     );
   }
-  const invalidos = p.roles.filter((r) => !ROLES_VALIDOS.includes(r));
+  const admin = createClient(url, service);
+
+  // Los roles válidos salen del catálogo, no de una lista escrita aquí: así un
+  // rol creado desde Permisos se puede asignar al dar de alta, y uno archivado
+  // ya no.
+  const { data: catalogo } = await admin.from('role_meta').select('role').eq('activo', true);
+  const rolesValidos = new Set(((catalogo ?? []) as { role: string }[]).map((r) => r.role));
+  const invalidos = p.roles.filter((r) => !rolesValidos.has(r));
   if (invalidos.length > 0) {
     return respuesta(
       { success: false, error: { code: 'VALIDATION', message: `Rol no reconocido: ${invalidos.join(', ')}` } },
       422
     );
   }
-
-  const admin = createClient(url, service);
 
   // Contraseña temporal robusta si el administrador no fija una: es
   // preferible a una previsible, y de todos modos el usuario la cambiará.

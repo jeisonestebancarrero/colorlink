@@ -67,7 +67,7 @@ const VACIO = (): Formulario => aFormulario({
  * recargando sin entender por qué no ve el cambio.
  */
 export const PuntosVentaPage: React.FC = () => {
-  const { puede } = useAdminAuth();
+  const { acceso } = useAdminAuth();
   const [puntos, setPuntos] = useState<PuntoVenta[]>([]);
   const [editando, setEditando] = useState<Formulario | null>(null);
   const [cargando, setCargando] = useState(true);
@@ -78,7 +78,10 @@ export const PuntosVentaPage: React.FC = () => {
   const [subiendo, setSubiendo] = useState(false);
   const archivo = useRef<HTMLInputElement>(null);
 
-  const administra = puede('settings.manage');
+  // La base solo deja crear o editar tiendas al administrador
+  // (`upsert_pickup_location`). Ofrecerlo con `settings.manage` prometía algo
+  // que al guardar se rechazaba.
+  const administra = acceso.isAdmin;
 
   const cargar = async () => {
     setCargando(true);

@@ -51,8 +51,11 @@ export const CampanaMensajes: React.FC<{
         <>
           {/* Capa para cerrar al pulsar fuera. */}
           <div className="fixed inset-0 z-40" onClick={() => setAbierto(false)} />
-          <div className="absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-2xl
-                          border border-slate-200 py-2 z-50 overflow-hidden">
+          {/* En la barra lateral la campana está al pie de la pantalla: el
+              menú se abre hacia arriba o quedaría fuera de la ventana. */}
+          <div className={`absolute w-80 bg-white rounded-xl shadow-2xl border border-slate-200 py-2 z-50 overflow-hidden ${
+            variante === 'lateral' ? 'left-0 bottom-full mb-2' : 'right-0 mt-2'
+          }`}>
             <div className="px-4 py-2 border-b border-slate-100">
               <h3 className="text-xs font-extrabold text-slate-900">Mensajes de clientes</h3>
               <p className="text-[10px] text-slate-500">

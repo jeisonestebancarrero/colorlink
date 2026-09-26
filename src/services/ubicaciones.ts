@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import { fechaLocal } from '../utils/fechaLocal';
 
 /**
  * Ubicaciones: país, departamento, municipio y barrio.
@@ -157,7 +158,7 @@ export const ubicacionService = {
     }
 
     const { data: fecha, error: e2 } = await supabase.rpc('sumar_dias_habiles', {
-      _desde: new Date().toISOString().slice(0, 10),
+      _desde: fechaLocal(),
       _dias: dias as number,
     });
     if (e2) {

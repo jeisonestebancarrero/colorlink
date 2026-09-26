@@ -5,6 +5,7 @@ import { Button } from '../components/common/Button';
 import { Input } from '../components/common/Input';
 import { SedesDelUsuarioPanel } from './SedesDelUsuarioPanel';
 import { RolesDelUsuarioPanel } from './RolesDelUsuarioPanel';
+import { PermisosDelUsuarioPanel } from './PermisosDelUsuarioPanel';
 
 /**
  * Accesos de una persona concreta.
@@ -215,6 +216,14 @@ export const AccesoUsuarioPanel: React.FC<{
                 nombre={usuario.nombre || usuario.email}
                 esAdministrador={roles.includes('ADMINISTRADOR')}
               />
+            </div>
+          )}
+
+          {/* Excepciones de permiso por persona. Solo para personal interno,
+              como las sedes: a un cliente no se le dan permisos del portal. */}
+          {!roles.every((r) => r.startsWith('CLIENTE')) && (
+            <div className="rounded-xl border border-slate-200 p-3.5">
+              <PermisosDelUsuarioPanel userId={usuario.id} roles={roles} />
             </div>
           )}
 

@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Lock, Info } from 'lucide-react';
-import { permisoService, ROLES_INTERNOS, ETIQUETA_ROL, type Permiso } from '../../services/admin';
+import { permisoService, rolService, type Permiso } from '../../services/admin';
 import { IconoModulo } from '../IconosDeModulo';
 import { RolesPanel } from '../RolesPanel';
 
@@ -16,6 +16,7 @@ import { RolesPanel } from '../RolesPanel';
  */
 export const PermisosPage: React.FC = () => {
   const [permisos, setPermisos] = useState<Permiso[]>([]);
+  const [roles, setRoles] = useState<{ codigo: string; etiqueta: string }[]>([]);
   const [matriz, setMatriz] = useState<Record<string, Set<string>>>({});
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState('');
@@ -24,9 +25,12 @@ export const PermisosPage: React.FC = () => {
   useEffect(() => {
     (async () => {
       try {
-        const [cat, m] = await Promise.all([permisoService.catalogo(), permisoService.matriz()]);
+        const [cat, m, r] = await Promise.all([
+          permisoService.catalogo(), permisoService.matriz(), rolService.internosActivos(),
+        ]);
         setPermisos(cat);
         setMatriz(m);
+        setRoles(r);
       } catch (e) {
         setError(e instanceof Error ? e.message : 'No fue posible cargar los permisos.');
       } finally {
@@ -124,9 +128,9 @@ export const PermisosPage: React.FC = () => {
               <th className="text-left px-4 py-3 text-[11px] uppercase tracking-wider text-slate-500 font-bold sticky left-0 bg-slate-50 z-10 min-w-[240px]">
                 Permiso
               </th>
-              {ROLES_INTERNOS.map((r) => (
-                <th key={r} className="px-2 py-3 text-[10px] font-bold text-slate-500 text-center align-bottom">
-                  <span className="block leading-tight">{ETIQUETA_ROL[r]}</span>
+              {roles.map((r) => (
+                <th key={r.codigo} className="px-2 py-3 text-[10px] font-bold text-slate-500 text-center align-bottom">
+                  <span className="block leading-tight">{r.etiqueta}</span>
                 </th>
               ))}
             </tr>
@@ -135,7 +139,7 @@ export const PermisosPage: React.FC = () => {
             {porModulo.map(([modulo, lista]) => (
               <React.Fragment key={modulo}>
                 <tr>
-                  <td colSpan={ROLES_INTERNOS.length + 1}
+                  <td colSpan={roles.length + 1}
                     className="px-4 py-2 bg-slate-100/70 text-[11px] font-extrabold uppercase tracking-wider text-slate-600">
                     {modulo}
                   </td>
@@ -151,7 +155,7 @@ export const PermisosPage: React.FC = () => {
                       </div>
                       <code className="text-[10px] text-slate-400">{p.code}</code>
                     </td>
-                    {ROLES_INTERNOS.map((rol) => {
+                    {roles.map(({ codigo: rol, etiqueta }) => {
                       const concedido = matriz[rol]?.has(p.code) ?? false;
                       const clave = `${rol}:${p.code}`;
                       return (
@@ -162,7 +166,7 @@ export const PermisosPage: React.FC = () => {
                             disabled={guardandoCelda === clave}
                             onChange={() => void alternar(rol, p)}
                             className="rounded border-slate-300 text-[#004F9F] focus:ring-[#004F9F] w-4 h-4 cursor-pointer disabled:opacity-40"
-                            aria-label={`${p.label} para ${ETIQUETA_ROL[rol]}`}
+                            aria-label={`${p.label} para ${etiqueta}`}
                           />
                         </td>
                       );

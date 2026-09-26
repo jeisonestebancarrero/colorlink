@@ -43,7 +43,7 @@ import { MensajesProvider } from '../context/MensajesContext';
 const EN_CONSTRUCCION: Record<string, string> = {};
 
 const Contenido: React.FC = () => {
-  const { cargando, autenticado, pendienteMFA, email, salir } = useAdminAuth();
+  const { cargando, autenticado, pendienteMFA, email, salir, acceso } = useAdminAuth();
 
   /**
    * ¿Entró con una contraseña provisional?
@@ -117,7 +117,29 @@ const Contenido: React.FC = () => {
     return <LauncherPage onAbrir={setRuta} onAbrirPedido={abrirPedido} />;
   }
 
+  // Una aplicación que no está en tus vistas no se abre, ni escribiendo la
+  // dirección a mano. Antes el menú la escondía pero la URL la pintaba igual:
+  // los datos los protegía la base, pero la persona veía una pantalla llena de
+  // errores de permiso en lugar de un aviso claro.
+  const permitida = acceso.isAdmin || acceso.views.some((v) => v.route === ruta);
+
   const pantalla = () => {
+    if (!permitida) {
+      return (
+        <div className="bg-white rounded-xl border border-slate-200 shadow-2xs p-8 text-center max-w-lg mx-auto">
+          <p className="text-sm font-bold text-slate-800">No tienes acceso a esta aplicación</p>
+          <p className="text-sm text-slate-500 font-medium mt-1.5">
+            Si la necesitas para tu trabajo, pídele al administrador que te la habilite.
+          </p>
+          <button
+            onClick={() => setRuta(RUTA_TABLERO)}
+            className="mt-4 px-4 py-2 rounded-lg bg-[#004F9F] text-white text-xs font-bold cursor-pointer"
+          >
+            Volver al inicio
+          </button>
+        </div>
+      );
+    }
     switch (ruta) {
       case '/panel': return <PanelPage onIr={setRuta} />;
       case '/pedidos':

@@ -176,7 +176,7 @@ export const AdminLayout: React.FC<{
               {onAbrirPedido && (
                 <CampanaMensajes onAbrirPedido={onAbrirPedido} variante="lateral" />
               )}
-              <CampanaAvisos onIr={(ruta) => onNavegar(ruta)} />
+              <CampanaAvisos onIr={(ruta) => onNavegar(ruta)} haciaArriba />
             </div>
           </div>
           <button
@@ -193,17 +193,23 @@ export const AdminLayout: React.FC<{
         {/* Marca de agua, igual que en el tablero: identifica la pantalla sin
             competir con el dato. Va detrás del contenido, sin capturar clics y
             fuera del árbol de accesibilidad. */}
-        <img
-          src={logoPintuco}
-          alt=""
-          aria-hidden
-          className="pointer-events-none select-none absolute right-[-5rem] bottom-[-3rem]
-                     w-[34rem] max-w-[60vw] opacity-[0.05] mix-blend-luminosity z-0"
-          style={{
-            maskImage: 'radial-gradient(ellipse at center, black 40%, transparent 75%)',
-            WebkitMaskImage: 'radial-gradient(ellipse at center, black 40%, transparent 75%)',
-          }}
-        />
+        {/* La capa recorta lo que sobresale: la marca va 5rem fuera del borde
+            derecho y, suelta dentro de un `main` con desplazamiento
+            horizontal, le sumaba 80 px de ancho a toda página. Al bajar hasta
+            un campo, el navegador corría la página de lado y la barra azul
+            tapaba el contenido. */}
+        <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden z-0">
+          <img
+            src={logoPintuco}
+            alt=""
+            className="select-none absolute right-[-5rem] bottom-[-3rem]
+                       w-[34rem] max-w-[60vw] opacity-[0.05] mix-blend-luminosity"
+            style={{
+              maskImage: 'radial-gradient(ellipse at center, black 40%, transparent 75%)',
+              WebkitMaskImage: 'radial-gradient(ellipse at center, black 40%, transparent 75%)',
+            }}
+          />
+        </div>
 
         {/* SIN tope de ancho, a propósito.
             Tenía un tope de 1280 px y dejaba una franja muerta a la derecha

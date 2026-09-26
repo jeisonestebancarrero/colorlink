@@ -4,6 +4,7 @@ import { tesoreriaService, formatearCOP, type CuentaSaldo } from '../services/ba
 import { Modal } from '../components/common/Modal';
 import { Button } from '../components/common/Button';
 import { Input } from '../components/common/Input';
+import { fechaLocal } from '../utils/fechaLocal';
 
 /**
  * Registrar una salida de dinero.
@@ -33,7 +34,7 @@ export const RegistrarEgreso: React.FC<{
     concepto: '',
     contrapartida: '',
     referencia: '',
-    fecha: new Date().toISOString().slice(0, 10),
+    fecha: fechaLocal(),
   });
   const [error, setError] = useState('');
   const [ocupado, setOcupado] = useState(false);

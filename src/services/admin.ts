@@ -88,12 +88,6 @@ export interface UsuarioAdmin {
   creadoEn: string;
 }
 
-export const ROLES_INTERNOS = [
-  'ADMINISTRADOR', 'ASESOR', 'TECNICO', 'BODEGA', 'DESPACHO',
-  'FACTURACION', 'TESORERIA', 'CONTABILIDAD', 'SERVICIO_CLIENTE',
-  'MARKETING', 'GERENCIA',
-] as const;
-
 export const ETIQUETA_ROL: Record<string, string> = {
   CLIENTE: 'Cliente',
   CLIENTE_B2B: 'Cliente empresa',
@@ -428,6 +422,19 @@ export const rolService = {
     }
   },
 
+  /**
+   * Los roles internos que se pueden asignar hoy: los del sistema y los creados
+   * desde Permisos, sin los archivados ni los de cliente. Antes la matriz y el
+   * alta de personal usaban una lista fija, y un rol recién creado no aparecía
+   * en ninguna de las dos.
+   */
+  async internosActivos(): Promise<{ codigo: string; etiqueta: string }[]> {
+    const { roles } = await rolService.configuracion();
+    return roles
+      .filter((r) => r.activo && r.codigo !== 'CLIENTE' && r.codigo !== 'CLIENTE_B2B')
+      .map((r) => ({ codigo: r.codigo, etiqueta: r.etiqueta || ETIQUETA_ROL[r.codigo] || r.codigo }));
+  },
+
   /** Concede o quita una aplicación a TODO un rol. */
   async cambiarVista(rol: string, viewCode: string, visible: boolean): Promise<void> {
     const { error } = await supabase.rpc('set_role_view', {
@@ -436,6 +443,20 @@ export const rolService = {
     if (error) throw errorLegible('cambiarVista', error);
   },
 };
+
+export interface PermisoDeUsuario {
+  code: string;
+  label: string;
+  module: string;
+  isCritical: boolean;
+  /** Lo que le da su rol. */
+  porRol: boolean;
+  /** La excepción personal, si la hay: true concede, false retira. */
+  excepcion: boolean | null;
+  motivo: string | null;
+  /** Lo que de verdad tiene: la excepción manda sobre el rol. */
+  efectivo: boolean;
+}
 
 export const permisoService = {
   async catalogo(): Promise<Permiso[]> {
@@ -467,6 +488,57 @@ export const permisoService = {
       (mapa[f.role] ??= new Set()).add(f.permission_code);
     }
     return mapa;
+  },
+
+  /**
+   * Los permisos de una persona en tres capas: lo que da su rol, la excepción
+   * personal y el resultado. La misma regla que aplica `has_permission` en la
+   * base, para que la pantalla no prometa algo distinto.
+   */
+  async deUsuario(userId: string, roles: string[]): Promise<PermisoDeUsuario[]> {
+    const [catalogo, matriz, { data: excepciones, error }] = await Promise.all([
+      this.catalogo(),
+      this.matriz(),
+      supabase.from('user_permissions').select('permission_code, granted, reason').eq('user_id', userId),
+    ]);
+    if (error) throw errorLegible('permisosDeUsuario', error);
+
+    const porRol = new Set<string>();
+    for (const r of roles) for (const c of matriz[r] ?? []) porRol.add(c);
+    const mapa = new Map<string, { granted: boolean; reason: string | null }>();
+    for (const e of (excepciones ?? []) as Array<{ permission_code: string; granted: boolean; reason: string | null }>) {
+      mapa.set(e.permission_code, { granted: e.granted, reason: e.reason });
+    }
+
+    return catalogo.map((p) => {
+      const base = porRol.has(p.code);
+      const exc = mapa.get(p.code) ?? null;
+      return {
+        code: p.code, label: p.label, module: p.module, isCritical: p.isCritical,
+        porRol: base,
+        excepcion: exc ? exc.granted : null,
+        motivo: exc?.reason ?? null,
+        efectivo: exc ? exc.granted : base,
+      };
+    });
+  },
+
+  async fijarDeUsuario(userId: string, permiso: string, concedido: boolean, motivo: string): Promise<void> {
+    const { error } = await supabase.rpc('set_user_permission', {
+      _user_id: userId, _permission_code: permiso, _granted: concedido, _reason: motivo,
+    });
+    if (error) {
+      if (/SIN_MOTIVO/.test(error.message)) throw new Error('Escribe por qué esta persona tiene una excepción.');
+      throw errorLegible('fijarPermisoDeUsuario', error);
+    }
+  },
+
+  /** Quita la excepción: la persona vuelve a lo que diga su rol. */
+  async restablecerDeUsuario(userId: string, permiso: string): Promise<void> {
+    const { error } = await supabase.rpc('clear_user_permission', {
+      _user_id: userId, _permission_code: permiso,
+    });
+    if (error) throw errorLegible('restablecerPermisoDeUsuario', error);
   },
 
   async cambiar(rol: string, permiso: string, concedido: boolean): Promise<void> {

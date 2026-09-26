@@ -8,6 +8,7 @@ import { useAdminAuth } from '../AdminAuthContext';
 import { panelService, formatearCOP, formatearFecha, type ResumenPanel } from '../../services/backoffice';
 import { ExportarBoton } from '../ExportarBoton';
 import { IconoModulo } from '../IconosDeModulo';
+import { fechaLocal } from '../../utils/fechaLocal';
 
 /**
  * Panel: la bandeja del día.
@@ -135,7 +136,7 @@ export const PanelPage: React.FC<{ onIr?: (ruta: string) => void }> = ({ onIr })
           <IconoModulo nombre="LayoutDashboard" /> {saludo}, {nombre?.split(' ')[0] ?? 'equipo'}
         </h1>
         <p className="text-sm text-slate-500 font-medium mt-0.5 first-letter:uppercase">
-          {formatearFecha(new Date().toISOString().slice(0, 10))}
+          {formatearFecha(fechaLocal())}
         </p>
       </div>
 

@@ -744,11 +744,18 @@ export const ContabilidadPage: React.FC = () => {
                       <tr
                         key={a.id}
                         onClick={async () => {
-                          const [lineas, documento] = await Promise.all([
-                            contabilidadService.lineas(a.id),
-                            contabilidadService.documento(a.id),
-                          ]);
-                          setAbierto({ asiento: a, lineas, documento });
+                          // Sin este aviso, un fallo al leer el detalle dejaba
+                          // el clic sin efecto y nadie sabía por qué.
+                          setError('');
+                          try {
+                            const [lineas, documento] = await Promise.all([
+                              contabilidadService.lineas(a.id),
+                              contabilidadService.documento(a.id),
+                            ]);
+                            setAbierto({ asiento: a, lineas, documento });
+                          } catch (e) {
+                            setError(e instanceof Error ? e.message : 'No fue posible abrir el comprobante.');
+                          }
                         }}
                         className={`border-t border-slate-100 hover:bg-slate-50 cursor-pointer transition-colors ${
                           a.estado === 'ANULADO' ? 'opacity-55' : ''
