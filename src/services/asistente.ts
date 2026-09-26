@@ -133,8 +133,8 @@ const ESTADO_EN_PALABRAS: Record<string, string> = {
   PENDIENTE: 'está pendiente de pago',
   CONFIRMADO: 'ya está confirmado y entra a preparación',
   PREPARANDO: 'lo están alistando en la tienda',
-  LISTO: 'ya está listo para que lo recojas',
-  EN_TRANSITO: 'va en camino',
+  LISTO_PARA_RETIRO: 'ya está listo para que lo recojas',
+  ENVIADO: 'va en camino',
   ENTREGADO: 'fue entregado',
   CANCELADO: 'fue cancelado',
 };

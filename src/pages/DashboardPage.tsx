@@ -232,7 +232,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
         })}
       </div>
 
-      {/* Client Active Project Highlight (Constructora Horizonte 85m2) */}
+      {/* Proyecto activo del cliente. */}
       {currentProject && (
         <div className="bg-white rounded-2xl border border-blue-200 p-6 shadow-xs relative overflow-hidden">
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
@@ -240,7 +240,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-xs font-bold text-[#004F9F] bg-blue-50 px-2.5 py-0.5 rounded-full border border-blue-200 flex items-center gap-1.5">
                   <Building2 className="w-3.5 h-3.5" />
-                  Proyecto B2B Activo • {user?.company || 'Constructora Horizonte S.A.S.'}
+                  {user?.company ? `Proyecto B2B activo • ${user.company}` : 'Proyecto activo'}
                 </span>
                 <StatusBadge status={currentProject.status} />
               </div>
