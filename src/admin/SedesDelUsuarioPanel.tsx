@@ -99,7 +99,7 @@ export const SedesDelUsuarioPanel: React.FC<Props> = ({
       <header className="flex items-start justify-between gap-3">
         <div>
           <h4 className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-            <Store className="w-3.5 h-3.5 text-[#004F9F]" /> Sedes permitidas
+            <Store className="w-3.5 h-3.5 text-marca" /> Sedes permitidas
           </h4>
           <p className="text-[11px] text-slate-500 leading-snug mt-0.5 max-w-md">
             Acota el inventario, las recepciones y los pedidos que esta persona
@@ -111,7 +111,7 @@ export const SedesDelUsuarioPanel: React.FC<Props> = ({
             variant="primary" size="sm"
             onClick={() => void guardar()}
             isLoading={guardando}
-            className="bg-[#004F9F] text-white text-xs font-bold shrink-0"
+            className="bg-marca text-white text-xs font-bold shrink-0"
           >
             Guardar
           </Button>
@@ -155,13 +155,13 @@ export const SedesDelUsuarioPanel: React.FC<Props> = ({
                 className={`w-full flex items-start gap-2.5 p-2.5 rounded-lg border text-left
                             transition-colors cursor-pointer ${
                   marcada
-                    ? 'border-[#004F9F] bg-blue-50/70'
+                    ? 'border-marca bg-blue-50/70'
                     : 'border-slate-200 hover:bg-slate-50'
                 }`}
               >
                 <span
                   className={`w-4 h-4 rounded border shrink-0 mt-0.5 flex items-center justify-center ${
-                    marcada ? 'bg-[#004F9F] border-[#004F9F]' : 'bg-white border-slate-300'
+                    marcada ? 'bg-marca border-marca' : 'bg-white border-slate-300'
                   }`}
                 >
                   {marcada && <Check className="w-3 h-3 text-white" />}

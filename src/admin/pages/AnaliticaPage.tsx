@@ -222,7 +222,7 @@ export const AnaliticaPage: React.FC = () => {
   if (cargando) {
     return (
       <div className="flex justify-center py-24">
-        <div className="w-10 h-10 border-4 border-[#004F9F] border-t-transparent rounded-full animate-spin" />
+        <div className="w-10 h-10 border-4 border-marca border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
@@ -292,7 +292,7 @@ export const AnaliticaPage: React.FC = () => {
           onClick={() => setVerFiltros((v) => !v)}
           className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-bold border transition-colors ${
             filtrosActivos > 0
-              ? 'bg-[#004F9F] text-white border-[#004F9F]'
+              ? 'bg-marca text-white border-marca'
               : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
           }`}
         >
@@ -315,7 +315,7 @@ export const AnaliticaPage: React.FC = () => {
               onClick={() => aplicarRango(r.clave)}
               className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
                 rango === r.clave
-                  ? 'bg-[#004F9F] text-white'
+                  ? 'bg-marca text-white'
                   : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
               }`}
             >
@@ -346,7 +346,7 @@ export const AnaliticaPage: React.FC = () => {
                 aria-pressed={anio === a}
                 className={`px-3 py-1.5 rounded-lg text-xs font-bold tabular-nums transition-colors ${
                   anio === a
-                    ? 'bg-[#004F9F] text-white'
+                    ? 'bg-marca text-white'
                     : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                 }`}
               >
@@ -366,7 +366,7 @@ export const AnaliticaPage: React.FC = () => {
                   type="date"
                   value={valor}
                   onChange={(e) => { setRango('personalizado'); setAnio(null); set(e.target.value); }}
-                  className="mt-1 block rounded-lg border border-slate-200 px-3 py-2 text-sm font-normal normal-case tracking-normal text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#004F9F]/20"
+                  className="mt-1 block rounded-lg border border-slate-200 px-3 py-2 text-sm font-normal normal-case tracking-normal text-slate-800 focus:outline-none focus:ring-2 focus:ring-marca/20"
                 />
               </label>
             ),
@@ -414,7 +414,7 @@ export const AnaliticaPage: React.FC = () => {
                     aria-pressed={activo}
                     className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors text-left ${
                       activo
-                        ? 'bg-[#004F9F] text-white border-[#004F9F]'
+                        ? 'bg-marca text-white border-marca'
                         : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
                     }`}
                   >
@@ -442,7 +442,7 @@ export const AnaliticaPage: React.FC = () => {
                     aria-pressed={activo}
                     className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
                       activo
-                        ? 'bg-[#004F9F] text-white border-[#004F9F]'
+                        ? 'bg-marca text-white border-marca'
                         : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
                     }`}
                   >
@@ -464,7 +464,7 @@ export const AnaliticaPage: React.FC = () => {
               id="filtro-producto"
               value={producto}
               onChange={(e) => setProducto(e.target.value)}
-              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#004F9F]/20"
+              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm cursor-pointer focus:outline-none focus:ring-2 focus:ring-marca/20"
             >
               <option value="">Todos los productos</option>
               {opciones.productos.map((p) => (
@@ -521,7 +521,7 @@ export const AnaliticaPage: React.FC = () => {
 
       {/* Mejor mes */}
       {d.mejorMes && (
-        <div className="bg-gradient-to-r from-[#004F9F] to-[#0068d4] rounded-xl p-5 text-white shadow-2xs">
+        <div className="bg-gradient-to-r from-marca to-marca-claro rounded-xl p-5 text-white shadow-2xs">
           <div className="flex flex-wrap items-center gap-x-8 gap-y-2">
             <div>
               <p className="text-[11px] font-bold uppercase tracking-wider text-white/70">
@@ -557,7 +557,7 @@ export const AnaliticaPage: React.FC = () => {
       <div className="bg-white rounded-xl border border-slate-200 shadow-2xs p-5">
         <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
           <h2 className="text-sm font-extrabold text-slate-900 inline-flex items-center gap-2">
-            <BarChart3 className="w-4 h-4 text-[#004F9F]" />
+            <BarChart3 className="w-4 h-4 text-marca" />
             {anio === null ? 'Evolución mes a mes' : `Ingresos por mes · ${anio}`}
           </h2>
           <div className="flex gap-1">
@@ -571,7 +571,7 @@ export const AnaliticaPage: React.FC = () => {
                 onClick={() => setMedida(clave)}
                 className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
                   medida === clave
-                    ? 'bg-[#004F9F] text-white'
+                    ? 'bg-marca text-white'
                     : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                 }`}
               >
@@ -656,7 +656,7 @@ export const AnaliticaPage: React.FC = () => {
       {seriesAnuales.length > 1 && (
         <div className="bg-white rounded-xl border border-slate-200 shadow-2xs p-5">
           <h2 className="text-sm font-extrabold text-slate-900 mb-1 inline-flex items-center gap-2">
-            <LineChart className="w-4 h-4 text-[#004F9F]" />
+            <LineChart className="w-4 h-4 text-marca" />
             Estacionalidad — un año sobre otro
           </h2>
           <p className="text-[11px] text-slate-400 mb-4 leading-relaxed">
@@ -737,7 +737,7 @@ export const AnaliticaPage: React.FC = () => {
                 onClick={() => setCorte(c)}
                 className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
                   corte === c
-                    ? 'bg-[#004F9F] text-white'
+                    ? 'bg-marca text-white'
                     : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                 }`}
               >
@@ -798,7 +798,7 @@ export const AnaliticaPage: React.FC = () => {
                 </div>
                 <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
                   <div
-                    className="h-full bg-[#004F9F] rounded-full"
+                    className="h-full bg-marca rounded-full"
                     style={{ width: `${(f.ingresos / maxCorte) * 100}%` }}
                   />
                 </div>
@@ -823,7 +823,7 @@ export const AnaliticaPage: React.FC = () => {
       {d.verCostos && dispersion.length > 1 && (
         <div className="bg-white rounded-xl border border-slate-200 shadow-2xs p-5">
           <h2 className="text-sm font-extrabold text-slate-900 mb-1 inline-flex items-center gap-2">
-            <ScatterChart className="w-4 h-4 text-[#004F9F]" />
+            <ScatterChart className="w-4 h-4 text-marca" />
             Rentabilidad contra volumen
           </h2>
           <p className="text-[11px] text-slate-400 mb-4 leading-relaxed">
@@ -843,7 +843,7 @@ export const AnaliticaPage: React.FC = () => {
       {/* Ranking comercial */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-2xs p-5">
         <h2 className="text-sm font-extrabold text-slate-900 mb-4 inline-flex items-center gap-2">
-          <Award className="w-4 h-4 text-[#004F9F]" />
+          <Award className="w-4 h-4 text-marca" />
           Ranking comercial
         </h2>
         {(ranking?.asesores.length ?? 0) === 0 ? (

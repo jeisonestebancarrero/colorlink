@@ -12,7 +12,7 @@ export const AvisoCarritoEnEspera: React.FC = () => {
 
   return (
     <div className="mt-5 p-3.5 bg-blue-50 border border-blue-200 rounded-lg flex items-start gap-2.5">
-      <ShoppingCart className="w-4 h-4 text-[#004F9F] shrink-0 mt-0.5" />
+      <ShoppingCart className="w-4 h-4 text-marca shrink-0 mt-0.5" />
       <div className="text-xs leading-snug">
         <p className="font-bold text-slate-900">
           Tu carrito con {unidades} {unidades === 1 ? 'producto' : 'productos'} te

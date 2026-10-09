@@ -110,12 +110,12 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
   const currentProblem = problemSolutions[selectedProblemTab as keyof typeof problemSolutions];
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col selection:bg-[#004F9F] selection:text-white">
+    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col selection:bg-marca selection:text-white">
       {/* 1. TOP CORPORATE RIBBON */}
-      <div className="bg-[#002244] text-white text-[11px] py-1.5 px-4 sm:px-6 lg:px-8 flex items-center justify-between font-medium">
+      <div className="bg-marca-oscuro text-white text-[11px] py-1.5 px-4 sm:px-6 lg:px-8 flex items-center justify-between font-medium">
         <div className="flex items-center gap-4 truncate">
           <span className="flex items-center gap-1.5 text-blue-200">
-            <Store className="w-3.5 h-3.5 text-yellow-400" />
+            <Store className="w-3.5 h-3.5 text-acento" />
             <span>Retiro en Tienda Pintuco:</span>
             <strong className="text-white font-bold">{selectedStore.name} ({selectedStore.city})</strong>
             <span className="hidden sm:inline bg-emerald-500/20 text-emerald-300 px-1.5 py-0.2 rounded text-[10px] font-bold">
@@ -130,8 +130,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
         </div>
 
         <div className="flex items-center gap-3 text-blue-200 shrink-0">
-          <span className="hidden lg:inline flex items-center gap-1 text-blue-100">
-            <Phone className="w-3 h-3 text-yellow-400" /> Línea Constructor: <strong>(01 8000) 111-247</strong>
+          <span className="hidden lg:flex items-center gap-1 text-blue-100">
+            <Phone className="w-3 h-3 text-acento" /> Línea Constructor: <strong>(01 8000) 111-247</strong>
           </span>
         </div>
       </div>
@@ -140,37 +140,40 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
       <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
           {/* Componente compartido para que los ajustes responsivos del logo lleguen aquí. */}
-          <BrandLogo onClick={() => onNavigate('landing')} />
+          <div className="min-w-0 lg:shrink-0">
+            <BrandLogo onClick={() => onNavigate('landing')} />
+          </div>
 
           {/* Center Navigation Links */}
-          <nav className="hidden lg:flex items-center gap-1 text-xs font-bold text-slate-700">
+          {/* Mismos nombres que el menú de la tienda: el usuario no reaprende la navegación al entrar. */}
+          <nav className="hidden lg:flex items-center gap-1 text-xs font-bold text-slate-700 whitespace-nowrap">
             <button
               onClick={() => onNavigate('store')}
-              className="px-3 py-2 rounded-lg hover:text-[#004F9F] hover:bg-blue-50 transition-colors cursor-pointer"
+              className="px-3 py-2 rounded-lg hover:text-marca hover:bg-blue-50 transition-colors cursor-pointer"
             >
               Comprar Pinturas
             </button>
             <button
               onClick={() => onNavigate('colors')}
-              className="px-3 py-2 rounded-lg hover:text-[#004F9F] hover:bg-blue-50 transition-colors cursor-pointer"
+              className="px-3 py-2 rounded-lg hover:text-marca hover:bg-blue-50 transition-colors cursor-pointer"
             >
               Encuentra tu Color
             </button>
             <button
               onClick={() => onNavigate('solutions')}
-              className="px-3 py-2 rounded-lg hover:text-[#004F9F] hover:bg-blue-50 transition-colors cursor-pointer"
+              className="px-3 py-2 rounded-lg hover:text-marca hover:bg-blue-50 transition-colors cursor-pointer"
             >
-              Soluciones por Superficie
+              Soluciones
             </button>
             <button
               onClick={() => onNavigate('calculator')}
-              className="px-3 py-2 rounded-lg hover:text-[#004F9F] hover:bg-blue-50 transition-colors cursor-pointer"
+              className="px-3 py-2 rounded-lg hover:text-marca hover:bg-blue-50 transition-colors cursor-pointer"
             >
-              Calculadora de Pintura
+              Calculadora
             </button>
             <button
               onClick={() => onNavigate('stores')}
-              className="px-3 py-2 rounded-lg hover:text-[#004F9F] hover:bg-blue-50 transition-colors cursor-pointer"
+              className="px-3 py-2 rounded-lg hover:text-marca hover:bg-blue-50 transition-colors cursor-pointer"
             >
               Puntos de Retiro
             </button>
@@ -193,7 +196,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
               size="sm"
               onClick={() => onNavigate('store')}
               leftIcon={<ShoppingBag className="w-3.5 h-3.5 hidden sm:block" />}
-              className="text-xs font-bold shadow-md shadow-[#004F9F]/20 px-2.5 sm:px-3"
+              className="text-xs font-bold shadow-md shadow-marca/20 px-2.5 sm:px-3"
             >
               <span className="sm:hidden">Tienda</span>
               <span className="hidden sm:inline">Explorar Tienda</span>
@@ -203,17 +206,17 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
       </header>
 
       {/* 3. HERO COMMERCIAL BANNER */}
-      <section className="relative pt-12 pb-20 overflow-hidden bg-linear-to-b from-blue-950 via-[#003875] to-[#004F9F] text-white">
+      <section className="relative pt-12 pb-20 overflow-hidden bg-linear-to-b from-blue-950 via-marca-hover to-marca text-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="text-center max-w-3xl mx-auto space-y-6">
-            <div className="inline-flex items-center gap-2 bg-yellow-400 text-slate-950 px-3.5 py-1 rounded-full text-xs font-black shadow-md">
+            <div className="inline-flex items-center gap-2 bg-acento text-slate-950 px-3.5 py-1 rounded-full text-xs font-black shadow-md">
               <Sparkles className="w-3.5 h-3.5" />
               <span>Ecosistema Digital Oficial de Pinturas Pintuco</span>
             </div>
 
             <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black tracking-tight leading-tight">
               Todo lo que necesitas para tu espacio,{' '}
-              <span className="text-yellow-400">respaldado por Pintuco</span>
+              <span className="text-acento">respaldado por Pintuco</span>
             </h1>
 
             <p className="text-base sm:text-lg text-blue-100 font-medium leading-relaxed max-w-2xl mx-auto">
@@ -237,7 +240,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
               />
               <button
                 type="submit"
-                className="bg-[#004F9F] hover:bg-[#003875] text-white font-bold text-xs sm:text-sm px-5 py-2.5 rounded-xl transition-colors cursor-pointer shrink-0 shadow-xs"
+                className="bg-marca hover:bg-marca-hover text-white font-bold text-xs sm:text-sm px-5 py-2.5 rounded-xl transition-colors cursor-pointer shrink-0 shadow-xs"
               >
                 Buscar Solución
               </button>
@@ -249,7 +252,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
                 onClick={() => onNavigate('store')}
                 className="bg-white/10 hover:bg-white/20 border border-white/20 p-3 rounded-xl flex flex-col items-center text-center gap-1.5 transition-all cursor-pointer backdrop-blur-xs group"
               >
-                <ShoppingBag className="w-5 h-5 text-yellow-400 group-hover:scale-110 transition-transform" />
+                <ShoppingBag className="w-5 h-5 text-acento group-hover:scale-110 transition-transform" />
                 <span className="text-xs font-bold text-white">Comprar Pinturas</span>
                 <span className="text-[10px] text-blue-200">Viniltex, Koraza, Aquablock</span>
               </button>
@@ -258,7 +261,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
                 onClick={() => onNavigate('colors')}
                 className="bg-white/10 hover:bg-white/20 border border-white/20 p-3 rounded-xl flex flex-col items-center text-center gap-1.5 transition-all cursor-pointer backdrop-blur-xs group"
               >
-                <Palette className="w-5 h-5 text-yellow-400 group-hover:scale-110 transition-transform" />
+                <Palette className="w-5 h-5 text-acento group-hover:scale-110 transition-transform" />
                 <span className="text-xs font-bold text-white">Encuentra tu Color</span>
                 <span className="text-[10px] text-blue-200">Simulador en Vivo</span>
               </button>
@@ -267,16 +270,16 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
                 onClick={() => onNavigate('solutions')}
                 className="bg-white/10 hover:bg-white/20 border border-white/20 p-3 rounded-xl flex flex-col items-center text-center gap-1.5 transition-all cursor-pointer backdrop-blur-xs group"
               >
-                <Package className="w-5 h-5 text-yellow-400 group-hover:scale-110 transition-transform" />
+                <Package className="w-5 h-5 text-acento group-hover:scale-110 transition-transform" />
                 <span className="text-xs font-bold text-white">Kits de Solución</span>
-                <span className="text-[10px] text-yellow-300 font-extrabold">Hasta 15% Dcto</span>
+                <span className="text-[10px] text-acento-claro font-extrabold">Hasta 15% Dcto</span>
               </button>
 
               <button
                 onClick={() => onNavigate('calculator')}
                 className="bg-white/10 hover:bg-white/20 border border-white/20 p-3 rounded-xl flex flex-col items-center text-center gap-1.5 transition-all cursor-pointer backdrop-blur-xs group"
               >
-                <Calculator className="w-5 h-5 text-yellow-400 group-hover:scale-110 transition-transform" />
+                <Calculator className="w-5 h-5 text-acento group-hover:scale-110 transition-transform" />
                 <span className="text-xs font-bold text-white">Calculadora</span>
                 <span className="text-[10px] text-blue-200">Galones por m² exactos</span>
               </button>
@@ -286,14 +289,14 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
 
         {/* Decorative backdrop shapes */}
         <div className="absolute -left-20 -bottom-20 w-80 h-80 bg-blue-500/20 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute -right-20 -top-20 w-80 h-80 bg-yellow-400/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -right-20 -top-20 w-80 h-80 bg-acento/10 rounded-full blur-3xl pointer-events-none" />
       </section>
 
       {/* 4. VALUE PROPOSITION STRIP */}
       <section className="bg-white border-b border-slate-200 py-6">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-2 md:grid-cols-4 gap-6">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-blue-50 text-[#004F9F] flex items-center justify-center shrink-0">
+            <div className="w-10 h-10 rounded-xl bg-blue-50 text-marca flex items-center justify-center shrink-0">
               <Store className="w-5 h-5" />
             </div>
             <div>
@@ -338,7 +341,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
       <section className="py-14 bg-slate-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
           <div className="text-center max-w-2xl mx-auto space-y-2">
-            <span className="text-xs font-extrabold uppercase tracking-wider text-[#004F9F] bg-blue-50 px-3 py-1 rounded-full border border-blue-200">
+            <span className="text-xs font-extrabold uppercase tracking-wider text-marca bg-blue-50 px-3 py-1 rounded-full border border-blue-200">
               Solución Técnica en 1 Clic
             </span>
             <h2 className="text-2xl sm:text-3xl font-black text-slate-900">
@@ -355,7 +358,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
               onClick={() => setSelectedProblemTab('fachada')}
               className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
                 selectedProblemTab === 'fachada'
-                  ? 'bg-[#004F9F] text-white shadow-md'
+                  ? 'bg-marca text-white shadow-md'
                   : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-100'
               }`}
             >
@@ -365,7 +368,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
               onClick={() => setSelectedProblemTab('humedad')}
               className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
                 selectedProblemTab === 'humedad'
-                  ? 'bg-[#004F9F] text-white shadow-md'
+                  ? 'bg-marca text-white shadow-md'
                   : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-100'
               }`}
             >
@@ -375,7 +378,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
               onClick={() => setSelectedProblemTab('techo')}
               className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
                 selectedProblemTab === 'techo'
-                  ? 'bg-[#004F9F] text-white shadow-md'
+                  ? 'bg-marca text-white shadow-md'
                   : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-100'
               }`}
             >
@@ -385,7 +388,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
               onClick={() => setSelectedProblemTab('metal')}
               className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
                 selectedProblemTab === 'metal'
-                  ? 'bg-[#004F9F] text-white shadow-md'
+                  ? 'bg-marca text-white shadow-md'
                   : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-100'
               }`}
             >
@@ -401,7 +404,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
                 alt={currentProblem.title}
                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
               />
-              <span className="absolute top-3 left-3 bg-[#004F9F] text-white text-[10px] font-extrabold px-2.5 py-1 rounded-md shadow-xs">
+              <span className="absolute top-3 left-3 bg-marca text-white text-[10px] font-extrabold px-2.5 py-1 rounded-md shadow-xs">
                 Kit Oficial Pintuco
               </span>
             </div>
@@ -425,9 +428,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
                   {currentProblem.products.map((prod, idx) => (
                     <span
                       key={idx}
-                      className="text-xs font-bold bg-blue-50 text-[#004F9F] px-3 py-1 rounded-lg border border-blue-200 flex items-center gap-1.5 shadow-2xs"
+                      className="text-xs font-bold bg-blue-50 text-marca px-3 py-1 rounded-lg border border-blue-200 flex items-center gap-1.5 shadow-2xs"
                     >
-                      <CheckCircle2 className="w-3.5 h-3.5 text-[#004F9F]" />
+                      <CheckCircle2 className="w-3.5 h-3.5 text-marca" />
                       {prod}
                     </span>
                   ))}
@@ -437,7 +440,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
               <div className="pt-4 border-t border-slate-100 flex flex-wrap items-center justify-between gap-4">
                 <div>
                   <span className="text-[10px] text-slate-400 block font-medium">Inversión Estimada del Kit:</span>
-                  <span className="text-2xl font-black text-[#004F9F]">
+                  <span className="text-2xl font-black text-marca">
                     {formatCOP(currentProblem.estimatedCost)}
                   </span>
                 </div>
@@ -464,7 +467,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
           <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
             <div>
-              <span className="text-xs font-extrabold uppercase text-[#004F9F]">
+              <span className="text-xs font-extrabold uppercase text-marca">
                 Catálogo Oficial Pintuco
               </span>
               <h2 className="text-2xl sm:text-3xl font-black text-slate-900 mt-1">
@@ -504,7 +507,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                     />
                     {product.badge && (
-                      <span className="absolute top-2.5 left-2.5 bg-[#004F9F] text-white text-[10px] font-bold px-2 py-0.5 rounded-md shadow-xs">
+                      <span className="absolute top-2.5 left-2.5 bg-marca text-white text-[10px] font-bold px-2 py-0.5 rounded-md shadow-xs">
                         {product.badge}
                       </span>
                     )}
@@ -512,12 +515,12 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
 
                   <div className="p-4 space-y-3">
                     <div className="space-y-1">
-                      <span className="text-[10px] font-black uppercase text-[#004F9F]">
+                      <span className="text-[10px] font-black uppercase text-marca">
                         {product.category}
                       </span>
                       <h3
                         onClick={() => onNavigate('store', product.name)}
-                        className="text-sm font-bold text-slate-900 group-hover:text-[#004F9F] transition-colors line-clamp-1 cursor-pointer"
+                        className="text-sm font-bold text-slate-900 group-hover:text-marca transition-colors line-clamp-1 cursor-pointer"
                       >
                         {product.name}
                       </h3>
@@ -529,7 +532,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
                     <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
                       <div>
                         <span className="text-[10px] text-slate-400 block font-medium">Desde</span>
-                        <span className="text-base font-black text-[#004F9F]">
+                        <span className="text-base font-black text-marca">
                           {formatCOP(pres.priceCOP)}
                         </span>
                         {/* El precio de góndola ya incluye IVA. */}
@@ -540,7 +543,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
 
                       <button
                         onClick={() => setCompraRapida(product)}
-                        className="bg-[#004F9F] hover:bg-[#003875] text-white px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
+                        className="bg-marca hover:bg-marca-hover text-white px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
                       >
                         <ShoppingCart className="w-3.5 h-3.5" />
                         <span>Comprar</span>
@@ -559,7 +562,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
           <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
             <div>
-              <span className="text-xs font-black uppercase tracking-wider text-yellow-400 bg-yellow-400/10 px-3 py-1 rounded-full border border-yellow-400/20">
+              <span className="text-xs font-black uppercase tracking-wider text-acento bg-acento/10 px-3 py-1 rounded-full border border-acento/20">
                 Tendencias del Color Pintuco 2025
               </span>
               <h2 className="text-2xl sm:text-3xl font-black text-white mt-2">
@@ -575,7 +578,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
               size="md"
               onClick={() => onNavigate('colors')}
               leftIcon={<Palette className="w-4 h-4" />}
-              className="bg-yellow-400 text-slate-950 hover:bg-yellow-300 font-black text-xs self-start sm:self-auto shadow-md"
+              className="bg-acento text-slate-950 hover:bg-acento-claro font-black text-xs self-start sm:self-auto shadow-md"
             >
               Abrir Simulador de Ambientes
             </Button>
@@ -586,7 +589,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
               <div
                 key={color.code}
                 onClick={() => onNavigate('colors')}
-                className="p-3.5 bg-slate-800/80 rounded-2xl border border-slate-700/80 hover:border-yellow-400 transition-all cursor-pointer text-left space-y-2.5 group"
+                className="p-3.5 bg-slate-800/80 rounded-2xl border border-slate-700/80 hover:border-acento transition-all cursor-pointer text-left space-y-2.5 group"
               >
                 <div
                   className="w-full h-16 rounded-xl border border-white/10 shadow-xs group-hover:scale-105 transition-transform"
@@ -603,10 +606,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
       </section>
 
       {/* 8. BOTTOM B2B & BUILDER CTA BANNER */}
-      <section className="bg-linear-to-r from-[#002D5C] to-[#004F9F] text-white py-12 border-t border-blue-900/60">
+      <section className="bg-linear-to-r from-marca-oscuro to-marca text-white py-12 border-t border-blue-900/60">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="text-left space-y-2 max-w-2xl">
-            <span className="text-xs font-black uppercase text-yellow-300 bg-white/10 px-2.5 py-0.5 rounded">
+            <span className="text-xs font-black uppercase text-acento-claro bg-white/10 px-2.5 py-0.5 rounded">
               Para Constructoras & Profesionales
             </span>
             <h2 className="text-2xl sm:text-3xl font-black text-white">
@@ -623,7 +626,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
               size="lg"
               onClick={() => onNavigate('create-project')}
               rightIcon={<ArrowRight className="w-4 h-4" />}
-              className="bg-yellow-400 text-slate-950 hover:bg-yellow-300 font-black text-xs shadow-lg"
+              className="bg-acento text-slate-950 hover:bg-acento-claro font-black text-xs shadow-lg"
             >
               Iniciar Diagnóstico B2B
             </Button>

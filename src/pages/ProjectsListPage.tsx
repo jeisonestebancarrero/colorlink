@@ -142,7 +142,7 @@ export const ProjectsListPage: React.FC<ProjectsListPageProps> = ({
                 onClick={() => setViewMode('grid')}
                 className={`p-1.5 rounded-md transition-colors ${
                   viewMode === 'grid'
-                    ? 'bg-white text-[#004F9F] shadow-xs'
+                    ? 'bg-white text-marca shadow-xs'
                     : 'text-slate-400 hover:text-slate-700'
                 }`}
                 title="Vista en cuadrícula"
@@ -153,7 +153,7 @@ export const ProjectsListPage: React.FC<ProjectsListPageProps> = ({
                 onClick={() => setViewMode('table')}
                 className={`p-1.5 rounded-md transition-colors ${
                   viewMode === 'table'
-                    ? 'bg-white text-[#004F9F] shadow-xs'
+                    ? 'bg-white text-marca shadow-xs'
                     : 'text-slate-400 hover:text-slate-700'
                 }`}
                 title="Vista en tabla"
@@ -172,7 +172,7 @@ export const ProjectsListPage: React.FC<ProjectsListPageProps> = ({
               onClick={() => setSelectedStatus(st.value)}
               className={`text-xs px-3 py-1 rounded-full font-medium transition-all ${
                 selectedStatus === st.value
-                  ? 'bg-[#004F9F] text-white shadow-2xs'
+                  ? 'bg-marca text-white shadow-2xs'
                   : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
               }`}
             >

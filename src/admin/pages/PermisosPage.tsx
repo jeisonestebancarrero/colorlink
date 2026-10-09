@@ -73,7 +73,7 @@ export const PermisosPage: React.FC = () => {
   if (cargando) {
     return (
       <div className="flex items-center justify-center py-24">
-        <div className="w-12 h-12 border-4 border-[#004F9F] border-t-transparent rounded-full animate-spin" />
+        <div className="w-12 h-12 border-4 border-marca border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
@@ -158,7 +158,7 @@ export const PermisosPage: React.FC = () => {
                             checked={concedido}
                             disabled={guardandoCelda === clave}
                             onChange={() => void alternar(rol, p)}
-                            className="rounded border-slate-300 text-[#004F9F] focus:ring-[#004F9F] w-4 h-4 cursor-pointer disabled:opacity-40"
+                            className="rounded border-slate-300 text-marca focus:ring-marca w-4 h-4 cursor-pointer disabled:opacity-40"
                             aria-label={`${p.label} para ${etiqueta}`}
                           />
                         </td>

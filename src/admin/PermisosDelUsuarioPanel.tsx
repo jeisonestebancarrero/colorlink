@@ -79,7 +79,7 @@ export const PermisosDelUsuarioPanel: React.FC<Props> = ({ userId, roles }) => {
     <div className="space-y-3">
       <header>
         <h4 className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-          <KeySquare className="w-3.5 h-3.5 text-[#004F9F]" /> Permisos de esta persona
+          <KeySquare className="w-3.5 h-3.5 text-marca" /> Permisos de esta persona
         </h4>
         <p className="text-[11px] text-slate-500 leading-snug mt-0.5 max-w-md">
           Lo normal es que los dé el rol. Aquí se concede o se retira uno a una sola
@@ -110,7 +110,7 @@ export const PermisosDelUsuarioPanel: React.FC<Props> = ({ userId, roles }) => {
               variant="primary" size="sm" isLoading={guardando}
               disabled={motivo.trim() === ''}
               onClick={() => void confirmar()}
-              className="bg-[#004F9F] text-white text-xs font-bold"
+              className="bg-marca text-white text-xs font-bold"
             >
               Guardar excepción
             </Button>
@@ -129,7 +129,7 @@ export const PermisosDelUsuarioPanel: React.FC<Props> = ({ userId, roles }) => {
                     type="checkbox"
                     checked={p.efectivo}
                     onChange={() => { setEditando(p); setMotivo(''); }}
-                    className="rounded border-slate-300 text-[#004F9F] focus:ring-[#004F9F] w-4 h-4 cursor-pointer"
+                    className="rounded border-slate-300 text-marca focus:ring-marca w-4 h-4 cursor-pointer"
                     aria-label={`${p.label}: ${p.efectivo ? 'concedido' : 'sin conceder'}`}
                   />
                   <span className="font-semibold text-slate-700 flex-1 flex items-center gap-1">

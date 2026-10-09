@@ -210,7 +210,7 @@ export const RecepcionesPage: React.FC = () => {
       <div className="space-y-5">
         <button
           onClick={() => { setAbierta(null); setAviso(''); }}
-          className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-[#004F9F]"
+          className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-marca"
         >
           <ArrowLeft className="w-3.5 h-3.5" /> Volver a recepciones
         </button>
@@ -395,7 +395,7 @@ export const RecepcionesPage: React.FC = () => {
                         onClick={() => setLinea({ ...linea, colorId: c.id })}
                         aria-pressed={elegido}
                         className={`flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-left transition-colors ${
-                          elegido ? 'border-[#004F9F] bg-[#004F9F]/5 ring-1 ring-[#004F9F]' : 'border-slate-200 hover:bg-slate-50'
+                          elegido ? 'border-marca bg-marca/5 ring-1 ring-marca' : 'border-slate-200 hover:bg-slate-50'
                         }`}
                       >
                         <MuestraColor hex={c.hex} className="w-5 h-5" />
@@ -534,7 +534,7 @@ export const RecepcionesPage: React.FC = () => {
           <button
             type="button"
             onClick={() => setNuevoProveedor((v) => !v)}
-            className="text-xs font-semibold text-[#004F9F] hover:underline"
+            className="text-xs font-semibold text-marca hover:underline"
           >
             {nuevoProveedor ? 'Cancelar proveedor nuevo' : '+ Registrar un proveedor nuevo'}
           </button>
@@ -603,7 +603,7 @@ export const RecepcionesPage: React.FC = () => {
           value={busqueda}
           onChange={(e) => setBusqueda(e.target.value)}
           placeholder="Buscar por número, proveedor, factura o bodega…"
-          className="w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 py-2.5 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#004F9F]/20 focus:border-[#004F9F]"
+          className="w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 py-2.5 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-marca/20 focus:border-marca"
         />
       </div>
 

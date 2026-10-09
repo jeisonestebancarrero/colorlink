@@ -178,7 +178,7 @@ export const FacturacionPage: React.FC<FacturacionPageProps> = ({
           {([['emitidas', `Emitidas (${visibles.length})`], ['pendientes', `Por facturar (${pendientes.length})`]] as const).map(([v, t]) => (
             <button key={v} onClick={() => setPestana(v)}
               className={`px-3.5 py-1.5 rounded-lg text-xs font-bold border transition-colors ${
-                pestana === v ? 'bg-[#004F9F] text-white border-[#004F9F]'
+                pestana === v ? 'bg-marca text-white border-marca'
                               : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
               }`}>{t}</button>
           ))}
@@ -189,7 +189,7 @@ export const FacturacionPage: React.FC<FacturacionPageProps> = ({
             <input value={busqueda} onChange={(e) => setBusqueda(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') void cargar(); }}
               placeholder="Buscar por número o cliente…"
-              className="w-full bg-white border border-slate-200 rounded-lg pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#004F9F]/30" />
+              className="w-full bg-white border border-slate-200 rounded-lg pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-marca/30" />
           </div>
         )}
       </div>
@@ -200,7 +200,7 @@ export const FacturacionPage: React.FC<FacturacionPageProps> = ({
 
       {cargando ? (
         <div className="flex justify-center py-20">
-          <div className="w-10 h-10 border-4 border-[#004F9F] border-t-transparent rounded-full animate-spin" />
+          <div className="w-10 h-10 border-4 border-marca border-t-transparent rounded-full animate-spin" />
         </div>
       ) : pestana === 'emitidas' ? (
         <div className="bg-white rounded-xl border border-slate-200 shadow-2xs overflow-x-auto">

@@ -92,7 +92,7 @@ export const ConversacionPedido: React.FC<Props> = ({ orderId, numero }) => {
     <div className="bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden">
       <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between gap-3">
         <h2 className="text-base font-extrabold text-slate-900 flex items-center gap-2">
-          <MessageSquare className="w-4 h-4 text-[#004F9F]" />
+          <MessageSquare className="w-4 h-4 text-marca" />
           Conversación
         </h2>
         <div className="flex items-center gap-2">
@@ -157,11 +157,11 @@ export const ConversacionPedido: React.FC<Props> = ({ orderId, numero }) => {
               <div key={m.id} className={`flex ${mio ? 'justify-end' : 'justify-start'}`}>
                 <div className={`max-w-[85%] rounded-2xl px-3.5 py-2.5 ${
                   mio
-                    ? 'bg-[#004F9F] text-white rounded-br-sm'
+                    ? 'bg-marca text-white rounded-br-sm'
                     : 'bg-slate-100 text-slate-800 rounded-bl-sm'
                 }`}>
                   {!mio && (
-                    <p className="text-[10px] font-extrabold uppercase tracking-wider text-[#004F9F] mb-0.5">
+                    <p className="text-[10px] font-extrabold uppercase tracking-wider text-marca mb-0.5">
                       {/* Nombre y origen, para distinguir a varias personas del equipo. */}
                       {m.autor ? `${m.autor} · Pintuco` : 'Pintuco'}
                     </p>
@@ -210,13 +210,13 @@ export const ConversacionPedido: React.FC<Props> = ({ orderId, numero }) => {
             rows={2}
             placeholder="Escribe tu mensaje…"
             className="flex-1 resize-none rounded-xl border border-slate-200 px-3 py-2 text-sm
-                       focus:outline-none focus:border-[#004F9F] focus:ring-2 focus:ring-[#004F9F]/20"
+                       focus:outline-none focus:border-marca focus:ring-2 focus:ring-marca/20"
           />
           <button
             type="submit"
             disabled={!texto.trim() || enviando}
-            className="shrink-0 h-10 px-4 rounded-xl bg-[#004F9F] text-white text-sm font-bold
-                       inline-flex items-center gap-2 hover:bg-[#003B77] transition-colors
+            className="shrink-0 h-10 px-4 rounded-xl bg-marca text-white text-sm font-bold
+                       inline-flex items-center gap-2 hover:bg-marca-hover transition-colors
                        disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
           >
             {enviando ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}

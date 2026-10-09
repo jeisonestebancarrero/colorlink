@@ -186,14 +186,14 @@ export const ColoresDelProducto: React.FC<Props> = ({ productId, carta, actuales
                   value={busqueda}
                   onChange={(e) => setBusqueda(e.target.value)}
                   placeholder="Buscar por nombre o código…"
-                  className="w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 py-2 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#004F9F]/20 focus:border-[#004F9F]"
+                  className="w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 py-2 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-marca/20 focus:border-marca"
                 />
               </div>
               <select
                 value={familia}
                 onChange={(e) => setFamilia(e.target.value)}
                 aria-label="Familia de color"
-                className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#004F9F]/20"
+                className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm cursor-pointer focus:outline-none focus:ring-2 focus:ring-marca/20"
               >
                 <option value="">Todas las familias</option>
                 {familias.map((f) => <option key={f} value={f}>{f}</option>)}
@@ -213,7 +213,7 @@ export const ColoresDelProducto: React.FC<Props> = ({ productId, carta, actuales
                       onClick={() => alternar(c.id)}
                       aria-pressed={elegido}
                       className={`flex items-center gap-2.5 rounded-lg border px-2.5 py-1.5 text-left transition-colors ${
-                        elegido ? 'border-[#004F9F] bg-[#004F9F]/5' : 'border-slate-200 hover:bg-slate-50'
+                        elegido ? 'border-marca bg-marca/5' : 'border-slate-200 hover:bg-slate-50'
                       }`}
                     >
                       <MuestraColor hex={c.hex} className="w-6 h-6" />
@@ -221,7 +221,7 @@ export const ColoresDelProducto: React.FC<Props> = ({ productId, carta, actuales
                         <span className="block text-xs font-semibold text-slate-800 truncate">{c.nombre}</span>
                         <span className="block text-[10px] text-slate-400 truncate">{c.codigo} · {c.familia}</span>
                       </span>
-                      {elegido && <Check className="w-4 h-4 text-[#004F9F] shrink-0" />}
+                      {elegido && <Check className="w-4 h-4 text-marca shrink-0" />}
                     </button>
                   );
                 })

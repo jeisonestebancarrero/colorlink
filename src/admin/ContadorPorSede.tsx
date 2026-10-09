@@ -56,7 +56,7 @@ export const ContadorPorSede: React.FC<Props> = ({
           onClick={() => onAislar(null)}
           className={`text-[10px] font-bold cursor-pointer ${
             sedeAislada
-              ? 'text-[#004F9F] hover:underline'
+              ? 'text-marca hover:underline'
               : 'text-slate-400 cursor-default'
           }`}
           disabled={!sedeAislada}
@@ -78,8 +78,8 @@ export const ContadorPorSede: React.FC<Props> = ({
               className={`relative overflow-hidden text-left rounded-xl px-3.5 py-2.5
                           transition-all cursor-pointer border ${
                 sedeAislada === s.id
-                  ? 'border-[#004F9F] ring-1 ring-[#004F9F] shadow-2xs'
-                  : 'border-slate-200 hover:border-[#004F9F] hover:shadow-2xs'
+                  ? 'border-marca ring-1 ring-marca shadow-2xs'
+                  : 'border-slate-200 hover:border-marca hover:shadow-2xs'
               }`}
             >
               {/* Foto del punto (`imagenPunto`) atenuada como fondo, para que la cifra domine. */}
@@ -111,11 +111,11 @@ export const ContadorPorSede: React.FC<Props> = ({
               <span className="relative block">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-slate-600
                                  flex items-center gap-1 truncate">
-                  <Store className="w-3 h-3 text-[#004F9F]/70 shrink-0" />
+                  <Store className="w-3 h-3 text-marca/70 shrink-0" />
                   <span className="truncate">{s.ciudad || s.nombre}</span>
                 </span>
                 <span className={`block text-xl font-extrabold mt-0.5 ${
-                  (conteos.porSede.get(s.id) ?? 0) === 0 ? 'text-slate-400' : 'text-[#004F9F]'
+                  (conteos.porSede.get(s.id) ?? 0) === 0 ? 'text-slate-400' : 'text-marca'
                 }`}>
                   {conteos.porSede.get(s.id) ?? 0}
                 </span>

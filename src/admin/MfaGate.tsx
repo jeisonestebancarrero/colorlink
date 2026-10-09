@@ -63,7 +63,7 @@ export const MfaGate: React.FC<{ modo: 'registro' | 'codigo' }> = ({ modo }) => 
   };
 
   return (
-    <div className="min-h-screen bg-linear-to-br from-[#002D5C] via-[#003B71] to-[#004F9F] flex items-center justify-center px-4 py-10">
+    <div className="min-h-screen bg-linear-to-br from-marca-oscuro via-marca-hover to-marca flex items-center justify-center px-4 py-10">
       <div className="w-full max-w-md">
         <div className="text-center mb-6">
           <div className="w-32 mx-auto mb-4 rounded-2xl overflow-hidden border border-white/20 bg-white/5">
@@ -107,7 +107,7 @@ export const MfaGate: React.FC<{ modo: 'registro' | 'codigo' }> = ({ modo }) => 
                   />
                 ) : (
                   <div className="w-44 h-44 rounded-xl border border-slate-200 bg-slate-50 flex items-center justify-center">
-                    <div className="w-8 h-8 border-4 border-[#004F9F] border-t-transparent rounded-full animate-spin" />
+                    <div className="w-8 h-8 border-4 border-marca border-t-transparent rounded-full animate-spin" />
                   </div>
                 )}
               </div>
@@ -178,7 +178,7 @@ export const MfaGate: React.FC<{ modo: 'registro' | 'codigo' }> = ({ modo }) => 
           <button
             type="button"
             onClick={() => void salir()}
-            className="w-full inline-flex items-center justify-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-[#004F9F] border-t border-slate-100 pt-4"
+            className="w-full inline-flex items-center justify-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-marca border-t border-slate-100 pt-4"
           >
             <LogOut className="w-3.5 h-3.5" /> Cerrar sesión
           </button>

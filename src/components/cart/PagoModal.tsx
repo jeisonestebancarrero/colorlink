@@ -112,7 +112,7 @@ export const PagoModal: React.FC<{
       <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl border border-slate-200 my-8">
         <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <span className="w-9 h-9 rounded-lg bg-[#004F9F]/10 text-[#004F9F] flex items-center justify-center">
+            <span className="w-9 h-9 rounded-lg bg-marca/10 text-marca flex items-center justify-center">
               <Lock className="w-4 h-4" />
             </span>
             <div>
@@ -163,7 +163,7 @@ export const PagoModal: React.FC<{
               {condiciones?.aCredito && (
                 <label
                   className={`flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer transition-colors ${
-                    aCredito ? 'border-[#004F9F] bg-[#004F9F]/5' : 'border-slate-200 hover:bg-slate-50'
+                    aCredito ? 'border-marca bg-marca/5' : 'border-slate-200 hover:bg-slate-50'
                   } ${!puedeCredito ? 'opacity-60' : ''}`}
                 >
                   <input
@@ -172,7 +172,7 @@ export const PagoModal: React.FC<{
                     checked={aCredito}
                     disabled={!puedeCredito}
                     onChange={() => setACredito(true)}
-                    className="mt-0.5 text-[#004F9F] focus:ring-[#004F9F]"
+                    className="mt-0.5 text-marca focus:ring-marca"
                   />
                   <span className="text-xs leading-relaxed flex-1">
                     <span className="font-bold text-slate-800 flex items-center gap-1.5">
@@ -194,7 +194,7 @@ export const PagoModal: React.FC<{
 
               <label
                 className={`flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer transition-colors ${
-                  !aCredito ? 'border-[#004F9F] bg-[#004F9F]/5' : 'border-slate-200 hover:bg-slate-50'
+                  !aCredito ? 'border-marca bg-marca/5' : 'border-slate-200 hover:bg-slate-50'
                 }`}
               >
                 <input
@@ -202,7 +202,7 @@ export const PagoModal: React.FC<{
                   name="forma-pago"
                   checked={!aCredito}
                   onChange={() => setACredito(false)}
-                  className="mt-0.5 text-[#004F9F] focus:ring-[#004F9F]"
+                  className="mt-0.5 text-marca focus:ring-marca"
                 />
                 <span className="text-xs leading-relaxed flex-1">
                   <span className="font-bold text-slate-800 flex items-center gap-1.5">
@@ -229,7 +229,7 @@ export const PagoModal: React.FC<{
                     id="medio-pago"
                     value={medio}
                     onChange={(e) => setMedio(e.target.value)}
-                    className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#004F9F]/20"
+                    className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm cursor-pointer focus:outline-none focus:ring-2 focus:ring-marca/20"
                   >
                     {MEDIOS_PAGO.map((m) => (
                       <option key={m.valor} value={m.valor}>{m.texto}</option>
@@ -258,7 +258,7 @@ export const PagoModal: React.FC<{
               <button
                 onClick={pagar}
                 disabled={procesando}
-                className="w-full bg-[#004F9F] hover:bg-[#003B77] disabled:opacity-60 text-white font-bold text-sm rounded-xl py-3 flex items-center justify-center gap-2 transition-colors"
+                className="w-full bg-marca hover:bg-marca-hover disabled:opacity-60 text-white font-bold text-sm rounded-xl py-3 flex items-center justify-center gap-2 transition-colors"
               >
                 {procesando ? (
                   <><Loader2 className="w-4 h-4 animate-spin" /> Procesando…</>

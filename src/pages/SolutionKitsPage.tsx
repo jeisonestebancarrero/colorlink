@@ -119,9 +119,9 @@ export const SolutionKitsPage: React.FC<SolutionKitsPageProps> = ({ onNavigate }
   return (
     <div className="space-y-8 pb-16">
       {/* Header */}
-      <div className="bg-linear-to-r from-[#004F9F] to-[#002D5C] text-white rounded-2xl p-6 sm:p-8 shadow-lg border border-blue-900/40">
+      <div className="bg-linear-to-r from-marca to-marca-oscuro text-white rounded-2xl p-6 sm:p-8 shadow-lg border border-blue-900/40">
         <div className="max-w-2xl space-y-2">
-          <div className="inline-flex items-center gap-2 bg-yellow-400 text-slate-950 px-3 py-1 rounded-full text-xs font-extrabold shadow-2xs">
+          <div className="inline-flex items-center gap-2 bg-acento text-slate-950 px-3 py-1 rounded-full text-xs font-extrabold shadow-2xs">
             <Sparkles className="w-3.5 h-3.5" />
             <span>Soluciones Integrales Empaquetadas • Hasta 15% Descuento</span>
           </div>
@@ -144,13 +144,13 @@ export const SolutionKitsPage: React.FC<SolutionKitsPageProps> = ({ onNavigate }
               onClick={() => { setSelectedKitId(kit.id); setFaltanColores(false); }}
               className={`p-4 rounded-2xl border transition-all cursor-pointer flex flex-col justify-between space-y-3 ${
                 isSelected
-                  ? 'bg-blue-50/80 border-[#004F9F] ring-2 ring-blue-600 shadow-md'
+                  ? 'bg-blue-50/80 border-marca ring-2 ring-blue-600 shadow-md'
                   : 'bg-white border-slate-200 hover:border-slate-300 hover:shadow-2xs'
               }`}
             >
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-extrabold uppercase bg-blue-100 text-[#004F9F] px-2 py-0.5 rounded">
+                  <span className="text-[10px] font-extrabold uppercase bg-blue-100 text-marca px-2 py-0.5 rounded">
                     {kit.category}
                   </span>
                   <span className="text-[10px] font-extrabold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
@@ -167,7 +167,7 @@ export const SolutionKitsPage: React.FC<SolutionKitsPageProps> = ({ onNavigate }
 
               <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs">
                 <span className="text-[10px] text-slate-400 font-semibold">{kit.steps.length} Pasos</span>
-                <span className="text-xs font-extrabold text-[#004F9F]">
+                <span className="text-xs font-extrabold text-marca">
                   Ver Sistema →
                 </span>
               </div>
@@ -199,7 +199,7 @@ export const SolutionKitsPage: React.FC<SolutionKitsPageProps> = ({ onNavigate }
           <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 w-full lg:w-80 space-y-2">
             <div className="flex justify-between items-center text-xs font-bold text-slate-800">
               <span>Área de la Superficie:</span>
-              <span className="text-sm text-[#004F9F] font-extrabold">{areaM2} m²</span>
+              <span className="text-sm text-marca font-extrabold">{areaM2} m²</span>
             </div>
             <input
               type="range"
@@ -208,7 +208,7 @@ export const SolutionKitsPage: React.FC<SolutionKitsPageProps> = ({ onNavigate }
               step="5"
               value={areaM2}
               onChange={(e) => setAreaM2(Number(e.target.value))}
-              className="w-full accent-[#004F9F] cursor-pointer"
+              className="w-full accent-marca cursor-pointer"
             />
             <div className="flex justify-between text-[10px] text-slate-400 font-semibold">
               <span>20 m² (Muro pequeño)</span>
@@ -221,7 +221,7 @@ export const SolutionKitsPage: React.FC<SolutionKitsPageProps> = ({ onNavigate }
         {/* Step by Step Breakdown */}
         <div className="space-y-4">
           <h3 className="text-sm font-extrabold uppercase tracking-wider text-slate-800 flex items-center gap-2">
-            <Layers className="w-4 h-4 text-[#004F9F]" />
+            <Layers className="w-4 h-4 text-marca" />
             Pasos Técnicos del Sistema Multicapa Pintuco
           </h3>
 
@@ -235,7 +235,7 @@ export const SolutionKitsPage: React.FC<SolutionKitsPageProps> = ({ onNavigate }
                 >
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <span className="w-6 h-6 rounded-full bg-[#004F9F] text-white text-xs font-extrabold flex items-center justify-center shadow-2xs">
+                      <span className="w-6 h-6 rounded-full bg-marca text-white text-xs font-extrabold flex items-center justify-center shadow-2xs">
                         {step.stepNumber}
                       </span>
                       <span className="text-[10px] font-extrabold uppercase text-slate-500 bg-white px-2 py-0.5 rounded border border-slate-200">
@@ -266,7 +266,7 @@ export const SolutionKitsPage: React.FC<SolutionKitsPageProps> = ({ onNavigate }
                     </div>
                     <div className="flex justify-between text-xs">
                       <span className="text-slate-500">Cantidad para {areaM2}m²:</span>
-                      <strong className="text-[#004F9F] font-bold">{qty} unidades</strong>
+                      <strong className="text-marca font-bold">{qty} unidades</strong>
                     </div>
                   </div>
                   {cartaDe(step.productId).length > 0 && (
@@ -287,7 +287,7 @@ export const SolutionKitsPage: React.FC<SolutionKitsPageProps> = ({ onNavigate }
         {/* Tools Included Box */}
         <div className="p-4 bg-blue-50/60 rounded-xl border border-blue-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div className="flex items-start gap-3">
-            <Hammer className="w-5 h-5 text-[#004F9F] shrink-0 mt-0.5" />
+            <Hammer className="w-5 h-5 text-marca shrink-0 mt-0.5" />
             <div className="space-y-1">
               <h4 className="text-xs font-bold text-slate-900">
                 Herramientas y Complementos Incluidos en el Kit
@@ -309,7 +309,7 @@ export const SolutionKitsPage: React.FC<SolutionKitsPageProps> = ({ onNavigate }
         {/* Pricing Summary & Actions */}
         <div className="p-5 bg-slate-900 text-white rounded-2xl flex flex-col md:flex-row items-start md:items-center justify-between gap-6 shadow-md">
           <div className="space-y-1">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-yellow-300">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-acento-claro">
               Resumen de Inversión • Kit Completo Certificado
             </span>
             <div className="flex items-baseline gap-3">
@@ -345,7 +345,7 @@ export const SolutionKitsPage: React.FC<SolutionKitsPageProps> = ({ onNavigate }
             <Button
               onClick={handleAddFullKitToCart}
               variant="primary"
-              className="bg-yellow-400 hover:bg-yellow-300 text-slate-950 text-xs font-extrabold px-6 py-2.5 shadow-md flex items-center justify-center gap-2 cursor-pointer flex-1 md:flex-initial"
+              className="bg-acento hover:bg-acento-claro text-slate-950 text-xs font-extrabold px-6 py-2.5 shadow-md flex items-center justify-center gap-2 cursor-pointer flex-1 md:flex-initial"
             >
               <ShoppingCart className="w-4 h-4" />
               <span>Comprar Kit Completo (-{activeKit.discountPercent}%)</span>

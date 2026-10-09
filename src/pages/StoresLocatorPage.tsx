@@ -60,7 +60,7 @@ export const StoresLocatorPage: React.FC<StoresLocatorPageProps> = ({ onNavigate
       <div className="bg-white rounded-2xl p-6 sm:p-8 border border-slate-200 shadow-2xs">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="space-y-1.5">
-            <div className="inline-flex items-center gap-2 bg-blue-50 text-[#004F9F] px-3 py-1 rounded-full text-xs font-bold border border-blue-200">
+            <div className="inline-flex items-center gap-2 bg-blue-50 text-marca px-3 py-1 rounded-full text-xs font-bold border border-blue-200">
               <Store className="w-3.5 h-3.5" />
               <span>Red Oficial de Puntos de Venta & Centros de Color</span>
             </div>
@@ -75,7 +75,7 @@ export const StoresLocatorPage: React.FC<StoresLocatorPageProps> = ({ onNavigate
           <div className="flex items-center gap-2">
             <button
               onClick={() => onNavigate('store')}
-              className="bg-[#004F9F] hover:bg-[#003B77] text-white text-xs font-bold px-4 py-2.5 rounded-lg transition-colors cursor-pointer shadow-xs"
+              className="bg-marca hover:bg-marca-hover text-white text-xs font-bold px-4 py-2.5 rounded-lg transition-colors cursor-pointer shadow-xs"
             >
               Comprar en Tienda Online
             </button>
@@ -93,7 +93,7 @@ export const StoresLocatorPage: React.FC<StoresLocatorPageProps> = ({ onNavigate
               onClick={() => setSelectedCity(city)}
               className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
                 selectedCity === city
-                  ? 'bg-[#004F9F] text-white shadow-2xs'
+                  ? 'bg-marca text-white shadow-2xs'
                   : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
               }`}
             >
@@ -127,7 +127,7 @@ export const StoresLocatorPage: React.FC<StoresLocatorPageProps> = ({ onNavigate
                   key={st.id}
                   className={`group rounded-2xl border overflow-hidden transition-all ${
                     isSelected
-                      ? 'bg-blue-50/80 border-[#004F9F] ring-2 ring-blue-600 shadow-md'
+                      ? 'bg-blue-50/80 border-marca ring-2 ring-blue-600 shadow-md'
                       : 'bg-white border-slate-200 hover:border-slate-300 hover:shadow-2xs'
                   }`}
                 >
@@ -141,7 +141,7 @@ export const StoresLocatorPage: React.FC<StoresLocatorPageProps> = ({ onNavigate
                   <div className="p-5 flex flex-col sm:flex-row sm:items-start justify-between gap-4">
                     <div className="space-y-2">
                       <div className="flex items-center gap-2">
-                        <span className="text-[10px] font-bold uppercase bg-blue-100 text-[#004F9F] px-2 py-0.5 rounded">
+                        <span className="text-[10px] font-bold uppercase bg-blue-100 text-marca px-2 py-0.5 rounded">
                           {st.city}
                         </span>
                         {isSelected && (
@@ -157,7 +157,7 @@ export const StoresLocatorPage: React.FC<StoresLocatorPageProps> = ({ onNavigate
 
                       <div className="space-y-1 text-xs text-slate-600">
                         <p className="flex items-center gap-2">
-                          <MapPin className="w-3.5 h-3.5 text-[#004F9F] shrink-0" />
+                          <MapPin className="w-3.5 h-3.5 text-marca shrink-0" />
                           <span>{st.address}</span>
                         </p>
                         <p className="flex items-center gap-2">
@@ -197,8 +197,8 @@ export const StoresLocatorPage: React.FC<StoresLocatorPageProps> = ({ onNavigate
                         variant={isSelected ? 'outline' : 'primary'}
                         className={`text-xs font-bold px-3 py-2 ${
                           isSelected
-                            ? 'border-[#004F9F] text-[#004F9F]'
-                            : 'bg-[#004F9F] text-white shadow-xs'
+                            ? 'border-marca text-marca'
+                            : 'bg-marca text-white shadow-xs'
                         }`}
                       >
                         {isSelected ? 'Seleccionada' : 'Elegir para Retiro'}
@@ -227,7 +227,7 @@ export const StoresLocatorPage: React.FC<StoresLocatorPageProps> = ({ onNavigate
               />
               <div className="absolute inset-0 bg-linear-to-t from-slate-950/80 via-transparent to-transparent flex flex-col justify-end p-4 text-white">
                 <p className="text-xs font-bold flex items-center gap-1.5">
-                  <Navigation className="w-3.5 h-3.5 text-yellow-400" /> Red Nacional de Distribución
+                  <Navigation className="w-3.5 h-3.5 text-acento" /> Red Nacional de Distribución
                 </p>
                 <p className="text-[11px] text-slate-300">
                   Más de 350 tiendas autorizadas y centros de mezcla en toda Colombia.
@@ -238,7 +238,7 @@ export const StoresLocatorPage: React.FC<StoresLocatorPageProps> = ({ onNavigate
             {/* Value Props */}
             <div className="space-y-2.5 text-xs text-slate-700">
               <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 flex items-start gap-2.5">
-                <Sparkles className="w-4 h-4 text-[#004F9F] shrink-0 mt-0.5" />
+                <Sparkles className="w-4 h-4 text-marca shrink-0 mt-0.5" />
                 <div>
                   <strong className="text-slate-900 block font-bold">Mezcla de Color Computarizada al Instante</strong>
                   <p className="text-[11px] text-slate-500 mt-0.5">

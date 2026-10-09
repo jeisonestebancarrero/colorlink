@@ -72,7 +72,7 @@ export const SelectorSede: React.FC<Props> = ({ variante = 'lateral' }) => {
                    hover:bg-white/15 transition-colors text-left cursor-pointer"
         aria-expanded={abierto}
       >
-        <Store className="w-4 h-4 text-yellow-400 shrink-0" />
+        <Store className="w-4 h-4 text-acento shrink-0" />
         <span className="flex-1 min-w-0">
           <span className="block text-[9px] uppercase tracking-wider text-blue-200/70 font-bold leading-none">
             Sede activa
@@ -98,7 +98,7 @@ export const SelectorSede: React.FC<Props> = ({ variante = 'lateral' }) => {
             {!todas && (
               <button
                 onClick={activarTodas}
-                className="text-[10px] font-bold text-[#004F9F] hover:underline cursor-pointer"
+                className="text-[10px] font-bold text-marca hover:underline cursor-pointer"
               >
                 Ver todas
               </button>
@@ -119,7 +119,7 @@ export const SelectorSede: React.FC<Props> = ({ variante = 'lateral' }) => {
                     <span
                       className={`w-4 h-4 rounded border shrink-0 mt-0.5 flex items-center justify-center ${
                         activa
-                          ? 'bg-[#004F9F] border-[#004F9F]'
+                          ? 'bg-marca border-marca'
                           : 'bg-white border-slate-300'
                       }`}
                     >
@@ -137,7 +137,7 @@ export const SelectorSede: React.FC<Props> = ({ variante = 'lateral' }) => {
                   {/* Atajo para aislar una sola, que es el caso frecuente. */}
                   <button
                     onClick={() => { soloEsta(s.id); setAbierto(false); }}
-                    className="px-2.5 text-[10px] font-bold text-slate-400 hover:text-[#004F9F]
+                    className="px-2.5 text-[10px] font-bold text-slate-400 hover:text-marca
                                hover:bg-slate-50 transition-colors cursor-pointer"
                     title={`Ver solo ${s.nombre}`}
                   >

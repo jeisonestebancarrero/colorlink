@@ -29,14 +29,14 @@ export const AdminLogin: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-linear-to-br from-[#002D5C] via-[#003B71] to-[#004F9F] flex items-center justify-center px-4">
+    <div className="min-h-screen bg-linear-to-br from-marca-oscuro via-marca-hover to-marca flex items-center justify-center px-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-7">
           <div className="w-40 mx-auto mb-4 rounded-2xl overflow-hidden border border-white/20 bg-white/5">
             <img src={logoPintuco} alt="Pintuco" className="w-full h-auto object-contain" />
           </div>
           <h1 className="text-2xl font-extrabold text-white tracking-tight">
-            COLOR<span className="text-yellow-400">LINK</span>
+            COLOR<span className="text-acento">LINK</span>
           </h1>
           <p className="text-sm text-blue-100/80 font-medium mt-1">
             Portal interno Pintuco
@@ -73,7 +73,7 @@ export const AdminLogin: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setRecuperando(true)}
-                className="text-xs font-semibold text-[#004F9F] hover:underline"
+                className="text-xs font-semibold text-marca hover:underline"
               >
                 ¿Olvidaste tu contraseña?
               </button>

@@ -143,7 +143,7 @@ export const ProjectDetailPage: React.FC<ProjectDetailPageProps> = ({
               <span className="text-xs font-mono bg-slate-100 text-slate-700 font-bold px-2 py-0.5 rounded">
                 {project.code}
               </span>
-              <span className="text-xs font-medium bg-blue-50 text-[#004F9F] px-2 py-0.5 rounded border border-blue-200">
+              <span className="text-xs font-medium bg-blue-50 text-marca px-2 py-0.5 rounded border border-blue-200">
                 {project.projectType}
               </span>
               <span className="text-xs text-slate-500">
@@ -162,11 +162,11 @@ export const ProjectDetailPage: React.FC<ProjectDetailPageProps> = ({
             {/* Quick Metrics Bar */}
             <div className="flex flex-wrap items-center gap-4 pt-1 text-xs text-slate-700">
               <span className="flex items-center gap-1.5 font-medium">
-                <MapPin className="w-4 h-4 text-[#004F9F]" />
+                <MapPin className="w-4 h-4 text-marca" />
                 <span>Ubicación:</span> <strong>{project.city}</strong>
               </span>
               <span className="flex items-center gap-1.5 font-medium">
-                <Layers className="w-4 h-4 text-[#004F9F]" />
+                <Layers className="w-4 h-4 text-marca" />
                 <span>Superficie:</span> <strong>{project.surface} ({project.areaM2} m²)</strong>
               </span>
               <span className="flex items-center gap-1.5 font-medium">
@@ -174,7 +174,7 @@ export const ProjectDetailPage: React.FC<ProjectDetailPageProps> = ({
                 <span>Patología:</span> <strong>{project.conditions.join(', ')}</strong>
               </span>
               <span className="flex items-center gap-1.5 font-medium">
-                <Calendar className="w-4 h-4 text-[#004F9F]" />
+                <Calendar className="w-4 h-4 text-marca" />
                 <span>Plazo:</span> <strong>{project.requiredDate}</strong>
               </span>
             </div>
@@ -183,11 +183,11 @@ export const ProjectDetailPage: React.FC<ProjectDetailPageProps> = ({
           {/* Specialist Card Mini */}
           {project.technicalService?.requested && (
             <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 min-w-[260px] space-y-2">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-[#004F9F] block">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-marca block">
                 Acompañamiento Pintuco Activo
               </span>
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-full bg-[#004F9F] text-white flex items-center justify-center text-xs font-bold">
+                <div className="w-8 h-8 rounded-full bg-marca text-white flex items-center justify-center text-xs font-bold">
                   MG
                 </div>
                 <div>
@@ -206,7 +206,7 @@ export const ProjectDetailPage: React.FC<ProjectDetailPageProps> = ({
         {/* "¿Qué debo hacer ahora? / Próximo Paso" Action Bar */}
         <div className="bg-linear-to-r from-blue-50 to-indigo-50 border border-blue-200/90 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="space-y-0.5">
-            <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#004F9F] flex items-center gap-1.5">
+            <span className="text-[10px] font-extrabold uppercase tracking-wider text-marca flex items-center gap-1.5">
               <Sparkles className="w-3.5 h-3.5" />
               ¿Qué debes hacer ahora? — Próximo Paso Recomendado
             </span>
@@ -242,7 +242,7 @@ export const ProjectDetailPage: React.FC<ProjectDetailPageProps> = ({
                   step.done
                     ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
                     : step.current
-                    ? 'bg-[#004F9F] text-white border-blue-600 font-bold shadow-xs'
+                    ? 'bg-marca text-white border-blue-600 font-bold shadow-xs'
                     : 'bg-slate-50 text-slate-400 border-slate-200/60'
                 }`}
               >
@@ -273,7 +273,7 @@ export const ProjectDetailPage: React.FC<ProjectDetailPageProps> = ({
                 onClick={() => setActiveTab(tab.id as any)}
                 className={`flex items-center gap-2 py-3 px-3.5 text-xs sm:text-sm font-bold border-b-2 transition-all whitespace-nowrap cursor-pointer ${
                   isActive
-                    ? 'border-[#004F9F] text-[#004F9F] bg-blue-50/40 rounded-t-lg'
+                    ? 'border-marca text-marca bg-blue-50/40 rounded-t-lg'
                     : 'border-transparent text-slate-500 hover:text-slate-900 hover:border-slate-300'
                 }`}
               >
@@ -292,7 +292,7 @@ export const ProjectDetailPage: React.FC<ProjectDetailPageProps> = ({
           <div className="bg-white rounded-2xl border border-slate-200/90 p-6 shadow-xs space-y-5">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
               <div>
-                <span className="text-xs font-bold uppercase tracking-wider text-[#004F9F] bg-blue-50 px-2.5 py-0.5 rounded">
+                <span className="text-xs font-bold uppercase tracking-wider text-marca bg-blue-50 px-2.5 py-0.5 rounded">
                   Sistema Recomendado
                 </span>
                 <h3 className="text-xl font-extrabold text-slate-900 mt-1">
@@ -303,7 +303,7 @@ export const ProjectDetailPage: React.FC<ProjectDetailPageProps> = ({
               {/* Technical Engineer Details Toggle */}
               <button
                 onClick={() => setShowTechnicalDetailsToggle(!showTechnicalDetailsToggle)}
-                className="text-xs font-semibold text-slate-600 hover:text-[#004F9F] bg-slate-100 hover:bg-blue-50 px-3 py-1.5 rounded-lg border border-slate-200 transition-colors cursor-pointer self-start sm:self-auto"
+                className="text-xs font-semibold text-slate-600 hover:text-marca bg-slate-100 hover:bg-blue-50 px-3 py-1.5 rounded-lg border border-slate-200 transition-colors cursor-pointer self-start sm:self-auto"
               >
                 {showTechnicalDetailsToggle ? 'Ocultar vista técnica' : 'Ver detalle para especialistas'}
               </button>
@@ -349,7 +349,7 @@ export const ProjectDetailPage: React.FC<ProjectDetailPageProps> = ({
                     className="bg-white border-2 border-slate-200 rounded-xl p-4 hover:border-blue-300 transition-all flex flex-col justify-between shadow-2xs"
                   >
                     <div>
-                      <span className="text-[10px] font-bold uppercase tracking-wider bg-blue-100 text-[#004F9F] px-2 py-0.5 rounded inline-block mb-2">
+                      <span className="text-[10px] font-bold uppercase tracking-wider bg-blue-100 text-marca px-2 py-0.5 rounded inline-block mb-2">
                         Paso {idx + 1}: {prod.role}
                       </span>
                       <h5 className="text-sm font-bold text-slate-900">{prod.name}</h5>
@@ -363,7 +363,7 @@ export const ProjectDetailPage: React.FC<ProjectDetailPageProps> = ({
                       </div>
                       <div className="flex justify-between">
                         <span className="text-slate-400">Rendimiento:</span>
-                        <span className="font-bold text-[#004F9F]">{prod.theoreticalSpreadRate}</span>
+                        <span className="font-bold text-marca">{prod.theoreticalSpreadRate}</span>
                       </div>
                     </div>
                   </div>
@@ -409,7 +409,7 @@ export const ProjectDetailPage: React.FC<ProjectDetailPageProps> = ({
                             onClick={() => setSelectedColor({ ...col, family: pal.category })}
                             className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all cursor-pointer ${
                               isChosen
-                                ? 'bg-white border-[#004F9F] shadow-xs ring-2 ring-blue-500/20'
+                                ? 'bg-white border-marca shadow-xs ring-2 ring-blue-500/20'
                                 : 'bg-white border-slate-200 hover:border-slate-300 text-slate-700'
                             }`}
                           >
@@ -435,7 +435,7 @@ export const ProjectDetailPage: React.FC<ProjectDetailPageProps> = ({
         <div className="space-y-6 animate-in fade-in duration-200">
           <div className="bg-white rounded-2xl border border-slate-200/90 p-6 shadow-xs space-y-6">
             <div>
-              <span className="text-xs font-bold uppercase tracking-wider text-[#004F9F] bg-blue-50 px-2.5 py-0.5 rounded">
+              <span className="text-xs font-bold uppercase tracking-wider text-marca bg-blue-50 px-2.5 py-0.5 rounded">
                 Cálculo de Materiales ({project.areaM2} m²)
               </span>
               <h3 className="text-xl font-extrabold text-slate-900 mt-1">
@@ -454,7 +454,7 @@ export const ProjectDetailPage: React.FC<ProjectDetailPageProps> = ({
                 >
                   <div className="space-y-1 flex-1">
                     <div className="flex items-center gap-2">
-                      <span className="text-[10px] font-bold uppercase tracking-wider bg-blue-100 text-[#004F9F] px-2 py-0.5 rounded">
+                      <span className="text-[10px] font-bold uppercase tracking-wider bg-blue-100 text-marca px-2 py-0.5 rounded">
                         Paso {idx + 1}: {prod.role}
                       </span>
                       <span className="text-xs font-mono text-slate-400">{prod.code}</span>
@@ -479,7 +479,7 @@ export const ProjectDetailPage: React.FC<ProjectDetailPageProps> = ({
                       </span>
                     </div>
                     <div className="flex items-center gap-1 text-[11px] text-slate-500 pt-1 border-t border-slate-100">
-                      <Store className="w-3.5 h-3.5 text-[#004F9F]" />
+                      <Store className="w-3.5 h-3.5 text-marca" />
                       <span>{prod.storeLocation || 'Puntos de Venta Pintuco'}</span>
                     </div>
                   </div>
@@ -503,7 +503,7 @@ export const ProjectDetailPage: React.FC<ProjectDetailPageProps> = ({
           <div className="bg-white rounded-2xl border border-slate-200/90 p-6 shadow-xs space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
               <div>
-                <span className="text-xs font-bold uppercase tracking-wider text-[#004F9F] bg-blue-50 px-2.5 py-0.5 rounded">
+                <span className="text-xs font-bold uppercase tracking-wider text-marca bg-blue-50 px-2.5 py-0.5 rounded">
                   Presupuesto Estimado Demostrativo
                 </span>
                 <h3 className="text-xl font-extrabold text-slate-900 mt-1">
@@ -555,8 +555,8 @@ export const ProjectDetailPage: React.FC<ProjectDetailPageProps> = ({
                   {/* Free Technical Assistance Line Item */}
                   <tr className="bg-blue-50/50 font-medium">
                     <td className="px-4 py-3" colSpan={2}>
-                      <span className="font-bold text-[#004F9F] flex items-center gap-1.5">
-                        <UserCheck className="w-4 h-4 text-[#004F9F]" />
+                      <span className="font-bold text-marca flex items-center gap-1.5">
+                        <UserCheck className="w-4 h-4 text-marca" />
                         Acompañamiento Técnico Especializado en Obra
                       </span>
                       <span className="text-[11px] text-slate-500">
@@ -573,7 +573,7 @@ export const ProjectDetailPage: React.FC<ProjectDetailPageProps> = ({
                     <td className="px-4 py-4" colSpan={4}>
                       Total Estimado de Materiales (Demostrativo):
                     </td>
-                    <td className="px-4 py-4 text-right font-extrabold text-[#004F9F] font-mono text-base">
+                    <td className="px-4 py-4 text-right font-extrabold text-marca font-mono text-base">
                       ${budget?.estimatedTotal.toLocaleString('es-CO')} COP
                     </td>
                   </tr>
@@ -597,7 +597,7 @@ export const ProjectDetailPage: React.FC<ProjectDetailPageProps> = ({
           <div className="bg-white rounded-2xl border border-slate-200/90 p-6 shadow-xs space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
               <div>
-                <span className="text-xs font-bold uppercase tracking-wider text-[#004F9F] bg-blue-50 px-2.5 py-0.5 rounded">
+                <span className="text-xs font-bold uppercase tracking-wider text-marca bg-blue-50 px-2.5 py-0.5 rounded">
                   Servicio Técnico Especializado Pintuco ($0 COP)
                 </span>
                 <h3 className="text-xl font-extrabold text-slate-900 mt-1">
@@ -619,11 +619,11 @@ export const ProjectDetailPage: React.FC<ProjectDetailPageProps> = ({
             {/* Specialist Profile Card */}
             <div className="bg-slate-50 rounded-2xl p-6 border border-slate-200 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
               <div className="flex items-center gap-4">
-                <div className="w-16 h-16 rounded-2xl bg-linear-to-br from-[#004F9F] to-blue-800 text-white flex items-center justify-center text-xl font-extrabold shadow-sm">
+                <div className="w-16 h-16 rounded-2xl bg-linear-to-br from-marca to-blue-800 text-white flex items-center justify-center text-xl font-extrabold shadow-sm">
                   MG
                 </div>
                 <div className="space-y-1">
-                  <span className="text-[10px] font-bold uppercase tracking-wider bg-blue-100 text-[#004F9F] px-2 py-0.5 rounded">
+                  <span className="text-[10px] font-bold uppercase tracking-wider bg-blue-100 text-marca px-2 py-0.5 rounded">
                     Especialista Asignado
                   </span>
                   <h4 className="text-lg font-extrabold text-slate-900">
@@ -632,7 +632,7 @@ export const ProjectDetailPage: React.FC<ProjectDetailPageProps> = ({
                   <p className="text-xs text-slate-500">
                     {project.technicalService?.specialistTitle || 'Especialista en Fachadas & Recubrimientos Pintuco'}
                   </p>
-                  <p className="text-xs font-semibold text-[#004F9F]">
+                  <p className="text-xs font-semibold text-marca">
                     Teléfono directo: {project.technicalService?.contactPhone || '+57 (310) 902-3344'}
                   </p>
                 </div>
@@ -641,7 +641,7 @@ export const ProjectDetailPage: React.FC<ProjectDetailPageProps> = ({
               <div className="bg-white rounded-xl p-4 border border-slate-200 text-xs min-w-[240px] space-y-2 shadow-2xs">
                 <div className="flex items-center justify-between">
                   <span className="text-slate-400">Estado de visita:</span>
-                  <span className="font-bold text-[#004F9F] uppercase text-[11px]">
+                  <span className="font-bold text-marca uppercase text-[11px]">
                     {project.technicalService?.status === 'programado' ? 'Programada' : 'Confirmada'}
                   </span>
                 </div>
@@ -665,7 +665,7 @@ export const ProjectDetailPage: React.FC<ProjectDetailPageProps> = ({
               </h4>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
                 <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-2xs space-y-1.5">
-                  <div className="w-8 h-8 rounded-lg bg-blue-50 text-[#004F9F] flex items-center justify-center font-bold">
+                  <div className="w-8 h-8 rounded-lg bg-blue-50 text-marca flex items-center justify-center font-bold">
                     1
                   </div>
                   <h5 className="font-bold text-slate-900">Medición de Humedad</h5>
@@ -675,7 +675,7 @@ export const ProjectDetailPage: React.FC<ProjectDetailPageProps> = ({
                 </div>
 
                 <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-2xs space-y-1.5">
-                  <div className="w-8 h-8 rounded-lg bg-blue-50 text-[#004F9F] flex items-center justify-center font-bold">
+                  <div className="w-8 h-8 rounded-lg bg-blue-50 text-marca flex items-center justify-center font-bold">
                     2
                   </div>
                   <h5 className="font-bold text-slate-900">Prueba de Adherencia</h5>
@@ -685,7 +685,7 @@ export const ProjectDetailPage: React.FC<ProjectDetailPageProps> = ({
                 </div>
 
                 <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-2xs space-y-1.5">
-                  <div className="w-8 h-8 rounded-lg bg-blue-50 text-[#004F9F] flex items-center justify-center font-bold">
+                  <div className="w-8 h-8 rounded-lg bg-blue-50 text-marca flex items-center justify-center font-bold">
                     3
                   </div>
                   <h5 className="font-bold text-slate-900">Emisión de Certificado</h5>
@@ -731,7 +731,7 @@ export const ProjectDetailPage: React.FC<ProjectDetailPageProps> = ({
                     <p className="text-[10px] text-slate-300">{photo.size} · {photo.uploadDate}</p>
                   </div>
                   {photo.isPrimary && (
-                    <span className="absolute top-2 left-2 bg-[#004F9F] text-white text-[10px] font-bold px-2 py-0.5 rounded shadow-xs">
+                    <span className="absolute top-2 left-2 bg-marca text-white text-[10px] font-bold px-2 py-0.5 rounded shadow-xs">
                       Foto Principal
                     </span>
                   )}
@@ -767,7 +767,7 @@ export const ProjectDetailPage: React.FC<ProjectDetailPageProps> = ({
                         isCompleted
                           ? 'bg-emerald-600 border-white text-white shadow-xs'
                           : isCurrent
-                          ? 'bg-[#004F9F] border-white text-white shadow-xs'
+                          ? 'bg-marca border-white text-white shadow-xs'
                           : 'bg-white border-slate-300 text-slate-300'
                       }`}
                     >
@@ -794,7 +794,7 @@ export const ProjectDetailPage: React.FC<ProjectDetailPageProps> = ({
                     </p>
 
                     {step.responsible && (
-                      <p className="text-[11px] text-[#004F9F] font-medium">
+                      <p className="text-[11px] text-marca font-medium">
                         Responsable: {step.responsible}
                       </p>
                     )}

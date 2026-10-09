@@ -40,7 +40,7 @@ interface Props {
 
 const claseCampo =
   'w-full px-3 py-2.5 rounded-lg border border-slate-300 bg-white text-sm text-slate-800 ' +
-  'focus:outline-none focus:ring-2 focus:ring-[#004F9F]/30 focus:border-[#004F9F] transition-shadow ' +
+  'focus:outline-none focus:ring-2 focus:ring-marca/30 focus:border-marca transition-shadow ' +
   'disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed';
 
 export const SelectorUbicacion: React.FC<Props> = ({
@@ -229,7 +229,7 @@ export const SelectorUbicacion: React.FC<Props> = ({
                       setBarrioAMano(false);
                       onChange({ ...valor, neighborhoodName: '' });
                     }}
-                    className="text-[11px] font-semibold text-[#004F9F] hover:underline mt-1"
+                    className="text-[11px] font-semibold text-marca hover:underline mt-1"
                   >
                     Volver al listado
                   </button>
@@ -282,7 +282,7 @@ export const SelectorUbicacion: React.FC<Props> = ({
                       setBarrioAMano(true);
                       onChange({ ...valor, neighborhoodId: null });
                     }}
-                    className="text-[11px] font-semibold text-[#004F9F] hover:underline mt-1"
+                    className="text-[11px] font-semibold text-marca hover:underline mt-1"
                   >
                     Mi barrio no aparece en la lista
                   </button>

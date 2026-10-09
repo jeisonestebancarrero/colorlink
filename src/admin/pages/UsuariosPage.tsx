@@ -114,7 +114,7 @@ export const UsuariosPage: React.FC = () => {
             onClick={() => setSoloInternos(o.v)}
             className={`px-3.5 py-1.5 rounded-lg text-xs font-bold border transition-colors ${
               soloInternos === o.v
-                ? 'bg-[#004F9F] text-white border-[#004F9F]'
+                ? 'bg-marca text-white border-marca'
                 : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
             }`}
           >
@@ -197,7 +197,7 @@ export const UsuariosPage: React.FC = () => {
                   </span>
                 </td>
                 <td className="px-4 py-3">
-                  <span className="text-xs font-semibold text-[#004F9F] hover:underline">
+                  <span className="text-xs font-semibold text-marca hover:underline">
                     Gestionar →
                   </span>
                 </td>
@@ -280,7 +280,7 @@ export const UsuariosPage: React.FC = () => {
                 {rolesDisponibles.map(({ codigo: r, etiqueta }) => (
                   <label key={r} className="flex items-center gap-2 px-2.5 py-2 rounded-lg border border-slate-200 hover:border-slate-300 cursor-pointer text-xs font-semibold text-slate-700">
                     <input type="checkbox" checked={form.roles.includes(r)} onChange={() => alternarRol(r)}
-                      className="rounded border-slate-300 text-[#004F9F] focus:ring-[#004F9F]" />
+                      className="rounded border-slate-300 text-marca focus:ring-marca" />
                     {etiqueta}
                   </label>
                 ))}

@@ -161,7 +161,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
               <h2 className="text-xl font-bold text-slate-900">
                 {user?.firstName} {user?.lastName}
               </h2>
-              <span className="text-xs font-bold uppercase tracking-wider bg-blue-50 text-[#004F9F] border border-blue-200 px-2.5 py-0.5 rounded-full">
+              <span className="text-xs font-bold uppercase tracking-wider bg-blue-50 text-marca border border-blue-200 px-2.5 py-0.5 rounded-full">
                 {user?.clientType}
               </span>
             </div>
@@ -298,7 +298,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
               </span>
               <div className="grid grid-cols-2 gap-2 text-center">
                 <div className="bg-white p-2.5 rounded-lg border border-slate-200/80">
-                  <span className="text-lg font-bold text-[#004F9F]">
+                  <span className="text-lg font-bold text-marca">
                     {projects.length}
                   </span>
                   <span className="block text-[10px] text-slate-500">

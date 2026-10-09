@@ -94,7 +94,7 @@ export const RolesPanel: React.FC = () => {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-base font-extrabold text-slate-900 flex items-center gap-2">
-            <ShieldCheck className="w-4 h-4 text-[#004F9F]" /> Qué ve cada rol
+            <ShieldCheck className="w-4 h-4 text-marca" /> Qué ve cada rol
           </h2>
           <p className="text-xs text-slate-500 mt-1 max-w-2xl leading-relaxed">
             Marca las aplicaciones que ve cada rol. El cambio alcanza a todas las
@@ -216,7 +216,7 @@ export const RolesPanel: React.FC = () => {
                                       inline-flex items-center justify-center
                                       disabled:opacity-50 disabled:cursor-wait ${
                             tiene
-                              ? 'bg-[#004F9F] border-[#004F9F] text-white hover:bg-[#003B77]'
+                              ? 'bg-marca border-marca text-white hover:bg-marca-hover'
                               : 'bg-white border-slate-200 text-transparent hover:border-slate-400'
                           }`}
                         >
@@ -246,7 +246,7 @@ export const RolesPanel: React.FC = () => {
                 key={r.codigo}
                 onClick={() => void rolService.actualizar(r.codigo, { activo: true }).then(cargar)}
                 className="px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-[11px]
-                           font-bold text-slate-600 hover:border-[#004F9F] cursor-pointer"
+                           font-bold text-slate-600 hover:border-marca cursor-pointer"
               >
                 {r.etiqueta} · restaurar
               </button>

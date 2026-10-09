@@ -109,7 +109,7 @@ export const RegistrarEgreso: React.FC<{
                 value={form.cuenta}
                 onChange={(e) => setForm({ ...form, cuenta: e.target.value })}
                 className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-normal
-                           focus:outline-none focus:border-[#004F9F] focus:ring-2 focus:ring-[#004F9F]/20"
+                           focus:outline-none focus:border-marca focus:ring-2 focus:ring-marca/20"
               >
                 {cuentas.map((c) => (
                   <option key={c.id} value={c.id}>
@@ -141,7 +141,7 @@ export const RegistrarEgreso: React.FC<{
               value={form.contrapartida}
               onChange={(e) => setForm({ ...form, contrapartida: e.target.value })}
               className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-normal
-                         focus:outline-none focus:border-[#004F9F] focus:ring-2 focus:ring-[#004F9F]/20"
+                         focus:outline-none focus:border-marca focus:ring-2 focus:ring-marca/20"
             >
               <option value="">Elige la cuenta…</option>
               {contrapartidas.map((c) => (

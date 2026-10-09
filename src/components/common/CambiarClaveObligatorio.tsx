@@ -40,7 +40,7 @@ export const CambiarClaveObligatorio: React.FC<{
   };
 
   return (
-    <div className="min-h-screen bg-linear-to-br from-[#002D5C] via-[#003B71] to-[#004F9F]
+    <div className="min-h-screen bg-linear-to-br from-marca-oscuro via-marca-hover to-marca
                     flex items-center justify-center px-4 py-10">
       <div className="w-full max-w-md">
         <div className="text-center mb-6">

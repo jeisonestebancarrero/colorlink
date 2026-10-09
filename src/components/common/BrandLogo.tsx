@@ -38,7 +38,7 @@ export const BrandLogo: React.FC<{
     >
       {logoUrl && !falloImagen ? (
         <div
-          className={`${compacto ? 'h-8' : 'h-10'} shrink-0 rounded-xl overflow-hidden bg-[#002D5C] flex items-center justify-center px-1.5 shadow-md group-hover:scale-105 transition-transform`}
+          className={`${compacto ? 'h-8' : 'h-10'} shrink-0 rounded-xl overflow-hidden bg-marca-oscuro flex items-center justify-center px-1.5 shadow-md group-hover:scale-105 transition-transform`}
         >
           <img
             src={logoUrl}
@@ -49,7 +49,7 @@ export const BrandLogo: React.FC<{
         </div>
       ) : (
         <div
-          className={`${compacto ? 'w-8 h-8 text-base' : 'w-10 h-10 text-xl'} rounded-xl bg-linear-to-br from-[#004F9F] to-[#002D5C] flex items-center justify-center text-white shadow-md group-hover:scale-105 transition-transform font-black`}
+          className={`${compacto ? 'w-8 h-8 text-base' : 'w-10 h-10 text-xl'} rounded-xl bg-linear-to-br from-marca to-marca-oscuro flex items-center justify-center text-white shadow-md group-hover:scale-105 transition-transform font-black`}
         >
           P
         </div>
@@ -64,9 +64,9 @@ export const BrandLogo: React.FC<{
               className={`text-base sm:text-xl font-black tracking-tight leading-none truncate ${claro ? 'text-white' : 'text-slate-900'}`}
             >
               {/* En fondo oscuro "LINK" va en amarillo Pintuco: el azul no se ve. */}
-              COLOR<span className={claro ? 'text-[#FFB81C]' : 'text-[#004F9F]'}>LINK</span>
+              COLOR<span className={claro ? 'text-acento' : 'text-marca'}>LINK</span>
             </span>
-            <span className="hidden sm:inline text-[10px] font-black uppercase tracking-wider bg-yellow-400 text-slate-950 px-1.5 py-0.5 rounded shadow-2xs shrink-0">
+            <span className="hidden sm:inline text-[10px] font-black uppercase tracking-wider bg-acento text-slate-950 px-1.5 py-0.5 rounded shadow-2xs shrink-0">
               PINTUCO
             </span>
           </div>

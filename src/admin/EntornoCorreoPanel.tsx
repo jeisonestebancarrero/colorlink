@@ -115,7 +115,7 @@ export const EntornoCorreoPanel: React.FC = () => {
   return (
     <form onSubmit={guardar} className="bg-white rounded-xl border border-slate-200 shadow-2xs p-6 space-y-5">
       <div className="flex items-center gap-2 flex-wrap">
-        <Cable className="w-5 h-5 text-[#004F9F]" />
+        <Cable className="w-5 h-5 text-marca" />
         <h2 className="text-lg font-bold text-slate-800">Entorno de correo</h2>
         <span
           className={`text-[11px] font-bold px-2 py-0.5 rounded-full border ${
@@ -186,7 +186,7 @@ export const EntornoCorreoPanel: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setForm({ ...form, functionsUrl: sugerida })}
-                className="font-semibold text-[#004F9F] hover:underline"
+                className="font-semibold text-marca hover:underline"
               >
                 Usar la de este servidor
               </button>

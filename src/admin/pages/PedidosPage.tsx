@@ -132,7 +132,7 @@ export const PedidosPage: React.FC<PedidosPageProps> = ({
     return (
       <div className="space-y-6">
         <button onClick={() => { setDetalle(null); onCerrar?.(); }}
-          className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-[#004F9F] transition-colors">
+          className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-marca transition-colors">
           <ArrowLeft className="w-3.5 h-3.5" /> Volver a pedidos
         </button>
 
@@ -245,7 +245,7 @@ export const PedidosPage: React.FC<PedidosPageProps> = ({
           <div className="space-y-5">
             <div className="bg-white rounded-xl border border-slate-200 shadow-2xs p-5 space-y-3">
               <h3 className="text-sm font-extrabold text-slate-900 flex items-center gap-2">
-                {detalle.metodo === 'Envío' ? <Truck className="w-4 h-4 text-[#004F9F]" /> : <Store className="w-4 h-4 text-[#004F9F]" />}
+                {detalle.metodo === 'Envío' ? <Truck className="w-4 h-4 text-marca" /> : <Store className="w-4 h-4 text-marca" />}
                 {detalle.metodo}
               </h3>
               {detalle.puntoRetiro && (
@@ -315,10 +315,10 @@ export const PedidosPage: React.FC<PedidosPageProps> = ({
           <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
           <input value={busqueda} onChange={(e) => setBusqueda(e.target.value)}
             placeholder="Buscar por número, cliente o empresa…"
-            className="w-full bg-white border border-slate-200 rounded-lg pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#004F9F]/30" />
+            className="w-full bg-white border border-slate-200 rounded-lg pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-marca/30" />
         </div>
         <select value={estado} onChange={(e) => setEstado(e.target.value as EstadoPedido | 'TODOS')}
-          className="bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#004F9F]/30">
+          className="bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-marca/30">
           <option value="TODOS">Todos los estados</option>
           {ESTADOS_PEDIDO.map((s) => <option key={s} value={s}>{ETIQUETA_ESTADO[s]}</option>)}
         </select>

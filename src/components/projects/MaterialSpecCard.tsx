@@ -17,7 +17,7 @@ export const MaterialSpecCard: React.FC<MaterialSpecCardProps> = ({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <div>
           <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-            <Layers className="w-5 h-5 text-[#004F9F]" />
+            <Layers className="w-5 h-5 text-marca" />
             <span>Sistema y Materiales Pintuco Sugeridos</span>
           </h3>
           <p className="text-xs text-slate-500">
@@ -38,7 +38,7 @@ export const MaterialSpecCard: React.FC<MaterialSpecCardProps> = ({
             <div>
               {/* Role badge */}
               <div className="flex items-center justify-between gap-2 mb-2">
-                <span className="text-[10px] font-bold uppercase tracking-wider bg-blue-50 text-[#004F9F] border border-blue-200/70 px-2 py-0.5 rounded">
+                <span className="text-[10px] font-bold uppercase tracking-wider bg-blue-50 text-marca border border-blue-200/70 px-2 py-0.5 rounded">
                   Paso {index + 1}: {prod.role}
                 </span>
                 <span className="text-[10px] font-mono text-slate-400">

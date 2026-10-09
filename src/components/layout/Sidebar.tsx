@@ -134,8 +134,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 onClick={() => handleItemClick(item.id)}
                 className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer ${
                   isActive
-                    ? 'bg-yellow-400 text-slate-950 font-extrabold shadow-sm'
-                    : 'bg-[#004F9F] text-white hover:bg-[#003875]'
+                    ? 'bg-acento text-slate-950 font-extrabold shadow-sm'
+                    : 'bg-marca text-white hover:bg-marca-hover'
                 }`}
               >
                 <div className="flex items-center gap-2">
@@ -156,7 +156,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             onClick={() => handleItemClick(item.id)}
             className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
               isActive
-                ? 'bg-[#004F9F] text-white shadow-xs'
+                ? 'bg-marca text-white shadow-xs'
                 : 'text-slate-300 hover:text-white hover:bg-slate-800'
             }`}
           >
@@ -196,9 +196,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
       />
 
       {/* Drawer Panel */}
-      <div className="relative flex-1 flex flex-col max-w-xs w-full bg-[#00172e] text-slate-200 animate-in slide-in-from-left duration-200 shadow-2xl z-10 border-r border-blue-900/60">
+      <div className="relative flex-1 flex flex-col max-w-xs w-full bg-marca-profundo text-slate-200 animate-in slide-in-from-left duration-200 shadow-2xl z-10 border-r border-blue-900/60">
         {/* Brand Header */}
-        <div className="p-4 border-b border-blue-900/60 flex items-center justify-between bg-[#002244]">
+        <div className="p-4 border-b border-blue-900/60 flex items-center justify-between bg-marca-oscuro">
           <div
             onClick={() => handleItemClick('dashboard')}
             className="flex items-center gap-2.5 cursor-pointer group"
@@ -219,21 +219,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {/* Navigation items */}
         <div className="flex-1 px-3 py-4 space-y-5 overflow-y-auto">
           <div>
-            <p className="px-3 text-[10px] font-extrabold uppercase tracking-wider text-yellow-400 mb-1.5">
+            <p className="px-3 text-[10px] font-extrabold uppercase tracking-wider text-acento mb-1.5">
               Tienda & Soluciones
             </p>
             {renderNavList(storeNavItems)}
           </div>
 
           <div>
-            <p className="px-3 text-[10px] font-extrabold uppercase tracking-wider text-yellow-400 mb-1.5">
+            <p className="px-3 text-[10px] font-extrabold uppercase tracking-wider text-acento mb-1.5">
               Obras & Proyectos B2B
             </p>
             {renderNavList(projectNavItems)}
           </div>
 
           <div>
-            <p className="px-3 text-[10px] font-extrabold uppercase tracking-wider text-yellow-400 mb-1.5">
+            <p className="px-3 text-[10px] font-extrabold uppercase tracking-wider text-acento mb-1.5">
               Mi Cuenta
             </p>
             {renderNavList(accountNavItems)}
@@ -241,12 +241,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
 
         {/* Store pickup card */}
-        <div className="p-3 bg-[#001f3f] border-t border-blue-900/60">
+        <div className="p-3 bg-marca-profundo border-t border-blue-900/60">
           <div
             onClick={() => handleItemClick('stores')}
             className="p-2.5 rounded-xl bg-blue-950/80 hover:bg-blue-900/80 border border-blue-800/60 transition-colors cursor-pointer space-y-1"
           >
-            <div className="flex items-center justify-between text-[10px] font-bold text-yellow-400">
+            <div className="flex items-center justify-between text-[10px] font-bold text-acento">
               <span className="flex items-center gap-1">
                 <Store className="w-3 h-3" /> Tienda de Retiro:
               </span>
@@ -262,9 +262,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
 
         {/* Footer info */}
-        <div className="p-3 border-t border-blue-900/60 bg-[#00172e] flex items-center justify-between">
+        <div className="p-3 border-t border-blue-900/60 bg-marca-profundo flex items-center justify-between">
           <div className="flex items-center gap-2 min-w-0">
-            <div className="w-7 h-7 rounded-lg bg-[#004F9F] text-white flex items-center justify-center font-bold text-xs shrink-0">
+            <div className="w-7 h-7 rounded-lg bg-marca text-white flex items-center justify-center font-bold text-xs shrink-0">
               {user?.firstName?.charAt(0) || 'I'}
             </div>
             <div className="min-w-0">

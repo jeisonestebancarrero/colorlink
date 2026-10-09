@@ -297,7 +297,7 @@ export const CatalogoPage: React.FC = () => {
       <div className="space-y-5 max-w-3xl">
         <button
           onClick={() => setEditandoProducto(null)}
-          className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-[#004F9F]"
+          className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-marca"
         >
           <ArrowLeft className="w-3.5 h-3.5" /> Volver al catálogo
         </button>
@@ -346,7 +346,7 @@ export const CatalogoPage: React.FC = () => {
                 rows={3}
                 value={p.descripcion ?? ''}
                 onChange={(e) => setEditandoProducto({ ...p, descripcion: e.target.value })}
-                className="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#004F9F]/20 focus:border-[#004F9F]"
+                className="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-marca/20 focus:border-marca"
               />
             </div>
 
@@ -549,7 +549,7 @@ export const CatalogoPage: React.FC = () => {
                   onClick={() =>
                     setEditandoPres({ productId: p.id, estado: 'ACTIVO', orden: 0, precioTexto: '' })
                   }
-                  className="inline-flex items-center gap-1 text-xs font-bold text-[#004F9F] hover:underline"
+                  className="inline-flex items-center gap-1 text-xs font-bold text-marca hover:underline"
                 >
                   <Plus className="w-3.5 h-3.5" /> Agregar
                 </button>
@@ -674,7 +674,7 @@ export const CatalogoPage: React.FC = () => {
               onClick={() => setPestana(clave)}
               className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-bold transition-colors ${
                 pestana === clave
-                  ? 'bg-[#004F9F] text-white shadow-2xs'
+                  ? 'bg-marca text-white shadow-2xs'
                   : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
               }`}
             >
@@ -702,13 +702,13 @@ export const CatalogoPage: React.FC = () => {
                   ? 'Buscar categoría…'
                   : 'Buscar color, código o familia…'
             }
-            className="w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 py-2.5 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#004F9F]/20 focus:border-[#004F9F]"
+            className="w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 py-2.5 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-marca/20 focus:border-marca"
           />
         </div>
         <select
           value={estado}
           onChange={(e) => setEstado(e.target.value as EstadoCatalogo | 'TODOS')}
-          className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#004F9F]/20"
+          className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm cursor-pointer focus:outline-none focus:ring-2 focus:ring-marca/20"
         >
           <option value="TODOS">Todos los estados</option>
           {ESTADOS_CATALOGO.map((s) => (
@@ -962,7 +962,7 @@ export const CatalogoPage: React.FC = () => {
               key={c.id}
               onClick={() => escribe && setEditandoColor(c)}
               disabled={!escribe}
-              className="text-left bg-white rounded-xl border border-slate-200 shadow-2xs hover:shadow-md hover:border-[#004F9F] transition-all overflow-hidden disabled:cursor-default"
+              className="text-left bg-white rounded-xl border border-slate-200 shadow-2xs hover:shadow-md hover:border-marca transition-all overflow-hidden disabled:cursor-default"
             >
               <div className="h-20 w-full border-b border-slate-100" style={{ backgroundColor: c.hex }} />
               <div className="p-3.5">
@@ -1030,7 +1030,7 @@ export const CatalogoPage: React.FC = () => {
                 onChange={(e) =>
                   setEditandoCategoria({ ...editandoCategoria, activa: e.target.checked })
                 }
-                className="mt-0.5 rounded border-slate-300 text-[#004F9F] focus:ring-[#004F9F]"
+                className="mt-0.5 rounded border-slate-300 text-marca focus:ring-marca"
               />
               <span className="text-xs leading-relaxed">
                 <span className="font-bold text-slate-800 block">Visible en la tienda</span>
@@ -1194,7 +1194,7 @@ const FormularioColor: React.FC<{
           type="checkbox"
           checked={valor.enCarta ?? false}
           onChange={(e) => onCambiar({ ...valor, enCarta: e.target.checked })}
-          className="mt-0.5 rounded border-slate-300 text-[#004F9F] focus:ring-[#004F9F]"
+          className="mt-0.5 rounded border-slate-300 text-marca focus:ring-marca"
         />
         <span className="text-xs leading-relaxed">
           <span className="font-bold text-slate-800 block">Incluir en la carta de color</span>

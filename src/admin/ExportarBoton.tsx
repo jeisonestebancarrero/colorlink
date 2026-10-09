@@ -165,7 +165,7 @@ export function ExportarBoton<T>({
         className="px-3.5 py-2 rounded-lg text-xs font-bold flex items-center gap-2
                    shadow-2xs transition-all cursor-pointer
                    disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none
-                   bg-[#004F9F] text-white hover:bg-[#003B77] active:scale-[0.98]"
+                   bg-marca text-white hover:bg-marca-hover active:scale-[0.98]"
       >
         {listo
           ? <Check className="w-4 h-4 text-emerald-300" />

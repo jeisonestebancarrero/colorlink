@@ -33,7 +33,7 @@ export const CampanaMensajes: React.FC<{
         {total > 0 && (
           <span className="absolute top-0.5 right-0.5 min-w-4 h-4 px-1 bg-amber-400 text-slate-950
                            text-[10px] font-black rounded-full flex items-center justify-center
-                           ring-2 ring-[#002D5C]">
+                           ring-2 ring-marca-oscuro">
             {/* Por encima de nueve el número deja de importar y no cabe. */}
             {total > 9 ? '9+' : total}
           </span>
@@ -70,7 +70,7 @@ export const CampanaMensajes: React.FC<{
                     className="w-full p-3 text-left hover:bg-slate-50 cursor-pointer transition-colors"
                   >
                     <div className="flex items-start gap-2.5">
-                      <span className="mt-0.5 shrink-0 min-w-5 h-5 px-1.5 bg-[#004F9F] text-white
+                      <span className="mt-0.5 shrink-0 min-w-5 h-5 px-1.5 bg-marca text-white
                                        text-[10px] font-black rounded-full flex items-center justify-center">
                         {c.sinLeer}
                       </span>

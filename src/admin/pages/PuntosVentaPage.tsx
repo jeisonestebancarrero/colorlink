@@ -145,7 +145,7 @@ export const PuntosVentaPage: React.FC = () => {
       <div className="space-y-5 max-w-3xl">
         <button
           onClick={() => setEditando(null)}
-          className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-[#004F9F]"
+          className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-marca"
         >
           <ArrowLeft className="w-3.5 h-3.5" /> Volver a puntos de venta
         </button>
@@ -302,7 +302,7 @@ export const PuntosVentaPage: React.FC = () => {
                   type="checkbox"
                   checked={Boolean(editando[campo as keyof Formulario])}
                   onChange={(e) => setEditando({ ...editando, [campo]: e.target.checked })}
-                  className="mt-0.5 rounded border-slate-300 text-[#004F9F] focus:ring-[#004F9F]"
+                  className="mt-0.5 rounded border-slate-300 text-marca focus:ring-marca"
                 />
                 <span className="text-xs leading-relaxed">
                   <span className="font-bold text-slate-800 block">{titulo}</span>
@@ -356,7 +356,7 @@ export const PuntosVentaPage: React.FC = () => {
                 type="checkbox"
                 checked={editando.activo}
                 onChange={(e) => setEditando({ ...editando, activo: e.target.checked })}
-                className="mt-0.5 rounded border-slate-300 text-[#004F9F] focus:ring-[#004F9F]"
+                className="mt-0.5 rounded border-slate-300 text-marca focus:ring-marca"
               />
               <span className="text-xs leading-relaxed">
                 <span className="font-bold text-slate-800 block">Disponible para retiro</span>
@@ -428,7 +428,7 @@ export const PuntosVentaPage: React.FC = () => {
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
             placeholder="Buscar por nombre, ciudad o dirección…"
-            className="w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 py-2.5 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#004F9F]/20 focus:border-[#004F9F]"
+            className="w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 py-2.5 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-marca/20 focus:border-marca"
           />
         </div>
 
@@ -469,7 +469,7 @@ export const PuntosVentaPage: React.FC = () => {
               disabled={!administra}
               className={`group flex flex-col text-left bg-white rounded-xl border shadow-2xs transition-all overflow-hidden ${
                 p.activo ? 'border-slate-200' : 'border-slate-200 opacity-60'
-              } ${administra ? 'hover:border-[#004F9F] hover:shadow-lg' : 'cursor-default'}`}
+              } ${administra ? 'hover:border-marca hover:shadow-lg' : 'cursor-default'}`}
             >
               <FotoPunto
                 referencia={p.referencia}

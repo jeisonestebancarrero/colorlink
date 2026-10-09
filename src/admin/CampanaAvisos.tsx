@@ -52,7 +52,7 @@ export const CampanaAvisos: React.FC<{
         {sinLeer > 0 && (
           <span className="absolute top-0.5 right-0.5 min-w-4 h-4 px-1 bg-rose-500 text-white
                            text-[10px] font-black rounded-full flex items-center justify-center
-                           ring-2 ring-[#002D5C]">
+                           ring-2 ring-marca-oscuro">
             {sinLeer > 9 ? '9+' : sinLeer}
           </span>
         )}
@@ -72,7 +72,7 @@ export const CampanaAvisos: React.FC<{
                     await avisoInternoService.marcarTodosLeidos();
                     setAvisos((l) => l.map((x) => ({ ...x, leido: true })));
                   }}
-                  className="text-[11px] text-[#004F9F] font-bold hover:underline cursor-pointer"
+                  className="text-[11px] text-marca font-bold hover:underline cursor-pointer"
                 >
                   Marcar leídos
                 </button>
@@ -93,7 +93,7 @@ export const CampanaAvisos: React.FC<{
                                transition-colors bg-blue-50/40"
                   >
                     <div className="flex items-start gap-2.5">
-                      <span className="w-2 h-2 rounded-full mt-1.5 shrink-0 bg-[#004F9F]" />
+                      <span className="w-2 h-2 rounded-full mt-1.5 shrink-0 bg-marca" />
                       <span className="flex-1 min-w-0">
                         <span className="block text-xs font-bold text-slate-800">{a.titulo}</span>
                         <span className="block text-[11px] text-slate-600 leading-snug line-clamp-2">

@@ -237,7 +237,7 @@ export const KitsPanel: React.FC = () => {
         <div className="border border-slate-200 rounded-xl p-5 space-y-5 bg-white">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-extrabold text-slate-900 flex items-center gap-2">
-              <Package className="w-4 h-4 text-[#004F9F]" />
+              <Package className="w-4 h-4 text-marca" />
               {creando ? 'Nuevo kit' : editando?.nombre}
             </h3>
             <button onClick={() => { setEditando(null); setCreando(false); }}
@@ -262,7 +262,7 @@ export const KitsPanel: React.FC = () => {
               <input type="number" min={0} max={100} step={1} value={form.descuento}
                      onChange={(e) => setForm({ ...form, descuento: Number(e.target.value) })}
                      className="w-full px-3 py-2.5 rounded-lg border border-slate-300 text-sm
-                                focus:outline-none focus:border-[#004F9F] focus:ring-2 focus:ring-[#004F9F]/20" />
+                                focus:outline-none focus:border-marca focus:ring-2 focus:ring-marca/20" />
               <p className="text-[11px] text-slate-400 mt-1">
                 Se aplica sobre la suma de los pasos. La base rechaza más de 100.
               </p>
@@ -272,7 +272,7 @@ export const KitsPanel: React.FC = () => {
               <select value={form.estado}
                       onChange={(e) => setForm({ ...form, estado: e.target.value as 'ACTIVO' | 'INACTIVO' })}
                       className="w-full px-3 py-2.5 rounded-lg border border-slate-300 text-sm
-                                 focus:outline-none focus:border-[#004F9F]">
+                                 focus:outline-none focus:border-marca">
                 <option value="ACTIVO">Activo — visible en la tienda</option>
                 <option value="INACTIVO">Inactivo — oculto para el cliente</option>
               </select>
@@ -365,7 +365,7 @@ const ImagenPaso: React.FC<{ paso: PasoKit; onSubida: (url: string) => void }> =
         onClick={() => archivo.current?.click()}
         title={paso.imagen ? 'Cambiar la imagen de este paso' : 'Subir una imagen propia para este paso'}
         className="w-11 h-11 rounded-lg border border-slate-200 bg-slate-50 overflow-hidden
-                   flex items-center justify-center hover:border-[#004F9F] transition-colors cursor-pointer"
+                   flex items-center justify-center hover:border-marca transition-colors cursor-pointer"
       >
         {subiendo
           ? <Loader2 className="w-4 h-4 animate-spin text-slate-400" />
@@ -415,7 +415,7 @@ const PasosDelKit: React.FC<{
       <ul className="space-y-2">
         {kit.pasos.map((p) => (
           <li key={p.id} className="flex flex-wrap items-center gap-3 border border-slate-200 rounded-lg p-3">
-            <span className="w-7 h-7 rounded-full bg-[#004F9F] text-white text-xs font-extrabold
+            <span className="w-7 h-7 rounded-full bg-marca text-white text-xs font-extrabold
                              flex items-center justify-center shrink-0">
               {p.stepNumber}
             </span>
@@ -467,7 +467,7 @@ const PasosDelKit: React.FC<{
             value={nuevo.productId}
             onChange={(e) => setNuevo({ ...nuevo, productId: e.target.value, variantId: null })}
             className="px-3 py-2 rounded-lg border border-slate-300 text-sm bg-white
-                       focus:outline-none focus:border-[#004F9F]"
+                       focus:outline-none focus:border-marca"
           >
             <option value="">Producto del catálogo…</option>
             {productos.map((p) => (
@@ -480,7 +480,7 @@ const PasosDelKit: React.FC<{
             onChange={(e) => setNuevo({ ...nuevo, variantId: e.target.value || null })}
             disabled={!productoElegido}
             className="px-3 py-2 rounded-lg border border-slate-300 text-sm bg-white
-                       disabled:bg-slate-100 focus:outline-none focus:border-[#004F9F]"
+                       disabled:bg-slate-100 focus:outline-none focus:border-marca"
           >
             <option value="">Presentación…</option>
             {presentaciones.map((v) => (
@@ -492,7 +492,7 @@ const PasosDelKit: React.FC<{
             value={nuevo.fase}
             onChange={(e) => setNuevo({ ...nuevo, fase: e.target.value })}
             className="px-3 py-2 rounded-lg border border-slate-300 text-sm bg-white
-                       focus:outline-none focus:border-[#004F9F]"
+                       focus:outline-none focus:border-marca"
           >
             {FASES_KIT.map((f) => <option key={f} value={f}>{f}</option>)}
           </select>
@@ -502,7 +502,7 @@ const PasosDelKit: React.FC<{
               type="number" min={0.5} step={0.5} value={nuevo.cantidad85m2}
               onChange={(e) => setNuevo({ ...nuevo, cantidad85m2: Number(e.target.value) })}
               className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm bg-white
-                         focus:outline-none focus:border-[#004F9F]"
+                         focus:outline-none focus:border-marca"
             />
             <p className="text-[11px] text-slate-400 mt-1">Unidades para 85 m²</p>
           </div>

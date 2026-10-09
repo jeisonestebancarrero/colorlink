@@ -115,7 +115,7 @@ const Configuracion: React.FC = () => {
   if (cargando) {
     return (
       <div className="flex items-center justify-center py-24">
-        <div className="w-12 h-12 border-4 border-[#004F9F] border-t-transparent rounded-full animate-spin" />
+        <div className="w-12 h-12 border-4 border-marca border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
@@ -153,7 +153,7 @@ const Configuracion: React.FC = () => {
       {/* Empresa */}
       <form onSubmit={guardarEmpresa} className="bg-white rounded-xl border border-slate-200 shadow-2xs p-6 space-y-5">
         <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
-          <Building2 className="w-4 h-4 text-[#004F9F]" />
+          <Building2 className="w-4 h-4 text-marca" />
           <h2 className="text-base font-extrabold text-slate-900">Datos de la empresa</h2>
           <span className="text-[11px] text-slate-400 font-medium">— se imprimen en la factura</span>
         </div>
@@ -261,7 +261,7 @@ const Configuracion: React.FC = () => {
       {/* Correo */}
       <form onSubmit={guardarSmtp} className="bg-white rounded-xl border border-slate-200 shadow-2xs p-6 space-y-5">
         <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
-          <Mail className="w-4 h-4 text-[#004F9F]" />
+          <Mail className="w-4 h-4 text-marca" />
           <h2 className="text-base font-extrabold text-slate-900">Correo saliente</h2>
           {smtp?.configured ? (
             <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">

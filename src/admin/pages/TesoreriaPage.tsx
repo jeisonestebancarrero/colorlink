@@ -132,7 +132,7 @@ export const TesoreriaPage: React.FC = () => {
   if (cargando) {
     return (
       <div className="flex justify-center py-24">
-        <div className="w-10 h-10 border-4 border-[#004F9F] border-t-transparent rounded-full animate-spin" />
+        <div className="w-10 h-10 border-4 border-marca border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
@@ -223,7 +223,7 @@ export const TesoreriaPage: React.FC = () => {
            ['movimientos', `Movimientos${sinConciliar > 0 ? ` · ${sinConciliar} sin conciliar` : ''}`]] as const).map(([v, t]) => (
           <button key={v} onClick={() => setPestana(v)}
             className={`px-3.5 py-1.5 rounded-lg text-xs font-bold border transition-colors ${
-              pestana === v ? 'bg-[#004F9F] text-white border-[#004F9F]'
+              pestana === v ? 'bg-marca text-white border-marca'
                             : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
             }`}>{t}</button>
         ))}

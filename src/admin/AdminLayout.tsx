@@ -61,7 +61,7 @@ export const AdminLayout: React.FC<{
       />
 
       <aside
-        className={`relative z-20 shrink-0 bg-[#002D5C] text-white flex flex-col ${
+        className={`relative z-20 shrink-0 bg-marca-oscuro text-white flex flex-col ${
           barraVisible ? 'w-64' : 'hidden'
         }`}
       >
@@ -73,7 +73,7 @@ export const AdminLayout: React.FC<{
             </div>
             <div>
               <div className="text-sm font-extrabold tracking-tight leading-none">
-                COLOR<span className="text-yellow-400">LINK</span>
+                COLOR<span className="text-acento">LINK</span>
               </div>
               <div className="text-[10px] text-blue-200/70 font-semibold mt-0.5">
                 Portal interno
@@ -93,7 +93,7 @@ export const AdminLayout: React.FC<{
           className="mx-3 mt-1 flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs font-bold
                      text-blue-100/80 hover:bg-white/10 hover:text-white transition-colors"
         >
-          <Home className="w-4 h-4 text-yellow-400" />
+          <Home className="w-4 h-4 text-acento" />
           Inicio
         </button>
 
@@ -113,7 +113,7 @@ export const AdminLayout: React.FC<{
                 onClick={() => onNavegar(v.route)}
                 className={`w-full flex items-center gap-2.5 px-5 py-2.5 text-sm font-semibold transition-colors text-left ${
                   activo
-                    ? 'bg-white/12 text-white border-r-2 border-yellow-400'
+                    ? 'bg-white/12 text-white border-r-2 border-acento'
                     : 'text-blue-100/75 hover:bg-white/6 hover:text-white'
                 }`}
               >
@@ -179,7 +179,7 @@ export const AdminLayout: React.FC<{
           title={barraVisible ? 'Ocultar el menú' : 'Mostrar el menú'}
           aria-label={barraVisible ? 'Ocultar el menú' : 'Mostrar el menú'}
           aria-expanded={barraVisible}
-          className="group w-7 h-14 rounded-r-lg bg-[#002D5C]/70 hover:bg-[#002D5C]
+          className="group w-7 h-14 rounded-r-lg bg-marca-oscuro/70 hover:bg-marca-oscuro
                      text-blue-100/70 hover:text-white shadow-lg
                      flex items-center justify-center transition-all cursor-pointer"
         >
@@ -196,8 +196,8 @@ export const AdminLayout: React.FC<{
             onClick={() => onNavegar(RUTA_TABLERO)}
             title="Ir a las aplicaciones"
             aria-label="Ir a las aplicaciones"
-            className="w-7 h-10 rounded-r-lg bg-[#002D5C]/70 hover:bg-[#002D5C]
-                       text-yellow-400/80 hover:text-yellow-400 shadow-lg
+            className="w-7 h-10 rounded-r-lg bg-marca-oscuro/70 hover:bg-marca-oscuro
+                       text-acento/80 hover:text-acento shadow-lg
                        flex items-center justify-center transition-all cursor-pointer"
           >
             <Home className="w-3.5 h-3.5" />

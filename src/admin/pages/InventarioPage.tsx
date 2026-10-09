@@ -180,7 +180,7 @@ export const InventarioPage: React.FC = () => {
               <button
                 key={p.locationId}
                 onClick={() => void cargarPunto(p)}
-                className="group flex flex-col text-left bg-white rounded-xl border border-slate-200 hover:border-[#004F9F] shadow-2xs hover:shadow-lg transition-all overflow-hidden"
+                className="group flex flex-col text-left bg-white rounded-xl border border-slate-200 hover:border-marca shadow-2xs hover:shadow-lg transition-all overflow-hidden"
               >
                 <FotoPunto
                   referencia={p.referencia}
@@ -236,7 +236,7 @@ export const InventarioPage: React.FC = () => {
     <div className="space-y-5">
       <button
         onClick={() => setPunto(null)}
-        className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-[#004F9F] transition-colors"
+        className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-marca transition-colors"
       >
         <ArrowLeft className="w-3.5 h-3.5" /> Todos los puntos de venta
       </button>
@@ -276,7 +276,7 @@ export const InventarioPage: React.FC = () => {
             onClick={() => setPestana(p)}
             className={`px-4 py-2 rounded-lg text-sm font-bold transition-colors ${
               pestana === p
-                ? 'bg-[#004F9F] text-white shadow-2xs'
+                ? 'bg-marca text-white shadow-2xs'
                 : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
             }`}
           >
@@ -294,7 +294,7 @@ export const InventarioPage: React.FC = () => {
                 value={busqueda}
                 onChange={(e) => setBusqueda(e.target.value)}
                 placeholder="Buscar producto, presentación, código, categoría o color…"
-                className="w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 py-2.5 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#004F9F]/20 focus:border-[#004F9F]"
+                className="w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 py-2.5 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-marca/20 focus:border-marca"
               />
             </div>
             <div className="relative w-full sm:w-56">
@@ -304,7 +304,7 @@ export const InventarioPage: React.FC = () => {
                 onChange={(e) => setFiltroColor(e.target.value)}
                 placeholder="Filtrar por color…"
                 aria-label="Filtrar por color"
-                className="w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 py-2.5 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#004F9F]/20 focus:border-[#004F9F]"
+                className="w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 py-2.5 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-marca/20 focus:border-marca"
               />
             </div>
             <button
@@ -475,14 +475,14 @@ export const InventarioPage: React.FC = () => {
                                         <button
                                           onClick={() => setReordenando(e)}
                                           title="Punto de reorden"
-                                          className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:text-[#004F9F] hover:bg-slate-50"
+                                          className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:text-marca hover:bg-slate-50"
                                         >
                                           <Target className="w-3.5 h-3.5" />
                                         </button>
                                         <button
                                           onClick={() => setTrasladando(e)}
                                           title="Trasladar a otro punto"
-                                          className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:text-[#004F9F] hover:bg-slate-50"
+                                          className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:text-marca hover:bg-slate-50"
                                         >
                                           <ArrowRightLeft className="w-3.5 h-3.5" />
                                         </button>

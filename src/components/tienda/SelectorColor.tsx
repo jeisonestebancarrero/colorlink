@@ -43,7 +43,7 @@ export const SelectorColor: React.FC<SelectorColorProps> = ({
                 compacto ? 'px-1.5 py-1' : 'px-2.5 py-1'
               } ${
                 activo
-                  ? 'border-[#004F9F] bg-blue-50 text-[#004F9F] font-bold ring-1 ring-blue-600'
+                  ? 'border-marca bg-blue-50 text-marca font-bold ring-1 ring-blue-600'
                   : faltante
                     ? 'border-red-300 bg-white hover:bg-red-50 text-slate-700'
                     : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700'

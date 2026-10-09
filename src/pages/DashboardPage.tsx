@@ -149,9 +149,9 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
       <AvisoVinculaciones onNavigate={onNavigate} />
 
       {/* Top Value Banner */}
-      <div className="bg-linear-to-r from-blue-950 via-[#004F9F] to-blue-900 rounded-2xl text-white p-6 sm:p-8 shadow-lg overflow-hidden relative border border-blue-900/40">
+      <div className="bg-linear-to-r from-blue-950 via-marca to-blue-900 rounded-2xl text-white p-6 sm:p-8 shadow-lg overflow-hidden relative border border-blue-900/40">
         <div className="relative z-10 max-w-2xl space-y-3">
-          <div className="inline-flex items-center gap-2 bg-yellow-400 text-slate-950 px-3 py-1 rounded-full text-xs font-extrabold shadow-2xs">
+          <div className="inline-flex items-center gap-2 bg-acento text-slate-950 px-3 py-1 rounded-full text-xs font-extrabold shadow-2xs">
             <Sparkles className="w-3.5 h-3.5" />
             <span>Ecosistema Digital Pintuco • Todo para tu Obra y Hogar</span>
           </div>
@@ -167,7 +167,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
           <div className="flex flex-wrap items-center gap-3 pt-2">
             <button
               onClick={() => onNavigate('store')}
-              className="bg-white hover:bg-slate-100 text-[#004F9F] text-xs font-extrabold px-4 py-2.5 rounded-xl shadow-xs transition-all flex items-center gap-2 cursor-pointer"
+              className="bg-white hover:bg-slate-100 text-marca text-xs font-extrabold px-4 py-2.5 rounded-xl shadow-xs transition-all flex items-center gap-2 cursor-pointer"
             >
               <ShoppingBag className="w-4 h-4" />
               <span>Explorar Tienda Online</span>
@@ -214,7 +214,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
                 </div>
 
                 <div>
-                  <h3 className="text-sm font-extrabold text-slate-900 group-hover:text-[#004F9F] transition-colors">
+                  <h3 className="text-sm font-extrabold text-slate-900 group-hover:text-marca transition-colors">
                     {item.title}
                   </h3>
                   <p className="text-xs text-slate-500 mt-1 leading-relaxed">
@@ -223,7 +223,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
                 </div>
               </div>
 
-              <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs text-[#004F9F] font-bold">
+              <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs text-marca font-bold">
                 <span>Comenzar</span>
                 <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
               </div>
@@ -238,7 +238,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
             <div className="space-y-3 max-w-2xl">
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-xs font-bold text-[#004F9F] bg-blue-50 px-2.5 py-0.5 rounded-full border border-blue-200 flex items-center gap-1.5">
+                <span className="text-xs font-bold text-marca bg-blue-50 px-2.5 py-0.5 rounded-full border border-blue-200 flex items-center gap-1.5">
                   <Building2 className="w-3.5 h-3.5" />
                   {user?.company ? `Proyecto B2B activo • ${user.company}` : 'Proyecto activo'}
                 </span>
@@ -256,7 +256,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
 
               <div className="flex flex-wrap items-center gap-4 text-xs text-slate-500 font-medium">
                 <span className="flex items-center gap-1">
-                  <MapPin className="w-3.5 h-3.5 text-[#004F9F]" /> {currentProject.city}
+                  <MapPin className="w-3.5 h-3.5 text-marca" /> {currentProject.city}
                 </span>
                 <span className="flex items-center gap-1">
                   <Clock className="w-3.5 h-3.5 text-slate-400" /> Paso {currentProject.currentStepProgress || 3} de 8 en Proceso
@@ -271,7 +271,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
               <Button
                 onClick={() => handleOpenProject(currentProject.id)}
                 variant="primary"
-                className="bg-[#004F9F] hover:bg-[#003B77] text-white text-xs font-bold px-4 py-2.5 shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
+                className="bg-marca hover:bg-marca-hover text-white text-xs font-bold px-4 py-2.5 shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
               >
                 <span>Ver Diagnóstico y Ficha de Obra</span>
                 <ArrowRight className="w-3.5 h-3.5" />
@@ -282,7 +282,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
                     setCompraRapida({ producto: PINTUCO_PRODUCTS[0], presentacion: 'Cuñete 5 Galones (18.9 L)' });
                   }
                 }}
-                className="bg-blue-50 hover:bg-blue-100 text-[#004F9F] text-xs font-bold px-4 py-2 rounded-lg border border-blue-200 transition-colors cursor-pointer text-center"
+                className="bg-blue-50 hover:bg-blue-100 text-marca text-xs font-bold px-4 py-2 rounded-lg border border-blue-200 transition-colors cursor-pointer text-center"
               >
                 + Comprar Materiales del Proyecto
               </button>
@@ -295,7 +295,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
       <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div className="space-y-1">
-            <span className="text-xs font-bold uppercase tracking-wider text-[#004F9F] flex items-center gap-1.5">
+            <span className="text-xs font-bold uppercase tracking-wider text-marca flex items-center gap-1.5">
               <Droplets className="w-4 h-4" /> Diagnóstico y Solución Inmediata
             </span>
             <h2 className="text-lg sm:text-xl font-extrabold text-slate-900">
@@ -304,7 +304,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
           </div>
           <button
             onClick={() => onNavigate('solutions')}
-            className="text-xs font-bold text-[#004F9F] hover:underline flex items-center gap-1 cursor-pointer"
+            className="text-xs font-bold text-marca hover:underline flex items-center gap-1 cursor-pointer"
           >
             <span>Ver todos los Kits</span>
             <ChevronRight className="w-3.5 h-3.5" />
@@ -317,7 +317,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
             onClick={() => setSelectedProblemTab('fachada')}
             className={`px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
               selectedProblemTab === 'fachada'
-                ? 'bg-[#004F9F] text-white shadow-xs'
+                ? 'bg-marca text-white shadow-xs'
                 : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
             }`}
           >
@@ -327,7 +327,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
             onClick={() => setSelectedProblemTab('humedad')}
             className={`px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
               selectedProblemTab === 'humedad'
-                ? 'bg-[#004F9F] text-white shadow-xs'
+                ? 'bg-marca text-white shadow-xs'
                 : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
             }`}
           >
@@ -337,7 +337,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
             onClick={() => setSelectedProblemTab('techo')}
             className={`px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
               selectedProblemTab === 'techo'
-                ? 'bg-[#004F9F] text-white shadow-xs'
+                ? 'bg-marca text-white shadow-xs'
                 : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
             }`}
           >
@@ -347,7 +347,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
             onClick={() => setSelectedProblemTab('metal')}
             className={`px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
               selectedProblemTab === 'metal'
-                ? 'bg-[#004F9F] text-white shadow-xs'
+                ? 'bg-marca text-white shadow-xs'
                 : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
             }`}
           >
@@ -383,7 +383,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
               {currentProblem.products.map((prod, idx) => (
                 <span
                   key={idx}
-                  className="text-[11px] font-semibold bg-white text-[#004F9F] px-2 py-0.5 rounded border border-blue-200 shadow-2xs"
+                  className="text-[11px] font-semibold bg-white text-marca px-2 py-0.5 rounded border border-blue-200 shadow-2xs"
                 >
                   ✓ {prod}
                 </span>
@@ -393,7 +393,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
             <div className="pt-2 flex flex-wrap items-center justify-between gap-4 border-t border-slate-200">
               <div>
                 <span className="text-[10px] text-slate-400 block font-medium">Inversión Kit Completo:</span>
-                <span className="text-lg font-extrabold text-[#004F9F]">
+                <span className="text-lg font-extrabold text-marca">
                   {formatCOP(currentProblem.estimatedCost)}
                 </span>
               </div>
@@ -401,7 +401,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => onNavigate('solutions')}
-                  className="bg-[#004F9F] hover:bg-[#003B77] text-white text-xs font-bold px-4 py-2 rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 shadow-xs"
+                  className="bg-marca hover:bg-marca-hover text-white text-xs font-bold px-4 py-2 rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 shadow-xs"
                 >
                   <span>Ver Kit y Comprar</span>
                   <ArrowRight className="w-3.5 h-3.5" />
@@ -425,7 +425,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
           </div>
           <button
             onClick={() => onNavigate('store')}
-            className="text-xs font-bold text-[#004F9F] hover:underline flex items-center gap-1 cursor-pointer"
+            className="text-xs font-bold text-marca hover:underline flex items-center gap-1 cursor-pointer"
           >
             <span>Ver todo el catálogo</span>
             <ChevronRight className="w-3.5 h-3.5" />
@@ -450,7 +450,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                   />
                   {product.badge && (
-                    <span className="absolute top-2.5 left-2.5 bg-[#004F9F] text-white text-[10px] font-bold px-2 py-0.5 rounded-md shadow-xs">
+                    <span className="absolute top-2.5 left-2.5 bg-marca text-white text-[10px] font-bold px-2 py-0.5 rounded-md shadow-xs">
                       {product.badge}
                     </span>
                   )}
@@ -458,12 +458,12 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
 
                 <div className="p-4 space-y-3">
                   <div className="space-y-1">
-                    <span className="text-[10px] font-bold uppercase text-[#004F9F]">
+                    <span className="text-[10px] font-bold uppercase text-marca">
                       {product.category}
                     </span>
                     <h3
                       onClick={() => onNavigate('store')}
-                      className="text-xs font-bold text-slate-900 group-hover:text-[#004F9F] transition-colors line-clamp-1 cursor-pointer"
+                      className="text-xs font-bold text-slate-900 group-hover:text-marca transition-colors line-clamp-1 cursor-pointer"
                     >
                       {product.name}
                     </h3>
@@ -475,14 +475,14 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
                   <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
                     <div>
                       <span className="text-[10px] text-slate-400 block">Desde</span>
-                      <span className="text-sm font-extrabold text-[#004F9F]">
+                      <span className="text-sm font-extrabold text-marca">
                         {formatCOP(pres.priceCOP)}
                       </span>
                     </div>
 
                     <button
                       onClick={() => setCompraRapida({ producto: product, presentacion: pres.label })}
-                      className="bg-[#004F9F] hover:bg-[#003B77] text-white p-2 rounded-lg transition-colors cursor-pointer shadow-xs"
+                      className="bg-marca hover:bg-marca-hover text-white p-2 rounded-lg transition-colors cursor-pointer shadow-xs"
                       title="Agregar al carrito"
                     >
                       <ShoppingCart className="w-4 h-4" />
@@ -508,7 +508,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
           </div>
           <button
             onClick={() => onNavigate('colors')}
-            className="text-xs font-bold text-[#004F9F] hover:underline flex items-center gap-1 cursor-pointer"
+            className="text-xs font-bold text-marca hover:underline flex items-center gap-1 cursor-pointer"
           >
             <span>Simular en Paredes</span>
             <ArrowRight className="w-3.5 h-3.5" />
@@ -538,7 +538,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
       {/* Store Pickup & Technical Support Banner */}
       <div className="p-6 bg-slate-50 rounded-2xl border border-slate-200 flex flex-col md:flex-row items-center justify-between gap-6">
         <div className="flex items-start gap-4">
-          <div className="w-12 h-12 rounded-xl bg-blue-100 text-[#004F9F] flex items-center justify-center shrink-0">
+          <div className="w-12 h-12 rounded-xl bg-blue-100 text-marca flex items-center justify-center shrink-0">
             <Store className="w-6 h-6" />
           </div>
           <div>
@@ -554,7 +554,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
         <div className="flex items-center gap-3 w-full md:w-auto">
           <button
             onClick={() => onNavigate('stores')}
-            className="w-full md:w-auto bg-[#004F9F] hover:bg-[#003B77] text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-xs transition-colors cursor-pointer text-center"
+            className="w-full md:w-auto bg-marca hover:bg-marca-hover text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-xs transition-colors cursor-pointer text-center"
           >
             Ver Tiendas y Horarios
           </button>

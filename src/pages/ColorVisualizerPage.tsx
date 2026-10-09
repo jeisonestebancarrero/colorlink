@@ -128,7 +128,7 @@ export const ColorVisualizerPage: React.FC<ColorVisualizerPageProps> = ({ onNavi
       <div className="bg-white rounded-2xl p-6 sm:p-8 border border-slate-200 shadow-2xs">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="space-y-1.5">
-            <div className="inline-flex items-center gap-2 bg-blue-50 text-[#004F9F] px-3 py-1 rounded-full text-xs font-bold border border-blue-200">
+            <div className="inline-flex items-center gap-2 bg-blue-50 text-marca px-3 py-1 rounded-full text-xs font-bold border border-blue-200">
               <Palette className="w-3.5 h-3.5" />
               <span>Carta de Color Oficial Pintuco 2025</span>
             </div>
@@ -149,7 +149,7 @@ export const ColorVisualizerPage: React.FC<ColorVisualizerPageProps> = ({ onNavi
             </button>
             <button
               onClick={() => onNavigate('store')}
-              className="bg-[#004F9F] hover:bg-[#003B77] text-white text-xs font-bold px-3.5 py-2 rounded-lg transition-colors cursor-pointer shadow-xs"
+              className="bg-marca hover:bg-marca-hover text-white text-xs font-bold px-3.5 py-2 rounded-lg transition-colors cursor-pointer shadow-xs"
             >
               Comprar Pinturas
             </button>
@@ -165,7 +165,7 @@ export const ColorVisualizerPage: React.FC<ColorVisualizerPageProps> = ({ onNavi
             {/* Room Selector Tabs */}
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
-                <Eye className="w-3.5 h-3.5 text-[#004F9F]" /> Simulador de Ambientes en Vivo
+                <Eye className="w-3.5 h-3.5 text-marca" /> Simulador de Ambientes en Vivo
               </span>
 
               <div className="flex gap-1.5 overflow-x-auto">
@@ -177,7 +177,7 @@ export const ColorVisualizerPage: React.FC<ColorVisualizerPageProps> = ({ onNavi
                       onClick={() => setSelectedRoom(env.id as any)}
                       className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                         selectedRoom === env.id
-                          ? 'bg-[#004F9F] text-white shadow-2xs'
+                          ? 'bg-marca text-white shadow-2xs'
                           : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                       }`}
                     >
@@ -224,7 +224,7 @@ export const ColorVisualizerPage: React.FC<ColorVisualizerPageProps> = ({ onNavi
                     <h3 className="text-sm font-extrabold text-slate-900">
                       {selectedColor.name}
                     </h3>
-                    <span className="text-[10px] font-bold uppercase bg-blue-100 text-[#004F9F] px-2 py-0.5 rounded">
+                    <span className="text-[10px] font-bold uppercase bg-blue-100 text-marca px-2 py-0.5 rounded">
                       {selectedColor.code}
                     </span>
                   </div>
@@ -250,7 +250,7 @@ export const ColorVisualizerPage: React.FC<ColorVisualizerPageProps> = ({ onNavi
                   <Button
                     onClick={() => setComprando(true)}
                     variant="primary"
-                    className="bg-[#004F9F] text-xs font-bold flex-1 sm:flex-initial flex items-center justify-center gap-1.5 shadow-xs"
+                    className="bg-marca text-xs font-bold flex-1 sm:flex-initial flex items-center justify-center gap-1.5 shadow-xs"
                   >
                     <ShoppingCart className="w-3.5 h-3.5" />
                     <span>Comprar Pintura</span>
@@ -301,7 +301,7 @@ export const ColorVisualizerPage: React.FC<ColorVisualizerPageProps> = ({ onNavi
                   onClick={() => setSelectedFamily(fam)}
                   className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                     selectedFamily === fam
-                      ? 'bg-[#004F9F] text-white shadow-2xs'
+                      ? 'bg-marca text-white shadow-2xs'
                       : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                   }`}
                 >
@@ -320,7 +320,7 @@ export const ColorVisualizerPage: React.FC<ColorVisualizerPageProps> = ({ onNavi
                     onClick={() => setSelectedColor(color)}
                     className={`p-2.5 rounded-xl border transition-all cursor-pointer flex flex-col justify-between space-y-2 text-left group ${
                       isSelected
-                        ? 'border-[#004F9F] bg-blue-50/70 ring-2 ring-blue-600 shadow-xs'
+                        ? 'border-marca bg-blue-50/70 ring-2 ring-blue-600 shadow-xs'
                         : 'border-slate-200 bg-white hover:border-slate-300 hover:shadow-2xs'
                     }`}
                   >

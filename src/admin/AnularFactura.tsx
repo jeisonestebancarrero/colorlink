@@ -98,7 +98,7 @@ export const AnularFactura: React.FC<{
               autoFocus
               placeholder="Ej.: se facturó al cliente equivocado por error de digitación"
               className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm resize-none
-                         focus:outline-none focus:border-[#004F9F] focus:ring-2 focus:ring-[#004F9F]/20"
+                         focus:outline-none focus:border-marca focus:ring-2 focus:ring-marca/20"
             />
             <span className={`text-[11px] ${corto ? 'text-rose-600 font-semibold' : 'text-slate-400'}`}>
               {corto

@@ -33,7 +33,7 @@ export const Button: React.FC<ButtonProps> = ({
     primary:
       'bg-blue-600 hover:bg-blue-700 text-white shadow-sm shadow-blue-500/20 focus:ring-blue-500 border border-transparent',
     pintuco:
-      'bg-[#004F9F] hover:bg-[#003B71] text-white shadow-sm shadow-[#004F9F]/20 focus:ring-[#004F9F] border border-transparent',
+      'bg-marca hover:bg-marca-hover text-white shadow-sm shadow-marca/20 focus:ring-marca border border-transparent',
     secondary:
       'bg-slate-900 hover:bg-slate-800 text-white focus:ring-slate-700 border border-transparent',
     outline:

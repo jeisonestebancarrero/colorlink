@@ -186,7 +186,7 @@ export const DespachoPage: React.FC<DespachoPageProps> = ({
             <button key={e} onClick={() => setEstado(e as EstadoEnvio | 'TODOS')}
               className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors
                           flex items-center gap-1.5 cursor-pointer ${
-                estado === e ? 'bg-[#004F9F] text-white border-[#004F9F]'
+                estado === e ? 'bg-marca text-white border-marca'
                             : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
               }`}>
               <Icono className="w-3.5 h-3.5 shrink-0" />
@@ -205,7 +205,7 @@ export const DespachoPage: React.FC<DespachoPageProps> = ({
 
       {cargando ? (
         <div className="flex justify-center py-20">
-          <div className="w-10 h-10 border-4 border-[#004F9F] border-t-transparent rounded-full animate-spin" />
+          <div className="w-10 h-10 border-4 border-marca border-t-transparent rounded-full animate-spin" />
         </div>
       ) : visibles.length === 0 ? (
         <div className="bg-white rounded-xl border border-slate-200 shadow-2xs p-12 text-center">
@@ -258,20 +258,20 @@ export const DespachoPage: React.FC<DespachoPageProps> = ({
                       <input value={borrador.transportadora}
                         onChange={(e) => setBorrador({ ...borrador, transportadora: e.target.value })}
                         placeholder="Servientrega"
-                        className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#004F9F]/30" />
+                        className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-marca/30" />
                     </div>
                     <div>
                       <label className="block text-[11px] font-bold text-slate-600 mb-1">Número de guía</label>
                       <input value={borrador.guia}
                         onChange={(e) => setBorrador({ ...borrador, guia: e.target.value })}
                         placeholder="1234567890"
-                        className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-[#004F9F]/30" />
+                        className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-marca/30" />
                     </div>
                     <div>
                       <label className="block text-[11px] font-bold text-slate-600 mb-1">Entrega estimada</label>
                       <input type="date" value={borrador.estimada}
                         onChange={(e) => setBorrador({ ...borrador, estimada: e.target.value })}
-                        className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#004F9F]/30" />
+                        className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-marca/30" />
                     </div>
                     <div className="flex gap-2">
                       <Button variant="pintuco" size="sm" isLoading={guardando} onClick={() => guardar(d)}

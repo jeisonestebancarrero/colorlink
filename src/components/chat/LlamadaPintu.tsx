@@ -76,14 +76,14 @@ const CaraPintu: React.FC<{ estado: EstadoLlamada; nivel: number }> = ({ estado,
       {activo && [0, 1, 2].map((i) => (
         <span
           key={i}
-          className="absolute w-32 h-32 rounded-full border-2 border-[#004F9F]/20"
+          className="absolute w-32 h-32 rounded-full border-2 border-marca/20"
           style={{ animation: `pintu-halo 2.6s ease-out ${i * 0.85}s infinite` }}
         />
       ))}
 
       {activo && (
         <span
-          className="absolute rounded-full border-2 border-[#FFD100]/50"
+          className="absolute rounded-full border-2 border-acento/50"
           style={{
             width: `${132 + nivel * 46}px`, height: `${132 + nivel * 46}px`,
             transition: 'width .09s ease-out, height .09s ease-out',
@@ -176,7 +176,7 @@ const CaraPintu: React.FC<{ estado: EstadoLlamada; nivel: number }> = ({ estado,
         <div className="absolute -top-1 left-1/2 -translate-x-1/2 flex gap-1.5
                         bg-white rounded-full px-2.5 py-1.5 shadow-md border border-slate-200">
           {[0, 1, 2].map((i) => (
-            <span key={i} className="w-1.5 h-1.5 rounded-full bg-[#004F9F] animate-bounce"
+            <span key={i} className="w-1.5 h-1.5 rounded-full bg-marca animate-bounce"
                   style={{ animationDelay: `${i * 130}ms` }} />
           ))}
         </div>
@@ -187,7 +187,7 @@ const CaraPintu: React.FC<{ estado: EstadoLlamada; nivel: number }> = ({ estado,
           {[0, 1, 2, 3, 4].map((i) => (
             <span
               key={i}
-              className="w-1 rounded-full bg-[#004F9F]/70 origin-bottom"
+              className="w-1 rounded-full bg-marca/70 origin-bottom"
               style={{
                 height: `${8 + nivel * 12}px`,
                 animation: `pintu-barra ${0.5 + i * 0.09}s ease-in-out infinite`,
@@ -263,11 +263,11 @@ export const LlamadaPintu: React.FC<Props> = ({ onCerrar, onTranscripcion }) => 
           <p className="text-xs text-slate-500">Asesor de color y obra · Pintuco</p>
 
           <div className="mt-3 flex items-center gap-2">
-            {estado === 'conectando' && <Loader2 className="w-3.5 h-3.5 animate-spin text-[#004F9F]" />}
+            {estado === 'conectando' && <Loader2 className="w-3.5 h-3.5 animate-spin text-marca" />}
             <span
               className={`text-xs font-bold ${
                 estado === 'error' ? 'text-rose-600'
-                  : estado === 'hablando' ? 'text-[#004F9F]'
+                  : estado === 'hablando' ? 'text-marca'
                   : 'text-slate-600'
               }`}
             >
@@ -298,7 +298,7 @@ export const LlamadaPintu: React.FC<Props> = ({ onCerrar, onTranscripcion }) => 
               key={`${i}-${t.texto.slice(0, 12)}`}
               className={`text-xs leading-relaxed rounded-xl px-3 py-2 ${
                 t.autor === 'PINTU'
-                  ? 'bg-[#004F9F]/5 text-slate-700 border border-[#004F9F]/10'
+                  ? 'bg-marca/5 text-slate-700 border border-marca/10'
                   : 'bg-slate-100 text-slate-600 ml-6'
               }`}
             >

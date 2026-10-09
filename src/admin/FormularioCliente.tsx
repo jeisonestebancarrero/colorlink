@@ -194,7 +194,7 @@ export const FormularioCliente: React.FC<Props> = ({
 
               {hecho.aviso && (
                 <div className="p-3.5 rounded-xl bg-blue-50 border border-blue-200 flex items-start gap-2.5">
-                  <BellRing className="w-4 h-4 text-[#004F9F] shrink-0 mt-px" />
+                  <BellRing className="w-4 h-4 text-marca shrink-0 mt-px" />
                   <p className="text-xs text-blue-900 font-medium">
                     Se avisó {hecho.avisados === 1 ? 'al cliente' : `a ${hecho.avisados} usuarios`} con
                     la fecha, la hora, tu nombre y el detalle del cambio. Lo verá en sus
@@ -227,7 +227,7 @@ export const FormularioCliente: React.FC<Props> = ({
           </div>
 
           <div className="p-3 rounded-xl bg-blue-50/70 border border-blue-100 flex items-start gap-2">
-            <BellRing className="w-4 h-4 text-[#004F9F] shrink-0 mt-px" />
+            <BellRing className="w-4 h-4 text-marca shrink-0 mt-px" />
             <p className="text-[11px] text-blue-900 font-medium leading-snug">
               Al guardar, {tipo === 'PERSONA' ? 'el cliente recibe' : 'los usuarios de la empresa reciben'} un
               aviso con la fecha, la hora, tu nombre y qué cambió. Su perfil queda
@@ -254,7 +254,7 @@ export const FormularioCliente: React.FC<Props> = ({
                     value={campos.document_type ?? ''}
                     onChange={(e) => poner('document_type', e.target.value)}
                     className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-normal
-                               focus:outline-none focus:border-[#004F9F] focus:ring-2 focus:ring-[#004F9F]/20"
+                               focus:outline-none focus:border-marca focus:ring-2 focus:ring-marca/20"
                   >
                     <option value="">—</option>
                     {TIPOS_DOCUMENTO.map((t) => <option key={t} value={t}>{t}</option>)}
@@ -276,7 +276,7 @@ export const FormularioCliente: React.FC<Props> = ({
                     value={campos.client_type ?? ''}
                     onChange={(e) => poner('client_type', e.target.value)}
                     className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-normal
-                               focus:outline-none focus:border-[#004F9F] focus:ring-2 focus:ring-[#004F9F]/20"
+                               focus:outline-none focus:border-marca focus:ring-2 focus:ring-marca/20"
                   >
                     <option value="">—</option>
                     {TIPOS_CLIENTE.map((t) => <option key={t} value={t}>{t}</option>)}

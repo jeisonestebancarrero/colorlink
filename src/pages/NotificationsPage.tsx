@@ -64,7 +64,7 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onNavigate
           <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
             <span>Centro de Notificaciones</span>
             {unreadNotificationsCount > 0 && (
-              <span className="bg-[#004F9F] text-white text-xs font-bold px-2 py-0.5 rounded-full">
+              <span className="bg-marca text-white text-xs font-bold px-2 py-0.5 rounded-full">
                 {unreadNotificationsCount} nuevas
               </span>
             )}
@@ -95,7 +95,7 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onNavigate
           onClick={() => setFilter('all')}
           className={`text-xs px-3.5 py-1.5 rounded-lg font-semibold transition-all ${
             filter === 'all'
-              ? 'bg-[#004F9F] text-white shadow-2xs'
+              ? 'bg-marca text-white shadow-2xs'
               : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
           }`}
         >
@@ -105,7 +105,7 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onNavigate
           onClick={() => setFilter('unread')}
           className={`text-xs px-3.5 py-1.5 rounded-lg font-semibold transition-all ${
             filter === 'unread'
-              ? 'bg-[#004F9F] text-white shadow-2xs'
+              ? 'bg-marca text-white shadow-2xs'
               : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
           }`}
         >
@@ -166,7 +166,7 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onNavigate
                 </p>
 
                 {item.projectId && (
-                  <div className="mt-2 flex items-center gap-1 text-[11px] font-semibold text-[#004F9F]">
+                  <div className="mt-2 flex items-center gap-1 text-[11px] font-semibold text-marca">
                     <span>Ver proyecto relacionado</span>
                     <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
                   </div>

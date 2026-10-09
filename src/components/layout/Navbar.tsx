@@ -232,12 +232,12 @@ export const Navbar: React.FC<NavbarProps> = ({
   return (
     <header id="colorlink-main-navbar" className="sticky top-0 z-40 bg-white border-b border-slate-200 shadow-xs">
       {/* Franja corporativa */}
-      <div className="bg-[#002244] text-white text-[11px] py-1.5 px-4 sm:px-6 lg:px-8 flex items-center justify-between font-medium">
+      <div className="bg-marca-oscuro text-white text-[11px] py-1.5 px-4 sm:px-6 lg:px-8 flex items-center justify-between font-medium">
         <div className="flex items-center gap-4 truncate">
           <div className="flex items-center gap-1.5 text-blue-100">
-            <Store className="w-3.5 h-3.5 text-yellow-400 shrink-0" />
+            <Store className="w-3.5 h-3.5 text-acento shrink-0" />
             <span>Retiro en Tienda Pintuco:</span>
-            <strong className="text-white font-bold underline decoration-yellow-400/60 underline-offset-2">
+            <strong className="text-white font-bold underline decoration-acento/60 underline-offset-2">
               {selectedStore.name} ({selectedStore.city})
             </strong>
             <span className="hidden sm:inline bg-emerald-500/20 text-emerald-300 px-1.5 py-0.2 rounded text-[10px] font-bold border border-emerald-500/30">
@@ -254,13 +254,13 @@ export const Navbar: React.FC<NavbarProps> = ({
         </div>
 
         <div className="flex items-center gap-3 text-blue-200 shrink-0">
-          <span className="hidden lg:inline flex items-center gap-1 text-blue-100">
-            <Phone className="w-3 h-3 text-yellow-400" /> Línea Constructor: <strong>(01 8000) 111-247</strong>
+          <span className="hidden lg:flex items-center gap-1 text-blue-100">
+            <Phone className="w-3 h-3 text-acento" /> Línea Constructor: <strong>(01 8000) 111-247</strong>
           </span>
 
           <button
             onClick={() => onNavigate('stores')}
-            className="text-yellow-300 hover:text-white text-[10px] font-extrabold uppercase tracking-wider bg-white/10 hover:bg-white/20 px-2 py-0.5 rounded transition-colors cursor-pointer"
+            className="text-acento-claro hover:text-white text-[10px] font-extrabold uppercase tracking-wider bg-white/10 hover:bg-white/20 px-2 py-0.5 rounded transition-colors cursor-pointer"
           >
             Cambiar Tienda
           </button>
@@ -298,7 +298,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 onFocus={() => setIsSearchFocused(true)}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Busca pinturas (Koraza, Viniltex), color blanco, 85 m², humedad..."
-                className="w-full bg-slate-50 hover:bg-slate-100/90 focus:bg-white border border-slate-300 focus:border-[#004F9F] rounded-xl pl-10 pr-20 py-2 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#004F9F]/15 transition-all shadow-2xs font-medium"
+                className="w-full bg-slate-50 hover:bg-slate-100/90 focus:bg-white border border-slate-300 focus:border-marca rounded-xl pl-10 pr-20 py-2 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-marca/15 transition-all shadow-2xs font-medium"
               />
               {searchQuery && (
                 <button
@@ -311,7 +311,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               )}
               <button
                 type="submit"
-                className="absolute right-1.5 top-1/2 -translate-y-1/2 bg-[#004F9F] text-white hover:bg-[#003875] px-2.5 py-1 rounded-lg text-[11px] font-bold transition-colors cursor-pointer"
+                className="absolute right-1.5 top-1/2 -translate-y-1/2 bg-marca text-white hover:bg-marca-hover px-2.5 py-1 rounded-lg text-[11px] font-bold transition-colors cursor-pointer"
               >
                 Buscar
               </button>
@@ -344,7 +344,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                         </div>
                         <button
                           onClick={() => handleQuickIntentClick(() => onNavigate('solutions'))}
-                          className="text-xs font-bold bg-[#004F9F] text-white px-3 py-1.5 rounded-lg hover:bg-[#003875] shrink-0 ml-2 cursor-pointer"
+                          className="text-xs font-bold bg-marca text-white px-3 py-1.5 rounded-lg hover:bg-marca-hover shrink-0 ml-2 cursor-pointer"
                         >
                           Ver Kit Fachada (-12%)
                         </button>
@@ -408,13 +408,13 @@ export const Navbar: React.FC<NavbarProps> = ({
                             <div className="flex items-center gap-2.5">
                               <img src={prod.image} alt={prod.name} className="w-8 h-8 rounded object-cover border border-slate-200" />
                               <div>
-                                <p className="text-xs font-bold text-slate-800 group-hover:text-[#004F9F]">
+                                <p className="text-xs font-bold text-slate-800 group-hover:text-marca">
                                   {prod.name}
                                 </p>
                                 <p className="text-[10px] text-slate-500">{prod.category} • Desde {formatCOP(prod.presentations[0]?.priceCOP || 0)}</p>
                               </div>
                             </div>
-                            <ArrowRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-[#004F9F]" />
+                            <ArrowRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-marca" />
                           </div>
                         ))}
                     </div>
@@ -475,7 +475,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             {activeProject && (
               <button
                 onClick={() => onNavigate('project-detail', activeProject.id)}
-                className="hidden xl:flex items-center gap-2 bg-blue-50 hover:bg-blue-100 text-[#004F9F] border border-blue-200 px-3 py-1.5 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                className="hidden xl:flex items-center gap-2 bg-blue-50 hover:bg-blue-100 text-marca border border-blue-200 px-3 py-1.5 rounded-xl text-xs font-bold transition-colors cursor-pointer"
               >
                 <Building2 className="w-3.5 h-3.5" />
                 <span className="truncate max-w-[130px]">{activeProject.name}</span>
@@ -486,13 +486,13 @@ export const Navbar: React.FC<NavbarProps> = ({
             {/* Shopping Cart Button */}
             <button
               onClick={() => setIsCartOpen(true)}
-              className="relative bg-[#004F9F] hover:bg-[#003875] text-white px-2.5 sm:px-3.5 py-2 min-h-11 sm:min-h-0 rounded-xl transition-all flex items-center gap-1.5 sm:gap-2 cursor-pointer shadow-md shadow-[#004F9F]/20 font-bold text-xs shrink-0"
+              className="relative bg-marca hover:bg-marca-hover text-white px-2.5 sm:px-3.5 py-2 min-h-11 sm:min-h-0 rounded-xl transition-all flex items-center gap-1.5 sm:gap-2 cursor-pointer shadow-md shadow-marca/20 font-bold text-xs shrink-0"
               aria-label="Abrir Carrito"
             >
               <ShoppingCart className="w-4 h-4" />
               <span className="hidden sm:inline">Carrito</span>
               {cartCount > 0 && (
-                <span className="bg-yellow-400 text-slate-950 text-[10px] font-black px-1.5 py-0.2 rounded-full">
+                <span className="bg-acento text-slate-950 text-[10px] font-black px-1.5 py-0.2 rounded-full">
                   {cartCount}
                 </span>
               )}
@@ -514,7 +514,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               >
                 <MessageSquare className="w-5 h-5" />
                 {mensajesSinLeer > 0 && (
-                  <span className="absolute top-1 right-1 min-w-4 h-4 px-1 bg-[#004F9F] text-white
+                  <span className="absolute top-1 right-1 min-w-4 h-4 px-1 bg-marca text-white
                                    text-[10px] font-black rounded-full flex items-center justify-center
                                    ring-2 ring-white">
                     {/* Más de nueve no cabe en 16 px. */}
@@ -552,7 +552,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                           className="w-full p-3.5 text-left hover:bg-slate-50 cursor-pointer transition-colors"
                         >
                           <div className="flex items-start gap-2.5">
-                            <span className="mt-0.5 shrink-0 min-w-5 h-5 px-1.5 bg-[#004F9F] text-white
+                            <span className="mt-0.5 shrink-0 min-w-5 h-5 px-1.5 bg-marca text-white
                                              text-[10px] font-black rounded-full flex items-center justify-center">
                               {c.sinLeer}
                             </span>
@@ -602,7 +602,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     {unreadNotificationsCount > 0 && (
                       <button
                         onClick={markAllNotificationsRead}
-                        className="text-[11px] text-[#004F9F] font-bold hover:underline cursor-pointer"
+                        className="text-[11px] text-marca font-bold hover:underline cursor-pointer"
                       >
                         Marcar leídas
                       </button>
@@ -628,7 +628,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                           }`}
                         >
                           <div className="flex items-start gap-2.5">
-                            <div className="w-2 h-2 rounded-full bg-[#004F9F] mt-1.5 shrink-0" />
+                            <div className="w-2 h-2 rounded-full bg-marca mt-1.5 shrink-0" />
                             <div className="flex-1 space-y-0.5">
                               <p className="text-xs font-bold text-slate-800">{notif.title}</p>
                               <p className="text-[11px] text-slate-600 leading-snug">{notif.message}</p>
@@ -644,7 +644,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   {notifications.length > 0 && (
                     <button
                       onClick={() => { setShowNotifications(false); onNavigate('notifications'); }}
-                      className="w-full px-4 py-2.5 text-[11px] font-bold text-[#004F9F]
+                      className="w-full px-4 py-2.5 text-[11px] font-bold text-marca
                                  hover:bg-slate-50 border-t border-slate-100 transition-colors
                                  cursor-pointer text-center"
                     >
@@ -665,7 +665,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 }}
                 className="flex items-center gap-2 p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl hover:bg-slate-100 text-slate-700 transition-colors cursor-pointer border border-slate-200"
               >
-                <div className="w-7 h-7 rounded-lg bg-[#004F9F] text-white flex items-center justify-center text-xs font-extrabold">
+                <div className="w-7 h-7 rounded-lg bg-marca text-white flex items-center justify-center text-xs font-extrabold">
                   {user?.firstName?.[0] || 'I'}
                 </div>
                 <div className="hidden md:flex flex-col text-left">
@@ -686,7 +686,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                       {user?.firstName} {user?.lastName}
                     </p>
                     <p className="text-[11px] text-slate-500">{user?.email}</p>
-                    <span className="inline-block mt-1 bg-blue-100 text-[#004F9F] text-[10px] font-bold px-2 py-0.5 rounded">
+                    <span className="inline-block mt-1 bg-blue-100 text-marca text-[10px] font-bold px-2 py-0.5 rounded">
                       Cuenta {user?.clientType || 'Invitado'}
                     </span>
                   </div>
@@ -757,7 +757,7 @@ export const Navbar: React.FC<NavbarProps> = ({
       </div>
 
       {/* Navegación por secciones */}
-      <nav className="bg-[#004F9F] text-white px-4 sm:px-6 lg:px-8 hidden md:block">
+      <nav className="bg-marca text-white px-4 sm:px-6 lg:px-8 hidden md:block">
         {/* `gap-4` separa lista y botón; `min-w-0` deja encoger la lista en vez de
             empujar el botón fuera de pantalla. */}
         <div className="flex items-center justify-between gap-4">
@@ -787,7 +787,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                       onClick={() => onNavigate(item.id)}
                       className={`flex items-center gap-1.5 px-3 py-2.5 rounded-lg text-xs font-bold transition-all cursor-pointer shrink-0 whitespace-nowrap ${
                         isActive
-                          ? 'bg-white text-[#004F9F] shadow-xs'
+                          ? 'bg-white text-marca shadow-xs'
                           : 'text-white hover:bg-white/15'
                       }`}
                     >
@@ -811,7 +811,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                           </span>
                           <button
                             onClick={() => onNavigate('store')}
-                            className="text-[11px] text-[#004F9F] font-bold hover:underline cursor-pointer"
+                            className="text-[11px] text-marca font-bold hover:underline cursor-pointer"
                           >
                             Ver Todo el Catálogo →
                           </button>
@@ -827,12 +827,12 @@ export const Navbar: React.FC<NavbarProps> = ({
                               className="w-full p-2 text-left rounded-xl hover:bg-blue-50 transition-colors flex items-center justify-between group cursor-pointer"
                             >
                               <div>
-                                <p className="text-xs font-bold text-slate-800 group-hover:text-[#004F9F]">
+                                <p className="text-xs font-bold text-slate-800 group-hover:text-marca">
                                   {cat.name}
                                 </p>
                                 <p className="text-[10px] text-slate-500">{cat.desc}</p>
                               </div>
-                              <ArrowRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-[#004F9F]" />
+                              <ArrowRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-marca" />
                             </button>
                           ))}
                         </div>
@@ -849,14 +849,14 @@ export const Navbar: React.FC<NavbarProps> = ({
                   onClick={() => onNavigate(item.id)}
                   className={`flex items-center gap-1.5 px-3 py-2.5 rounded-lg text-xs font-bold transition-all cursor-pointer shrink-0 whitespace-nowrap ${
                     isActive
-                      ? 'bg-white text-[#004F9F] shadow-xs'
+                      ? 'bg-white text-marca shadow-xs'
                       : 'text-white hover:bg-white/15'
                   }`}
                 >
                   <Icon className="w-3.5 h-3.5 shrink-0" />
                   <span>{item.label}</span>
                   {item.badge && (
-                    <span className="bg-yellow-400 text-slate-950 text-[9px] font-black px-1.5 py-0.2 rounded shadow-2xs">
+                    <span className="bg-acento text-slate-950 text-[9px] font-black px-1.5 py-0.2 rounded shadow-2xs">
                       {item.badge}
                     </span>
                   )}
@@ -869,7 +869,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           <div className="hidden lg:flex items-center gap-2 shrink-0 py-1 pl-4 border-l border-white/20">
             <button
               onClick={() => onNavigate('create-project')}
-              className="inline-flex items-center gap-1.5 bg-yellow-400 hover:bg-yellow-300 text-slate-950 px-3 py-1.5 rounded-lg text-xs font-black transition-colors cursor-pointer shadow-xs"
+              className="inline-flex items-center gap-1.5 bg-acento hover:bg-acento-claro text-slate-950 px-3 py-1.5 rounded-lg text-xs font-black transition-colors cursor-pointer shadow-xs"
             >
               <Sparkles className="w-3.5 h-3.5 text-slate-950" />
               <span>Diagnosticar mi Superficie</span>

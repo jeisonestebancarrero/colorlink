@@ -266,7 +266,7 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onNavigate }) => {
               </Button>
               <button
                 onClick={() => onNavigate('store')}
-                className="w-full text-xs font-semibold text-slate-500 hover:text-[#004F9F] py-2"
+                className="w-full text-xs font-semibold text-slate-500 hover:text-marca py-2"
               >
                 Explorar la tienda
               </button>
@@ -288,16 +288,16 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onNavigate }) => {
             <button
               type="button"
               onClick={() => setTipoCuenta('PERSONA')}
-              className="group text-left bg-white rounded-2xl border-2 border-slate-200 hover:border-[#004F9F] p-6 shadow-xs hover:shadow-lg transition-all"
+              className="group text-left bg-white rounded-2xl border-2 border-slate-200 hover:border-marca p-6 shadow-xs hover:shadow-lg transition-all"
             >
-              <div className="w-12 h-12 rounded-xl bg-[#004F9F]/10 text-[#004F9F] flex items-center justify-center mb-4 group-hover:bg-[#004F9F] group-hover:text-white transition-colors">
+              <div className="w-12 h-12 rounded-xl bg-marca/10 text-marca flex items-center justify-center mb-4 group-hover:bg-marca group-hover:text-white transition-colors">
                 <Store className="w-6 h-6" />
               </div>
               <h3 className="text-base font-bold text-slate-900">Persona natural</h3>
               <p className="text-xs text-slate-500 mt-1.5 leading-relaxed">
                 Compras para tu casa o para tu trabajo independiente. Te pedimos solo tu documento.
               </p>
-              <span className="inline-flex items-center gap-1.5 text-xs font-bold text-[#004F9F] mt-4">
+              <span className="inline-flex items-center gap-1.5 text-xs font-bold text-marca mt-4">
                 Continuar <ArrowRight className="w-3.5 h-3.5" />
               </span>
             </button>
@@ -305,16 +305,16 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onNavigate }) => {
             <button
               type="button"
               onClick={() => setTipoCuenta('EMPRESA')}
-              className="group text-left bg-white rounded-2xl border-2 border-slate-200 hover:border-[#004F9F] p-6 shadow-xs hover:shadow-lg transition-all"
+              className="group text-left bg-white rounded-2xl border-2 border-slate-200 hover:border-marca p-6 shadow-xs hover:shadow-lg transition-all"
             >
-              <div className="w-12 h-12 rounded-xl bg-[#FFB81C]/20 text-[#B27E00] flex items-center justify-center mb-4 group-hover:bg-[#FFB81C] group-hover:text-slate-900 transition-colors">
+              <div className="w-12 h-12 rounded-xl bg-acento/20 text-[#B27E00] flex items-center justify-center mb-4 group-hover:bg-acento group-hover:text-slate-900 transition-colors">
                 <Briefcase className="w-6 h-6" />
               </div>
               <h3 className="text-base font-bold text-slate-900">Empresa</h3>
               <p className="text-xs text-slate-500 mt-1.5 leading-relaxed">
                 Constructora, distribuidor o profesional con NIT. Facturamos a nombre de la empresa.
               </p>
-              <span className="inline-flex items-center gap-1.5 text-xs font-bold text-[#004F9F] mt-4">
+              <span className="inline-flex items-center gap-1.5 text-xs font-bold text-marca mt-4">
                 Continuar <ArrowRight className="w-3.5 h-3.5" />
               </span>
             </button>
@@ -339,7 +339,7 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onNavigate }) => {
               ¿Ya tienes una cuenta registrada?{' '}
               <button
                 onClick={() => onNavigate('login')}
-                className="font-bold text-[#004F9F] hover:underline"
+                className="font-bold text-marca hover:underline"
               >
                 Iniciar sesión
               </button>
@@ -349,7 +349,7 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onNavigate }) => {
           <div className="text-center mt-5">
             <button
               onClick={() => onNavigate('store')}
-              className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-[#004F9F]"
+              className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-marca"
             >
               <ArrowLeft className="w-3.5 h-3.5" /> Volver a la tienda
             </button>
@@ -374,7 +374,7 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onNavigate }) => {
               setTipoCuenta(null);
               setErrors({});
             }}
-            className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-[#004F9F]"
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-marca"
           >
             <ArrowLeft className="w-3.5 h-3.5" /> Cambiar tipo de cuenta
           </button>
@@ -564,7 +564,7 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onNavigate }) => {
               variant="pintuco"
               size="lg"
               isLoading={isSubmitting}
-              className="w-full text-sm font-bold shadow-md shadow-[#004F9F]/20 mt-4"
+              className="w-full text-sm font-bold shadow-md shadow-marca/20 mt-4"
               rightIcon={<ArrowRight className="w-4 h-4" />}
             >
               {esEmpresa ? 'Registrar empresa' : 'Crear mi cuenta'}
@@ -575,7 +575,7 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onNavigate }) => {
             ¿Ya tienes una cuenta registrada?{' '}
             <button
               onClick={() => onNavigate('login')}
-              className="font-bold text-[#004F9F] hover:underline"
+              className="font-bold text-marca hover:underline"
             >
               Iniciar sesión
             </button>

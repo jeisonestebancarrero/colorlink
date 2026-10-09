@@ -72,9 +72,9 @@ export const LauncherPage: React.FC<{
   const color = (v: VistaMenu) => v.color ?? '#004F9F';
 
   return (
-    <div className="min-h-screen bg-[#00142E] relative overflow-hidden">
+    <div className="min-h-screen bg-marca-profundo relative overflow-hidden">
       {/* Ambiente: halos de color muy difusos, como pintura diluida. */}
-      <div aria-hidden className="pointer-events-none absolute -top-44 -left-36 w-[42rem] h-[42rem] rounded-full bg-[#004F9F]/30 blur-3xl" />
+      <div aria-hidden className="pointer-events-none absolute -top-44 -left-36 w-[42rem] h-[42rem] rounded-full bg-marca/30 blur-3xl" />
       <div aria-hidden className="pointer-events-none absolute top-1/3 right-[-10rem] w-[34rem] h-[34rem] rounded-full bg-[#0284C7]/14 blur-3xl" />
       <div aria-hidden className="pointer-events-none absolute -bottom-52 left-1/4 w-[38rem] h-[38rem] rounded-full bg-[#CA8A04]/10 blur-3xl" />
 
@@ -128,7 +128,7 @@ export const LauncherPage: React.FC<{
                   onBlur={() => { if (!filtro) setBuscando(false); }}
                   placeholder="Buscar aplicación…"
                   aria-label="Buscar aplicación"
-                  className="w-full bg-white/10 border border-white/20 rounded-lg pl-9 pr-8 py-2 text-sm text-white placeholder:text-blue-200/40 font-medium focus:outline-none focus:ring-2 focus:ring-yellow-400/60 focus:border-transparent"
+                  className="w-full bg-white/10 border border-white/20 rounded-lg pl-9 pr-8 py-2 text-sm text-white placeholder:text-blue-200/40 font-medium focus:outline-none focus:ring-2 focus:ring-acento/60 focus:border-transparent"
                 />
                 <button
                   onClick={cerrarBusqueda}
@@ -194,8 +194,8 @@ export const LauncherPage: React.FC<{
                              transition-all duration-200 ease-out
                              hover:-translate-y-1.5
                              hover:shadow-[0_6px_14px_rgba(0,0,0,.24),0_28px_56px_-20px_rgba(0,0,0,.6)]
-                             focus:outline-none focus-visible:ring-2 focus-visible:ring-yellow-400
-                             focus-visible:ring-offset-2 focus-visible:ring-offset-[#00142E]"
+                             focus:outline-none focus-visible:ring-2 focus-visible:ring-acento
+                             focus-visible:ring-offset-2 focus-visible:ring-offset-marca-profundo"
                   style={{ ['--c' as string]: c }}
                 >
                   {/* Franja de color arriba para que los módulos no compitan; se extiende al pasar el cursor. */}

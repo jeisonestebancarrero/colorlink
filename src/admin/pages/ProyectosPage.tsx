@@ -143,7 +143,7 @@ export const ProyectosPage: React.FC = () => {
       <div className="space-y-5">
         <button
           onClick={() => setDetalle(null)}
-          className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-[#004F9F] transition-colors"
+          className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-marca transition-colors"
         >
           <ArrowLeft className="w-3.5 h-3.5" /> Volver a proyectos
         </button>
@@ -383,7 +383,7 @@ export const ProyectosPage: React.FC = () => {
                 {puede('projects.assign') && !asignando && (
                   <button
                     onClick={() => setAsignando(true)}
-                    className="inline-flex items-center gap-1 text-xs font-bold text-[#004F9F] hover:underline"
+                    className="inline-flex items-center gap-1 text-xs font-bold text-marca hover:underline"
                   >
                     <UserPlus className="w-3.5 h-3.5" /> Asignar
                   </button>
@@ -560,13 +560,13 @@ export const ProyectosPage: React.FC = () => {
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
             placeholder="Buscar por código, obra, cliente o ciudad…"
-            className="w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 py-2.5 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#004F9F]/20 focus:border-[#004F9F]"
+            className="w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 py-2.5 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-marca/20 focus:border-marca"
           />
         </div>
         <select
           value={estado}
           onChange={(e) => setEstado(e.target.value as EstadoProyecto | 'TODOS')}
-          className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#004F9F]/20"
+          className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm cursor-pointer focus:outline-none focus:ring-2 focus:ring-marca/20"
         >
           <option value="TODOS">Todos los estados</option>
           {ESTADOS_PROYECTO.map((s) => (

@@ -18,7 +18,7 @@ export const FotoPunto: React.FC<{
   const usaFondo = fallo || !esFoto;
 
   return (
-    <div className={`relative overflow-hidden bg-[#00306B] ${alto} ${className}`}>
+    <div className={`relative overflow-hidden bg-marca-oscuro ${alto} ${className}`}>
       <img
         src={fallo ? FONDO_MARCA : src}
         alt={ciudad ? `Vista de ${ciudad}` : 'Punto de venta Pintuco'}

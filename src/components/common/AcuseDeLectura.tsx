@@ -22,7 +22,7 @@ export const AcuseDeLectura: React.FC<{
 
   // Cambia también el color: a 12 px la forma sola se distingue mal.
   const color = leido
-    ? (sobreAzul ? 'text-sky-300' : 'text-[#004F9F]')
+    ? (sobreAzul ? 'text-sky-300' : 'text-marca')
     : (sobreAzul ? 'text-blue-200/70' : 'text-slate-400');
 
   return (

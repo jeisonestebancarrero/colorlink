@@ -122,7 +122,7 @@ export const MapaSeguimiento: React.FC<{ pedido: PedidoCliente }> = ({ pedido })
       <div ref={contenedor} className="w-full h-[19rem] z-0" />
 
       <div className="absolute top-3 right-3 z-[400] bg-white/95 backdrop-blur-sm rounded-lg px-2.5 py-1 border border-slate-200 shadow-2xs">
-        <span className="text-xs font-extrabold text-[#004F9F] tabular-nums">
+        <span className="text-xs font-extrabold text-marca tabular-nums">
           {Math.round(Math.max(0.02, Math.min(1, pedido.progreso)) * 100)}%
         </span>
       </div>

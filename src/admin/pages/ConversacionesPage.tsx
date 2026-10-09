@@ -77,11 +77,11 @@ export const ConversacionesPage: React.FC = () => {
           <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
           <input value={busqueda} onChange={(e) => setBusqueda(e.target.value)}
             placeholder="Buscar por pedido, proyecto o cliente…"
-            className="w-full bg-white border border-slate-200 rounded-lg pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#004F9F]/30" />
+            className="w-full bg-white border border-slate-200 rounded-lg pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-marca/30" />
         </div>
         <button onClick={() => setSoloConMensajes(!soloConMensajes)}
           className={`px-3.5 py-2 rounded-lg text-xs font-bold border transition-colors ${
-            soloConMensajes ? 'bg-[#004F9F] text-white border-[#004F9F]'
+            soloConMensajes ? 'bg-marca text-white border-marca'
                             : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
           }`}>
           Solo con mensajes de clientes
@@ -137,12 +137,12 @@ export const ConversacionesPage: React.FC = () => {
             <button key={h.id} onClick={() => setAbierto(h)}
               className={`w-full text-left bg-white rounded-xl border p-4 transition-all ${
                 abierto?.id === h.id
-                  ? 'border-[#004F9F] shadow-md'
+                  ? 'border-marca shadow-md'
                   : 'border-slate-200 shadow-2xs hover:border-slate-300'
               }`}>
               <div className="flex items-center gap-2">
                 {h.tipo === 'PEDIDO'
-                  ? <ShoppingBag className="w-3.5 h-3.5 text-[#004F9F] shrink-0" />
+                  ? <ShoppingBag className="w-3.5 h-3.5 text-marca shrink-0" />
                   : <FolderKanban className="w-3.5 h-3.5 text-orange-600 shrink-0" />}
                 <p className="font-bold text-slate-900 text-sm truncate">{h.titulo}</p>
                 <span className="text-[10px] text-slate-400 ml-auto shrink-0">{fecha(h.ultimaFecha)}</span>

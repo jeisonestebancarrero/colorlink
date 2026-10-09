@@ -127,10 +127,10 @@ export const StorePage: React.FC<StorePageProps> = ({ onNavigate, initialCategor
   return (
     <div className="space-y-8 pb-16">
       {/* Hero Banner Tienda */}
-      <div className="relative rounded-2xl bg-linear-to-r from-[#002D5C] via-[#004F9F] to-[#0066CC] text-white p-6 sm:p-8 overflow-hidden shadow-lg border border-blue-900/40">
+      <div className="relative rounded-2xl bg-linear-to-r from-marca-oscuro via-marca to-marca-claro text-white p-6 sm:p-8 overflow-hidden shadow-lg border border-blue-900/40">
         <div className="relative z-10 max-w-2xl space-y-3">
           <div className="inline-flex items-center gap-2 bg-white/15 backdrop-blur-xs px-3 py-1 rounded-full text-xs font-bold tracking-wide">
-            <Sparkles className="w-3.5 h-3.5 text-yellow-300" />
+            <Sparkles className="w-3.5 h-3.5 text-acento-claro" />
             <span>Tienda Oficial Pintuco • Retiro Gratis en 2 Horas</span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
@@ -143,7 +143,7 @@ export const StorePage: React.FC<StorePageProps> = ({ onNavigate, initialCategor
           <div className="flex flex-wrap items-center gap-3 pt-2">
             <button
               onClick={() => onNavigate('solutions')}
-              className="bg-yellow-400 hover:bg-yellow-300 text-slate-900 text-xs font-extrabold px-4 py-2.5 min-h-11 sm:min-h-0 rounded-lg shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
+              className="bg-acento hover:bg-acento-claro text-slate-900 text-xs font-extrabold px-4 py-2.5 min-h-11 sm:min-h-0 rounded-lg shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
             >
               <Package className="w-4 h-4" />
               <span>Ver Kits de Solución por Problema (-10%)</span>
@@ -170,7 +170,7 @@ export const StorePage: React.FC<StorePageProps> = ({ onNavigate, initialCategor
             onClick={() => setSelectedCategory(cat)}
             className={`px-3.5 py-2 min-h-11 sm:min-h-0 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
               selectedCategory === cat
-                ? 'bg-[#004F9F] text-white shadow-xs'
+                ? 'bg-marca text-white shadow-xs'
                 : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
             }`}
           >
@@ -241,7 +241,7 @@ export const StorePage: React.FC<StorePageProps> = ({ onNavigate, initialCategor
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                 />
                 {product.badge && (
-                  <span className="absolute top-2.5 left-2.5 bg-[#004F9F] text-white text-[10px] font-bold px-2 py-0.5 rounded-md shadow-xs">
+                  <span className="absolute top-2.5 left-2.5 bg-marca text-white text-[10px] font-bold px-2 py-0.5 rounded-md shadow-xs">
                     {product.badge}
                   </span>
                 )}
@@ -255,12 +255,12 @@ export const StorePage: React.FC<StorePageProps> = ({ onNavigate, initialCategor
               {/* Product Info */}
               <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
                 <div className="space-y-1">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-[#004F9F]">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-marca">
                     {product.category}
                   </span>
                   <h3
                     onClick={() => handleOpenProductDetail(product)}
-                    className="text-sm font-bold text-slate-900 group-hover:text-[#004F9F] transition-colors line-clamp-1 cursor-pointer"
+                    className="text-sm font-bold text-slate-900 group-hover:text-marca transition-colors line-clamp-1 cursor-pointer"
                   >
                     {product.name}
                   </h3>
@@ -299,7 +299,7 @@ export const StorePage: React.FC<StorePageProps> = ({ onNavigate, initialCategor
                     <span className="text-[10px] text-slate-400 block font-medium">
                       Desde ({mainPres?.label})
                     </span>
-                    <span className="text-base font-extrabold text-[#004F9F]">
+                    <span className="text-base font-extrabold text-marca">
                       {formatCOP(mainPres?.priceCOP || 0)}
                     </span>
                     {/* El precio ya incluye IVA; se aclara para que no esperen un 19 % extra. */}
@@ -311,7 +311,7 @@ export const StorePage: React.FC<StorePageProps> = ({ onNavigate, initialCategor
                   {/* Botón con texto: un icono de 32 px era un blanco táctil muy pequeño. */}
                   <button
                     onClick={() => handleOpenProductDetail(product)}
-                    className="bg-[#004F9F] hover:bg-[#003B77] text-white px-3 py-2 min-h-11 sm:min-h-0 rounded-xl text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs"
+                    className="bg-marca hover:bg-marca-hover text-white px-3 py-2 min-h-11 sm:min-h-0 rounded-xl text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs"
                     title="Ver detalle y comprar"
                   >
                     <ShoppingCart className="w-3.5 h-3.5" />
@@ -353,7 +353,7 @@ export const StorePage: React.FC<StorePageProps> = ({ onNavigate, initialCategor
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-white rounded-2xl max-w-2xl w-full overflow-hidden shadow-2xl border border-slate-200 animate-in zoom-in-95 duration-150">
             {/* Header */}
-            <div className="px-5 py-4 bg-[#004F9F] text-white flex items-center justify-between">
+            <div className="px-5 py-4 bg-marca text-white flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span className="text-xs font-bold uppercase tracking-wider bg-white/20 px-2 py-0.5 rounded">
                   {selectedProductDetail.category}
@@ -416,7 +416,7 @@ export const StorePage: React.FC<StorePageProps> = ({ onNavigate, initialCategor
                           onClick={() => setModalPresentation(pres.label)}
                           className={`w-full p-2.5 rounded-lg border text-left flex items-center justify-between text-xs transition-all cursor-pointer ${
                             modalPresentation === pres.label
-                              ? 'border-[#004F9F] bg-blue-50/80 font-bold text-[#004F9F] ring-1 ring-blue-600'
+                              ? 'border-marca bg-blue-50/80 font-bold text-marca ring-1 ring-blue-600'
                               : 'border-slate-200 hover:bg-slate-50 text-slate-700'
                           }`}
                         >
@@ -451,7 +451,7 @@ export const StorePage: React.FC<StorePageProps> = ({ onNavigate, initialCategor
                             onClick={() => { setModalColor(col); setFaltaColorModal(false); }}
                             className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs cursor-pointer transition-all ${
                               modalColor?.code === col.code
-                                ? 'border-[#004F9F] bg-blue-50 text-[#004F9F] font-bold ring-1 ring-blue-600'
+                                ? 'border-marca bg-blue-50 text-marca font-bold ring-1 ring-blue-600'
                                 : 'border-slate-200 hover:bg-slate-50 text-slate-700'
                             }`}
                           >
@@ -495,7 +495,7 @@ export const StorePage: React.FC<StorePageProps> = ({ onNavigate, initialCategor
                     <Button
                       onClick={handleAddToCartFromModal}
                       variant="primary"
-                      className="flex-1 bg-[#004F9F] hover:bg-[#003B77] text-white text-xs font-bold py-2.5 shadow-md flex items-center justify-center gap-2 cursor-pointer"
+                      className="flex-1 bg-marca hover:bg-marca-hover text-white text-xs font-bold py-2.5 shadow-md flex items-center justify-center gap-2 cursor-pointer"
                     >
                       <ShoppingCart className="w-4 h-4" />
                       <span>Agregar al Carrito</span>

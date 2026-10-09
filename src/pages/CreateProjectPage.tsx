@@ -293,7 +293,7 @@ export const CreateProjectPage: React.FC<CreateProjectPageProps> = ({
         <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-5">
           <div className="border-b border-slate-100 pb-4">
             <div className="flex items-center justify-between gap-2">
-              <span className="text-xs font-bold uppercase tracking-wider text-[#004F9F] flex items-center gap-1.5">
+              <span className="text-xs font-bold uppercase tracking-wider text-marca flex items-center gap-1.5">
                 <Sparkles className="w-4 h-4" />
                 Motor de Clasificación Técnica Pintuco
               </span>
@@ -327,7 +327,7 @@ export const CreateProjectPage: React.FC<CreateProjectPageProps> = ({
               <ul className="space-y-1.5 text-slate-600">
                 {analysis.keyConsiderations.map((item, idx) => (
                   <li key={idx} className="flex items-start gap-1.5">
-                    <span className="text-[#004F9F] font-bold">•</span>
+                    <span className="text-marca font-bold">•</span>
                     <span>{item}</span>
                   </li>
                 ))}
@@ -336,14 +336,14 @@ export const CreateProjectPage: React.FC<CreateProjectPageProps> = ({
 
             <div className="bg-blue-50/60 rounded-xl p-4 border border-blue-100 space-y-2">
               <h4 className="font-bold text-slate-800 flex items-center gap-1.5">
-                <UserCheck className="w-4 h-4 text-[#004F9F]" />
+                <UserCheck className="w-4 h-4 text-marca" />
                 Acompañamiento Técnico Pintuco ($0 COP)
               </h4>
               <p className="text-slate-600 text-xs leading-relaxed">
                 Este proyecto califica para acompañamiento técnico presencial o virtual por parte del departamento de ingeniería de Pintuco para validar lecturas de humedad y prueba de adherencia.
               </p>
               <div className="pt-1">
-                <span className="text-[11px] font-semibold text-[#004F9F] bg-white border border-blue-200 px-2 py-1 rounded inline-block">
+                <span className="text-[11px] font-semibold text-marca bg-white border border-blue-200 px-2 py-1 rounded inline-block">
                   ✓ Incluido en el programa B2B Pintuco
                 </span>
               </div>
@@ -356,7 +356,7 @@ export const CreateProjectPage: React.FC<CreateProjectPageProps> = ({
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                <Package className="w-5 h-5 text-[#004F9F]" />
+                <Package className="w-5 h-5 text-marca" />
                 Estimación Preliminar de Materiales ({createdProjectResult.areaM2} m²)
               </h3>
               <p className="text-xs text-slate-500">
@@ -372,7 +372,7 @@ export const CreateProjectPage: React.FC<CreateProjectPageProps> = ({
                 className="bg-slate-50/70 border border-slate-200 rounded-xl p-4 flex flex-col justify-between"
               >
                 <div>
-                  <span className="text-[10px] font-bold uppercase tracking-wider bg-blue-100 text-[#004F9F] px-2 py-0.5 rounded inline-block mb-2">
+                  <span className="text-[10px] font-bold uppercase tracking-wider bg-blue-100 text-marca px-2 py-0.5 rounded inline-block mb-2">
                     Paso {idx + 1}: {prod.role}
                   </span>
                   <h4 className="text-sm font-bold text-slate-900">{prod.name}</h4>
@@ -438,7 +438,7 @@ export const CreateProjectPage: React.FC<CreateProjectPageProps> = ({
             <span>Cancelar y volver al Inicio</span>
           </button>
 
-          <span className="text-xs font-bold text-[#004F9F] bg-blue-50 px-2.5 py-1 rounded-full border border-blue-200">
+          <span className="text-xs font-bold text-marca bg-blue-50 px-2.5 py-1 rounded-full border border-blue-200">
             Asistente de Solución · Paso {currentStep} de 5
           </span>
         </div>
@@ -455,13 +455,13 @@ export const CreateProjectPage: React.FC<CreateProjectPageProps> = ({
             <div key={st.num} className="space-y-1">
               <div
                 className={`h-1.5 rounded-full transition-all duration-300 ${
-                  currentStep >= st.num ? 'bg-[#004F9F]' : 'bg-slate-200'
+                  currentStep >= st.num ? 'bg-marca' : 'bg-slate-200'
                 }`}
               />
               <span
                 className={`text-[10px] hidden sm:block truncate ${
                   currentStep === st.num
-                    ? 'font-bold text-[#004F9F]'
+                    ? 'font-bold text-marca'
                     : currentStep > st.num
                     ? 'font-medium text-slate-600'
                     : 'text-slate-400'
@@ -480,7 +480,7 @@ export const CreateProjectPage: React.FC<CreateProjectPageProps> = ({
         {currentStep === 1 && (
           <div className="space-y-6 animate-in fade-in duration-200">
             <div>
-              <span className="text-xs font-bold uppercase tracking-wider text-[#004F9F] bg-blue-50 px-2.5 py-0.5 rounded">
+              <span className="text-xs font-bold uppercase tracking-wider text-marca bg-blue-50 px-2.5 py-0.5 rounded">
                 Paso 1 de 5
               </span>
               <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight mt-1.5">
@@ -494,7 +494,7 @@ export const CreateProjectPage: React.FC<CreateProjectPageProps> = ({
             {/* Quick Demo Pre-fills */}
             <div className="bg-slate-50 rounded-xl p-3.5 border border-slate-100 space-y-2">
               <span className="text-[11px] font-bold text-slate-600 flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-[#004F9F]" />
+                <Sparkles className="w-3.5 h-3.5 text-marca" />
                 Casos frecuentes de ejemplo (Haz clic para autocompletar):
               </span>
               <div className="flex flex-wrap gap-1.5">
@@ -505,7 +505,7 @@ export const CreateProjectPage: React.FC<CreateProjectPageProps> = ({
                     onClick={() => {
                       setFormData((prev) => ({ ...prev, ...ex.fill }));
                     }}
-                    className="text-[11px] font-medium bg-white hover:bg-blue-50 text-slate-700 hover:text-[#004F9F] border border-slate-200 hover:border-blue-300 px-2.5 py-1 rounded-lg transition-colors cursor-pointer text-left"
+                    className="text-[11px] font-medium bg-white hover:bg-blue-50 text-slate-700 hover:text-marca border border-slate-200 hover:border-blue-300 px-2.5 py-1 rounded-lg transition-colors cursor-pointer text-left"
                   >
                     {ex.title}
                   </button>
@@ -576,7 +576,7 @@ export const CreateProjectPage: React.FC<CreateProjectPageProps> = ({
         {currentStep === 2 && (
           <div className="space-y-6 animate-in fade-in duration-200">
             <div>
-              <span className="text-xs font-bold uppercase tracking-wider text-[#004F9F] bg-blue-50 px-2.5 py-0.5 rounded">
+              <span className="text-xs font-bold uppercase tracking-wider text-marca bg-blue-50 px-2.5 py-0.5 rounded">
                 Paso 2 de 5
               </span>
               <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight mt-1.5">
@@ -596,7 +596,7 @@ export const CreateProjectPage: React.FC<CreateProjectPageProps> = ({
                     onClick={() => setFormData({ ...formData, surface: s.type })}
                     className={`p-4 rounded-xl border-2 transition-all cursor-pointer flex items-start gap-3 ${
                       isSelected
-                        ? 'border-[#004F9F] bg-blue-50/50 shadow-xs'
+                        ? 'border-marca bg-blue-50/50 shadow-xs'
                         : 'border-slate-200 hover:border-slate-300 bg-white'
                     }`}
                   >
@@ -604,7 +604,7 @@ export const CreateProjectPage: React.FC<CreateProjectPageProps> = ({
                     <div className="space-y-0.5">
                       <div className="flex items-center justify-between">
                         <span className="text-sm font-bold text-slate-900">{s.label}</span>
-                        {isSelected && <Check className="w-4 h-4 text-[#004F9F]" />}
+                        {isSelected && <Check className="w-4 h-4 text-marca" />}
                       </div>
                       <p className="text-xs text-slate-500 leading-relaxed">{s.desc}</p>
                     </div>
@@ -623,7 +623,7 @@ export const CreateProjectPage: React.FC<CreateProjectPageProps> = ({
         {currentStep === 3 && (
           <div className="space-y-6 animate-in fade-in duration-200">
             <div>
-              <span className="text-xs font-bold uppercase tracking-wider text-[#004F9F] bg-blue-50 px-2.5 py-0.5 rounded">
+              <span className="text-xs font-bold uppercase tracking-wider text-marca bg-blue-50 px-2.5 py-0.5 rounded">
                 Paso 3 de 5
               </span>
               <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight mt-1.5">
@@ -648,13 +648,13 @@ export const CreateProjectPage: React.FC<CreateProjectPageProps> = ({
                       onClick={() => setFormData({ ...formData, environment: env.type })}
                       className={`p-3.5 rounded-xl border-2 transition-all cursor-pointer ${
                         isSelected
-                          ? 'border-[#004F9F] bg-blue-50/50'
+                          ? 'border-marca bg-blue-50/50'
                           : 'border-slate-200 hover:border-slate-300 bg-white'
                       }`}
                     >
                       <div className="flex items-center justify-between">
                         <span className="text-sm font-bold text-slate-900">{env.label}</span>
-                        {isSelected && <Check className="w-4 h-4 text-[#004F9F]" />}
+                        {isSelected && <Check className="w-4 h-4 text-marca" />}
                       </div>
                       <p className="text-xs text-slate-500 mt-1">{env.desc}</p>
                     </div>
@@ -686,7 +686,7 @@ export const CreateProjectPage: React.FC<CreateProjectPageProps> = ({
                         areaM2: e.target.value === '' ? '' : Number(e.target.value),
                       })
                     }
-                    className="w-20 text-right font-extrabold text-lg text-[#004F9F] focus:outline-none"
+                    className="w-20 text-right font-extrabold text-lg text-marca focus:outline-none"
                   />
                   <span className="text-xs font-bold text-slate-500">m²</span>
                 </div>
@@ -702,7 +702,7 @@ export const CreateProjectPage: React.FC<CreateProjectPageProps> = ({
                     onClick={() => setFormData({ ...formData, areaM2: val })}
                     className={`text-xs px-3 py-1 rounded-lg font-semibold transition-all cursor-pointer ${
                       formData.areaM2 === val
-                        ? 'bg-[#004F9F] text-white shadow-2xs'
+                        ? 'bg-marca text-white shadow-2xs'
                         : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-100'
                     }`}
                   >
@@ -722,7 +722,7 @@ export const CreateProjectPage: React.FC<CreateProjectPageProps> = ({
         {currentStep === 4 && (
           <div className="space-y-6 animate-in fade-in duration-200">
             <div>
-              <span className="text-xs font-bold uppercase tracking-wider text-[#004F9F] bg-blue-50 px-2.5 py-0.5 rounded">
+              <span className="text-xs font-bold uppercase tracking-wider text-marca bg-blue-50 px-2.5 py-0.5 rounded">
                 Paso 4 de 5
               </span>
               <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight mt-1.5">
@@ -742,7 +742,7 @@ export const CreateProjectPage: React.FC<CreateProjectPageProps> = ({
                     onClick={() => toggleCondition(cond.type)}
                     className={`p-4 rounded-xl border-2 transition-all cursor-pointer flex flex-col justify-between ${
                       isSelected
-                        ? 'border-[#004F9F] bg-blue-50/50 shadow-xs'
+                        ? 'border-marca bg-blue-50/50 shadow-xs'
                         : 'border-slate-200 hover:border-slate-300 bg-white'
                     }`}
                   >
@@ -752,7 +752,7 @@ export const CreateProjectPage: React.FC<CreateProjectPageProps> = ({
                         <div
                           className={`w-5 h-5 rounded-md border flex items-center justify-center ${
                             isSelected
-                              ? 'bg-[#004F9F] border-[#004F9F] text-white'
+                              ? 'bg-marca border-marca text-white'
                               : 'border-slate-300 bg-white'
                           }`}
                         >
@@ -782,7 +782,7 @@ export const CreateProjectPage: React.FC<CreateProjectPageProps> = ({
         {currentStep === 5 && (
           <div className="space-y-6 animate-in fade-in duration-200">
             <div>
-              <span className="text-xs font-bold uppercase tracking-wider text-[#004F9F] bg-blue-50 px-2.5 py-0.5 rounded">
+              <span className="text-xs font-bold uppercase tracking-wider text-marca bg-blue-50 px-2.5 py-0.5 rounded">
                 Paso 5 de 5
               </span>
               <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight mt-1.5">
@@ -805,7 +805,7 @@ export const CreateProjectPage: React.FC<CreateProjectPageProps> = ({
             {/* "Esto es lo que entendimos" Summary Box */}
             <div className="bg-slate-50 rounded-2xl p-5 border border-slate-200 space-y-3">
               <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-[#004F9F]" />
+                <Sparkles className="w-3.5 h-3.5 text-marca" />
                 Esto es lo que entendimos de tu proyecto:
               </span>
 
@@ -820,7 +820,7 @@ export const CreateProjectPage: React.FC<CreateProjectPageProps> = ({
                 </div>
                 <div>
                   <span className="text-slate-400 block text-[11px]">Superficie & Área:</span>
-                  <span className="font-bold text-[#004F9F]">
+                  <span className="font-bold text-marca">
                     {formData.surface} ({formData.areaM2} m²)
                   </span>
                 </div>

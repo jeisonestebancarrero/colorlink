@@ -69,7 +69,7 @@ export const SolutionsCatalogPage: React.FC<SolutionsCatalogPageProps> = ({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-200">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <span className="text-xs font-bold uppercase tracking-wider text-[#004F9F] bg-blue-50 border border-blue-200 px-2.5 py-0.5 rounded-full">
+            <span className="text-xs font-bold uppercase tracking-wider text-marca bg-blue-50 border border-blue-200 px-2.5 py-0.5 rounded-full">
               Catálogo Oficial de Sistemas Pintuco
             </span>
           </div>
@@ -101,7 +101,7 @@ export const SolutionsCatalogPage: React.FC<SolutionsCatalogPageProps> = ({
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Buscar por nombre de sistema, superficie (ej. Fachada, Concreto, Epóxico, Madera)..."
-            className="w-full bg-slate-50 hover:bg-slate-100/70 focus:bg-white border border-slate-200 focus:border-[#004F9F] rounded-xl pl-9 pr-4 py-2.5 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600/15 transition-all"
+            className="w-full bg-slate-50 hover:bg-slate-100/70 focus:bg-white border border-slate-200 focus:border-marca rounded-xl pl-9 pr-4 py-2.5 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600/15 transition-all"
           />
         </div>
 
@@ -113,7 +113,7 @@ export const SolutionsCatalogPage: React.FC<SolutionsCatalogPageProps> = ({
               onClick={() => setSelectedCategory(cat)}
               className={`text-xs px-3.5 py-1 rounded-full font-bold transition-all cursor-pointer ${
                 selectedCategory === cat
-                  ? 'bg-[#004F9F] text-white shadow-2xs'
+                  ? 'bg-marca text-white shadow-2xs'
                   : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
               }`}
             >
@@ -141,7 +141,7 @@ export const SolutionsCatalogPage: React.FC<SolutionsCatalogPageProps> = ({
                 <div className="absolute inset-0 bg-linear-to-t from-slate-950/70 via-transparent to-transparent" />
 
                 {/* Category Pill */}
-                <div className="absolute top-3 left-3 bg-[#004F9F] text-white text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded shadow-xs">
+                <div className="absolute top-3 left-3 bg-marca text-white text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded shadow-xs">
                   {item.category}
                 </div>
 
@@ -160,7 +160,7 @@ export const SolutionsCatalogPage: React.FC<SolutionsCatalogPageProps> = ({
 
               {/* Body */}
               <div className="p-5 space-y-3 text-left">
-                <h3 className="text-base font-extrabold text-slate-900 leading-snug group-hover:text-[#004F9F] transition-colors">
+                <h3 className="text-base font-extrabold text-slate-900 leading-snug group-hover:text-marca transition-colors">
                   {item.name}
                 </h3>
 
@@ -221,7 +221,7 @@ export const SolutionsCatalogPage: React.FC<SolutionsCatalogPageProps> = ({
                 alt={selectedSolution.name}
                 className="w-full h-full object-cover"
               />
-              <div className="absolute top-3 left-3 bg-[#004F9F] text-white text-xs font-bold px-2.5 py-0.5 rounded">
+              <div className="absolute top-3 left-3 bg-marca text-white text-xs font-bold px-2.5 py-0.5 rounded">
                 Categoría: {selectedSolution.category}
               </div>
             </div>
@@ -237,13 +237,13 @@ export const SolutionsCatalogPage: React.FC<SolutionsCatalogPageProps> = ({
             {selectedSolution.stepByStepGuide && (
               <div className="space-y-2">
                 <h4 className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
-                  <Layers className="w-4 h-4 text-[#004F9F]" />
+                  <Layers className="w-4 h-4 text-marca" />
                   Guía de Aplicación Paso a Paso
                 </h4>
                 <div className="space-y-1.5 bg-slate-50 rounded-xl p-4 border border-slate-200/80 text-xs text-slate-700">
                   {selectedSolution.stepByStepGuide.map((step, idx) => (
                     <div key={idx} className="flex items-start gap-2">
-                      <span className="font-bold text-[#004F9F] shrink-0">•</span>
+                      <span className="font-bold text-marca shrink-0">•</span>
                       <span>{step}</span>
                     </div>
                   ))}
@@ -260,7 +260,7 @@ export const SolutionsCatalogPage: React.FC<SolutionsCatalogPageProps> = ({
                     key={idx}
                     className="flex items-center gap-2 text-xs text-slate-700 bg-blue-50/60 p-2.5 rounded-lg border border-blue-100"
                   >
-                    <Check className="w-3.5 h-3.5 text-[#004F9F] shrink-0" />
+                    <Check className="w-3.5 h-3.5 text-marca shrink-0" />
                     <span>{feat}</span>
                   </div>
                 ))}

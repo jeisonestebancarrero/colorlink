@@ -139,7 +139,7 @@ export const CotizacionFormal: React.FC<{
             <div className="flex items-center gap-2">
               <button
                 onClick={imprimir}
-                className="inline-flex items-center gap-1.5 bg-[#004F9F] hover:bg-[#003B77] text-white text-xs font-bold px-3.5 py-2 rounded-lg"
+                className="inline-flex items-center gap-1.5 bg-marca hover:bg-marca-hover text-white text-xs font-bold px-3.5 py-2 rounded-lg"
               >
                 <Printer className="w-3.5 h-3.5" /> Imprimir o guardar en PDF
               </button>
@@ -155,7 +155,7 @@ export const CotizacionFormal: React.FC<{
 
           <div ref={documento} className="p-8 text-slate-800">
             {/* Encabezado */}
-            <div className="flex flex-wrap justify-between gap-6 pb-5 border-b-2 border-[#004F9F]">
+            <div className="flex flex-wrap justify-between gap-6 pb-5 border-b-2 border-marca">
               <div className="flex items-start gap-3">
                 <img
                   src={logoPintuco}
@@ -163,7 +163,7 @@ export const CotizacionFormal: React.FC<{
                   className="w-24 h-auto rounded-md shrink-0"
                 />
                 <div>
-                  <p className="text-lg font-extrabold text-[#004F9F] leading-tight">
+                  <p className="text-lg font-extrabold text-marca leading-tight">
                     {emisor?.nombre ?? 'Pintuco'}
                   </p>
                   {/* Cada dato solo si existe, para no imprimir campos vacíos. */}

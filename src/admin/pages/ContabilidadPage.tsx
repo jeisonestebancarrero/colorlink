@@ -184,7 +184,7 @@ export const ContabilidadPage: React.FC = () => {
       <div className="space-y-5 max-w-4xl">
         <button
           onClick={() => setAbierto(null)}
-          className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-[#004F9F]"
+          className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-marca"
         >
           <ArrowLeft className="w-3.5 h-3.5" /> Volver a comprobantes
         </button>
@@ -544,7 +544,7 @@ export const ContabilidadPage: React.FC = () => {
           <button
             type="button"
             onClick={() => setRenglones([...renglones, { ...RENGLON_VACIO }])}
-            className="text-xs font-semibold text-[#004F9F] hover:underline"
+            className="text-xs font-semibold text-marca hover:underline"
           >
             + Agregar línea
           </button>
@@ -590,7 +590,7 @@ export const ContabilidadPage: React.FC = () => {
               onClick={() => setPestana(clave)}
               className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-bold transition-colors ${
                 pestana === clave
-                  ? 'bg-[#004F9F] text-white shadow-2xs'
+                  ? 'bg-marca text-white shadow-2xs'
                   : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
               }`}
             >
@@ -668,7 +668,7 @@ export const ContabilidadPage: React.FC = () => {
                 value={busqueda}
                 onChange={(e) => setBusqueda(e.target.value)}
                 placeholder="Buscar por número, descripción u origen…"
-                className="w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 py-2.5 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#004F9F]/20 focus:border-[#004F9F]"
+                className="w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 py-2.5 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-marca/20 focus:border-marca"
               />
             </div>
             {/* Filtro por mes. */}

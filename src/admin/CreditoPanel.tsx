@@ -134,7 +134,7 @@ export const CreditoPanel: React.FC<Props> = ({ companyId }) => {
       className="bg-white border border-slate-200 rounded-xl p-4 space-y-4"
     >
       <div className="flex items-center gap-2 flex-wrap">
-        <Landmark className="w-4 h-4 text-[#004F9F]" />
+        <Landmark className="w-4 h-4 text-marca" />
         <h3 className="text-sm font-bold text-slate-900">Condición de pago</h3>
         {datos?.aCredito
           ? <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-800 border border-blue-200">
@@ -191,7 +191,7 @@ export const CreditoPanel: React.FC<Props> = ({ companyId }) => {
               type="checkbox"
               checked={aCredito}
               onChange={(e) => setACredito(e.target.checked)}
-              className="mt-0.5 w-4 h-4 accent-[#004F9F] cursor-pointer"
+              className="mt-0.5 w-4 h-4 accent-marca cursor-pointer"
             />
             <span>
               <span className="block text-xs font-bold text-slate-800">Vender a crédito</span>

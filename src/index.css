@@ -1,5 +1,16 @@
 @import "tailwindcss";
 
+/* Paleta de marca: un tono por función, para que el mismo color signifique lo mismo en todas las pantallas. */
+@theme {
+  --color-marca: #004F9F;
+  --color-marca-hover: #003B77;
+  --color-marca-claro: #0068D4;
+  --color-marca-oscuro: #002D5C;
+  --color-marca-profundo: #00172E;
+  --color-acento: #FFB81C;
+  --color-acento-claro: #FFCB57;
+}
+
 /* Animaciones de la burbuja del asistente. Se apagan con prefers-reduced-motion:
    el movimiento continuo en todas las pantallas causa mareo a algunas personas. */
 

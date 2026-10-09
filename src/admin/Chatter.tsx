@@ -80,7 +80,7 @@ export const Chatter: React.FC<{
   return (
     <div className="bg-white rounded-xl border border-slate-200 shadow-2xs">
       <div className="px-5 py-3.5 border-b border-slate-100 flex items-center gap-2 flex-wrap">
-        <MessageSquare className="w-4 h-4 text-[#004F9F]" />
+        <MessageSquare className="w-4 h-4 text-marca" />
         <h3 className="text-sm font-extrabold text-slate-900">Conversación y trazabilidad</h3>
 
         {abierta === false && (
@@ -142,13 +142,13 @@ export const Chatter: React.FC<{
             ? 'bg-amber-100 text-amber-800 border-amber-200'
             : m.quien === 'CLIENTE'
               ? 'bg-slate-200 text-slate-700 border-slate-300'
-              : 'bg-[#004F9F] text-white border-[#004F9F]';
+              : 'bg-marca text-white border-marca';
 
           const burbuja = esNota
             ? 'bg-amber-50 border-amber-200 text-amber-950 rounded-tr-sm'
             : m.quien === 'CLIENTE'
               ? 'bg-white border-slate-200 text-slate-700 rounded-tl-sm'
-              : 'bg-[#004F9F] border-[#004F9F] text-white rounded-tr-sm';
+              : 'bg-marca border-marca text-white rounded-tr-sm';
 
           return (
             <div
@@ -176,7 +176,7 @@ export const Chatter: React.FC<{
                         ? 'text-amber-700'
                         : m.quien === 'CLIENTE'
                           ? 'text-slate-500'
-                          : 'text-[#004F9F]'
+                          : 'text-marca'
                     }`}
                   >
                     {esNota ? 'Nota interna' : etiqueta}
@@ -229,7 +229,7 @@ export const Chatter: React.FC<{
             onChange={(e) => setTexto(e.target.value)}
             rows={2}
             placeholder={interno ? 'Nota visible solo para el equipo…' : 'Escribe al cliente…'}
-            className={`w-full text-sm rounded-lg border px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-[#004F9F]/30 ${
+            className={`w-full text-sm rounded-lg border px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-marca/30 ${
               interno ? 'bg-amber-50/60 border-amber-200' : 'border-slate-200'
             }`}
           />

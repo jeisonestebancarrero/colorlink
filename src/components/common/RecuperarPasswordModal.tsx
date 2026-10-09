@@ -194,7 +194,7 @@ export const RecuperarPasswordModal: React.FC<{
               <button
                 type="button"
                 onClick={() => setPaso('correo')}
-                className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-[#004F9F]"
+                className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-marca"
               >
                 <ArrowLeft className="w-3.5 h-3.5" /> Cambiar el correo
               </button>
@@ -202,7 +202,7 @@ export const RecuperarPasswordModal: React.FC<{
                 type="button"
                 disabled={segundos > 0 || ocupado}
                 onClick={() => void enviarCodigo(true)}
-                className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#004F9F] hover:underline disabled:text-slate-400 disabled:no-underline disabled:cursor-not-allowed"
+                className="inline-flex items-center gap-1.5 text-xs font-semibold text-marca hover:underline disabled:text-slate-400 disabled:no-underline disabled:cursor-not-allowed"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
                 {segundos > 0 ? `Reenviar en ${segundos}s` : 'Reenviar código'}

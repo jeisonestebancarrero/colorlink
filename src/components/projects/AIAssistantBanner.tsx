@@ -25,7 +25,7 @@ export const AIAssistantBanner: React.FC<AIAssistantBannerProps> = ({
   return (
     <div
       id="colorlink-ai-assistant-card"
-      className="bg-linear-to-br from-slate-900 via-[#002D5C] to-[#004F9F] text-white rounded-2xl p-6 shadow-xl border border-blue-400/20 text-left relative overflow-hidden"
+      className="bg-linear-to-br from-slate-900 via-marca-oscuro to-marca text-white rounded-2xl p-6 shadow-xl border border-blue-400/20 text-left relative overflow-hidden"
     >
       {/* Subtle background glow effect */}
       <div className="absolute top-0 right-0 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />

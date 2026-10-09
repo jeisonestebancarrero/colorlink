@@ -228,13 +228,13 @@ export const VisitasPage: React.FC = () => {
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
             placeholder="Buscar por obra, cliente, ciudad o técnico…"
-            className="w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 py-2.5 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#004F9F]/20 focus:border-[#004F9F]"
+            className="w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 py-2.5 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-marca/20 focus:border-marca"
           />
         </div>
         <select
           value={estado}
           onChange={(e) => setEstado(e.target.value as EstadoVisita | 'ABIERTAS' | 'TODAS')}
-          className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#004F9F]/20"
+          className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm cursor-pointer focus:outline-none focus:ring-2 focus:ring-marca/20"
         >
           <option value="ABIERTAS">Abiertas ({abiertas})</option>
           <option value="TODAS">Todas</option>
@@ -386,7 +386,7 @@ export const VisitasPage: React.FC = () => {
                 rows={4}
                 required
                 placeholder="Estado de la superficie, patologías confirmadas, recomendación de sistema…"
-                className="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#004F9F]/20 focus:border-[#004F9F]"
+                className="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-marca/20 focus:border-marca"
               />
               <p className="text-[11px] text-slate-400 mt-1.5 leading-relaxed">
                 Este texto le llega al cliente como informe de la visita. Es la única constancia de

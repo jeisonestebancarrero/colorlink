@@ -95,7 +95,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
   return (
     <div className="min-h-screen bg-slate-50 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,560px)]">
       {/* Panel de marca */}
-      <aside className="relative hidden lg:flex flex-col justify-between overflow-hidden bg-[#00306B] p-12 xl:p-16">
+      <aside className="relative hidden lg:flex flex-col justify-between overflow-hidden bg-marca-oscuro p-12 xl:p-16">
         <div
           aria-hidden
           className="absolute inset-0 bg-[radial-gradient(circle_at_18%_12%,rgba(0,110,210,0.55),transparent_58%),radial-gradient(circle_at_85%_88%,rgba(255,184,28,0.20),transparent_55%)]"
@@ -113,7 +113,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
         <div className="relative max-w-md">
           <h1 className="text-4xl xl:text-[2.75rem] font-extrabold text-white leading-[1.1] tracking-tight">
             Tu obra, tus colores y tus pedidos{' '}
-            <span className="text-[#FFB81C]">en un solo lugar.</span>
+            <span className="text-acento">en un solo lugar.</span>
           </h1>
           <p className="text-sm text-blue-100/80 mt-4 leading-relaxed">
             El ecosistema digital oficial de Pintuco para clientes, constructoras y
@@ -123,7 +123,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
           <ul className="mt-10 space-y-5">
             {VENTAJAS.map(({ icono: Icono, titulo, texto }) => (
               <li key={titulo} className="flex gap-4">
-                <span className="shrink-0 w-10 h-10 rounded-xl bg-white/10 border border-white/15 flex items-center justify-center text-[#FFB81C]">
+                <span className="shrink-0 w-10 h-10 rounded-xl bg-white/10 border border-white/15 flex items-center justify-center text-acento">
                   <Icono className="w-5 h-5" />
                 </span>
                 <span>
@@ -161,7 +161,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
           <button
             type="button"
             onClick={() => onNavigate('store')}
-            className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-[#004F9F] transition-colors mb-6"
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-marca transition-colors mb-6"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
             Volver a la tienda sin iniciar sesión
@@ -212,7 +212,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
                   type="checkbox"
                   checked={rememberMe}
                   onChange={(e) => setRememberMe(e.target.checked)}
-                  className="rounded border-slate-300 text-[#004F9F] focus:ring-[#004F9F]"
+                  className="rounded border-slate-300 text-marca focus:ring-marca"
                 />
                 <span>Recordarme</span>
               </label>
@@ -220,7 +220,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
               <button
                 type="button"
                 onClick={() => setRecuperando(true)}
-                className="text-xs font-semibold text-[#004F9F] hover:underline"
+                className="text-xs font-semibold text-marca hover:underline"
               >
                 ¿Olvidaste tu contraseña?
               </button>
@@ -231,7 +231,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
               variant="pintuco"
               size="lg"
               isLoading={isSubmitting}
-              className="w-full text-sm font-bold shadow-md shadow-[#004F9F]/20"
+              className="w-full text-sm font-bold shadow-md shadow-marca/20"
               rightIcon={<ArrowRight className="w-4 h-4" />}
             >
               Iniciar sesión
@@ -253,7 +253,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
             ¿No tienes una cuenta aún?{' '}
             <button
               onClick={() => onNavigate('register')}
-              className="font-bold text-[#004F9F] hover:underline"
+              className="font-bold text-marca hover:underline"
             >
               Crear cuenta de cliente
             </button>

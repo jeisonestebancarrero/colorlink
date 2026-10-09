@@ -109,7 +109,7 @@ export const PasarelaPanel: React.FC = () => {
       className="bg-white rounded-xl border border-slate-200 shadow-2xs p-6 space-y-5"
     >
       <div className="flex items-center gap-2 pb-3 border-b border-slate-100 flex-wrap">
-        <CreditCard className="w-4 h-4 text-[#004F9F]" />
+        <CreditCard className="w-4 h-4 text-marca" />
         <h2 className="text-base font-extrabold text-slate-900">Pasarela de pagos</h2>
         {marca(!!estado?.activa, 'Activa', 'Apagada')}
         {estado?.prueba
@@ -153,7 +153,7 @@ export const PasarelaPanel: React.FC = () => {
             type="checkbox"
             checked={activa}
             onChange={(e) => setActiva(e.target.checked)}
-            className="mt-0.5 w-4 h-4 accent-[#004F9F] cursor-pointer"
+            className="mt-0.5 w-4 h-4 accent-marca cursor-pointer"
           />
           <span>
             <span className="block text-xs font-bold text-slate-800">Aceptar pagos en línea</span>
@@ -188,7 +188,7 @@ export const PasarelaPanel: React.FC = () => {
           <h3 className="text-sm font-bold text-slate-800">Llaves de Wompi</h3>
           <a
             href={AYUDA_WOMPI} target="_blank" rel="noopener noreferrer"
-            className="text-[11px] font-semibold text-[#004F9F] hover:underline flex items-center gap-1"
+            className="text-[11px] font-semibold text-marca hover:underline flex items-center gap-1"
           >
             Dónde encontrarlas <ExternalLink className="w-3 h-3" />
           </a>

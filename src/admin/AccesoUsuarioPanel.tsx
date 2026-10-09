@@ -355,7 +355,7 @@ export const AccesoUsuarioPanel: React.FC<{
                   checked={mfa.requerido}
                   disabled={cambiandoExigencia || mfa.configurado}
                   onChange={(e) => void cambiarExigencia(e.target.checked)}
-                  className="mt-0.5 rounded border-slate-300 text-[#004F9F] focus:ring-[#004F9F] disabled:opacity-50"
+                  className="mt-0.5 rounded border-slate-300 text-marca focus:ring-marca disabled:opacity-50"
                 />
                 <span className="text-[11px] leading-relaxed">
                   <span className="font-bold text-slate-700 block">

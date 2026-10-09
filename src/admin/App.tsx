@@ -53,7 +53,7 @@ const Contenido: React.FC = () => {
 
   if (cargando) {
     return (
-      <div className="min-h-screen bg-[#002D5C] flex items-center justify-center">
+      <div className="min-h-screen bg-marca-oscuro flex items-center justify-center">
         <div className="w-12 h-12 border-4 border-white/30 border-t-white rounded-full animate-spin" />
       </div>
     );
@@ -70,7 +70,7 @@ const Contenido: React.FC = () => {
   // Cambio de contraseña provisional; va después del MFA a propósito.
   if (debeCambiarClave === null) {
     return (
-      <div className="min-h-screen bg-[#002D5C] flex items-center justify-center">
+      <div className="min-h-screen bg-marca-oscuro flex items-center justify-center">
         <div className="w-12 h-12 border-4 border-white/30 border-t-white rounded-full animate-spin" />
       </div>
     );
@@ -105,7 +105,7 @@ const Contenido: React.FC = () => {
           </p>
           <button
             onClick={() => setRuta(RUTA_TABLERO)}
-            className="mt-4 px-4 py-2 rounded-lg bg-[#004F9F] text-white text-xs font-bold cursor-pointer"
+            className="mt-4 px-4 py-2 rounded-lg bg-marca text-white text-xs font-bold cursor-pointer"
           >
             Volver al inicio
           </button>

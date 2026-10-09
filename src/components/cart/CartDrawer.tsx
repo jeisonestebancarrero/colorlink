@@ -156,7 +156,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ onNavigate }) => {
           <div className="fixed inset-y-0 right-0 max-w-full flex pl-10">
             <div className="w-screen max-w-lg bg-white shadow-2xl flex flex-col transform transition-transform duration-300 ease-out">
               {/* Header */}
-              <div className="px-5 py-4 bg-[#004F9F] text-white flex items-center justify-between shadow-xs">
+              <div className="px-5 py-4 bg-marca text-white flex items-center justify-between shadow-xs">
                 <div className="flex items-center gap-2.5">
                   <div className="w-9 h-9 rounded-lg bg-white/15 flex items-center justify-center">
                     <ShoppingCart className="w-5 h-5 text-white" />
@@ -183,7 +183,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ onNavigate }) => {
               <div className="flex-1 overflow-y-auto p-5 space-y-6">
                 {cartItems.length === 0 ? (
                   <div className="py-16 text-center space-y-4">
-                    <div className="w-16 h-16 bg-blue-50 text-[#004F9F] rounded-full flex items-center justify-center mx-auto">
+                    <div className="w-16 h-16 bg-blue-50 text-marca rounded-full flex items-center justify-center mx-auto">
                       <ShoppingCart className="w-8 h-8 stroke-[1.5]" />
                     </div>
                     <div className="space-y-1">
@@ -197,7 +197,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ onNavigate }) => {
                     <Button
                       onClick={() => setIsCartOpen(false)}
                       variant="primary"
-                      className="bg-[#004F9F] text-xs font-semibold"
+                      className="bg-marca text-xs font-semibold"
                     >
                       Explorar Tienda Pintuco
                     </Button>
@@ -212,7 +212,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ onNavigate }) => {
                           onClick={() => setDeliveryMethod('pickup')}
                           className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                             deliveryMethod === 'pickup'
-                              ? 'bg-[#004F9F] text-white shadow-xs'
+                              ? 'bg-marca text-white shadow-xs'
                               : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
                           }`}
                         >
@@ -224,7 +224,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ onNavigate }) => {
                           onClick={() => setDeliveryMethod('delivery')}
                           className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                             deliveryMethod === 'delivery'
-                              ? 'bg-[#004F9F] text-white shadow-xs'
+                              ? 'bg-marca text-white shadow-xs'
                               : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
                           }`}
                         >
@@ -238,7 +238,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ onNavigate }) => {
                         <div className="mt-3 p-3 bg-white rounded-lg border border-blue-100 space-y-2.5">
                           <div className="flex items-start justify-between gap-2">
                             <div className="flex items-start gap-2">
-                              <MapPin className="w-4 h-4 text-[#004F9F] shrink-0 mt-0.5" />
+                              <MapPin className="w-4 h-4 text-marca shrink-0 mt-0.5" />
                               <div>
                                 <p className="text-xs font-bold text-slate-800">
                                   {selectedStore.name}
@@ -258,7 +258,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ onNavigate }) => {
                             </div>
                             <button
                               onClick={() => setShowStoreDropdown(!showStoreDropdown)}
-                              className="text-[11px] font-bold text-[#004F9F] hover:underline cursor-pointer shrink-0"
+                              className="text-[11px] font-bold text-marca hover:underline cursor-pointer shrink-0"
                             >
                               Cambiar
                             </button>
@@ -278,7 +278,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ onNavigate }) => {
                                   }}
                                   className={`w-full text-left p-2 rounded-lg text-xs transition-colors cursor-pointer ${
                                     selectedStore.id === s.id
-                                      ? 'bg-blue-50 border border-blue-200 text-[#004F9F] font-bold'
+                                      ? 'bg-blue-50 border border-blue-200 text-marca font-bold'
                                       : 'hover:bg-slate-50 text-slate-700'
                                   }`}
                                 >
@@ -359,7 +359,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ onNavigate }) => {
                               </div>
                             )}
                             <ColorPendienteLinea item={item} />
-                            <p className="text-xs font-extrabold text-[#004F9F] mt-1">
+                            <p className="text-xs font-extrabold text-marca mt-1">
                               {formatCOP(item.unitPrice)} <span className="text-[10px] font-normal text-slate-500">c/u · IVA incl.</span>
                             </p>
                           </div>
@@ -458,7 +458,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ onNavigate }) => {
 
                     <div className="pt-2 border-t border-slate-200 flex justify-between items-baseline">
                       <span className="text-sm font-extrabold text-slate-900">Total a Pagar (COP):</span>
-                      <span className="text-xl font-extrabold text-[#004F9F]">
+                      <span className="text-xl font-extrabold text-marca">
                         {formatCOP(totalAPagarCOP)}
                       </span>
                     </div>
@@ -472,7 +472,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ onNavigate }) => {
                   {necesitaSesionPara ? (
                     <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 space-y-3">
                       <div className="flex items-start gap-2.5">
-                        <Lock className="w-4 h-4 text-[#004F9F] shrink-0 mt-0.5" />
+                        <Lock className="w-4 h-4 text-marca shrink-0 mt-0.5" />
                         <div className="space-y-1">
                           <p className="text-sm font-bold text-slate-900">
                             {necesitaSesionPara === 'cotizacion'
@@ -495,7 +495,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ onNavigate }) => {
                         <Button
                           onClick={() => irA('login')}
                           variant="primary"
-                          className="bg-[#004F9F] hover:bg-[#003B77] text-xs font-bold text-white shadow-md flex items-center justify-center gap-1.5 cursor-pointer"
+                          className="bg-marca hover:bg-marca-hover text-xs font-bold text-white shadow-md flex items-center justify-center gap-1.5 cursor-pointer"
                         >
                           <LogIn className="w-3.5 h-3.5" />
                           <span>Iniciar sesión</span>
@@ -503,7 +503,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ onNavigate }) => {
                         <Button
                           onClick={() => irA('register')}
                           variant="outline"
-                          className="text-xs font-bold border-[#004F9F] text-[#004F9F] flex items-center justify-center gap-1.5"
+                          className="text-xs font-bold border-marca text-marca flex items-center justify-center gap-1.5"
                         >
                           <UserPlus className="w-3.5 h-3.5" />
                           <span>Crear cuenta</span>
@@ -542,7 +542,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ onNavigate }) => {
                           onClick={completeCheckout}
                           disabled={recuperandoCarrito || lineasSinColor.length > 0}
                           variant="primary"
-                          className="bg-[#004F9F] hover:bg-[#003B77] text-xs font-bold text-white shadow-md flex items-center justify-center gap-1.5 cursor-pointer"
+                          className="bg-marca hover:bg-marca-hover text-xs font-bold text-white shadow-md flex items-center justify-center gap-1.5 cursor-pointer"
                         >
                           <span>Confirmar Pedido</span>
                           <ArrowRight className="w-3.5 h-3.5" />
@@ -649,7 +649,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ onNavigate }) => {
             <Button
               onClick={() => setIsCheckoutSuccessOpen(false)}
               variant="primary"
-              className="w-full bg-[#004F9F] text-xs font-bold text-white py-2.5 cursor-pointer"
+              className="w-full bg-marca text-xs font-bold text-white py-2.5 cursor-pointer"
             >
               Volver a la Plataforma
             </Button>

@@ -51,7 +51,7 @@ export const PanelPage: React.FC<{ onIr?: (ruta: string) => void }> = ({ onIr })
   if (cargando) {
     return (
       <div className="flex justify-center py-24">
-        <div className="w-10 h-10 border-4 border-[#004F9F] border-t-transparent rounded-full animate-spin" />
+        <div className="w-10 h-10 border-4 border-marca border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
@@ -162,7 +162,7 @@ export const PanelPage: React.FC<{ onIr?: (ruta: string) => void }> = ({ onIr })
                   {p.valor}
                 </span>
                 {onIr && (
-                  <ArrowRight className="w-4 h-4 text-slate-300 group-hover:text-[#004F9F] shrink-0" />
+                  <ArrowRight className="w-4 h-4 text-slate-300 group-hover:text-marca shrink-0" />
                 )}
               </Ir>
             ))}
@@ -210,7 +210,7 @@ export const PanelPage: React.FC<{ onIr?: (ruta: string) => void }> = ({ onIr })
 
           <Ir
             ruta="/analitica"
-            className="bg-[#004F9F] rounded-xl shadow-2xs p-5 text-white hover:bg-[#0068d4] transition-colors"
+            className="bg-marca rounded-xl shadow-2xs p-5 text-white hover:bg-marca-hover transition-colors"
           >
             <p className="text-[11px] font-bold uppercase tracking-wider text-white/70">
               Analítica
@@ -289,7 +289,7 @@ export const PanelPage: React.FC<{ onIr?: (ruta: string) => void }> = ({ onIr })
             {onIr && (
               <button
                 onClick={() => onIr('/inventario')}
-                className="w-full px-5 py-2.5 text-xs font-bold text-[#004F9F] hover:bg-slate-50 border-t border-slate-100 text-left"
+                className="w-full px-5 py-2.5 text-xs font-bold text-marca hover:bg-slate-50 border-t border-slate-100 text-left"
               >
                 Abrir inventario →
               </button>
@@ -350,7 +350,7 @@ export const PanelPage: React.FC<{ onIr?: (ruta: string) => void }> = ({ onIr })
             {onIr && (
               <button
                 onClick={() => onIr('/visitas')}
-                className="w-full px-5 py-2.5 text-xs font-bold text-[#004F9F] hover:bg-slate-50 border-t border-slate-100 text-left"
+                className="w-full px-5 py-2.5 text-xs font-bold text-marca hover:bg-slate-50 border-t border-slate-100 text-left"
               >
                 Abrir la agenda →
               </button>

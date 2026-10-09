@@ -12,7 +12,7 @@ import { ubicacionService } from '../../services/ubicaciones';
 
 const claseInput =
   'w-full border border-slate-200 rounded-lg px-2.5 py-2 text-xs text-slate-800 ' +
-  'focus:outline-none focus:border-[#004F9F] focus:ring-2 focus:ring-[#004F9F]/20';
+  'focus:outline-none focus:border-marca focus:ring-2 focus:ring-marca/20';
 const claseInputError = 'border-rose-400 bg-rose-50/40';
 
 /** '2026-09-04' → 'viernes 4 de septiembre'. */
@@ -87,7 +87,7 @@ export const DestinoEnvioSelector: React.FC = () => {
               onClick={() => setDestino({ ...destino, modo: o.modo })}
               className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-bold border transition-colors cursor-pointer ${
                 destino.modo === o.modo
-                  ? 'bg-[#004F9F] text-white border-[#004F9F]'
+                  ? 'bg-marca text-white border-marca'
                   : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
               }`}
             >
@@ -112,7 +112,7 @@ export const DestinoEnvioSelector: React.FC = () => {
               onClick={() => setDestino({ ...destino, customerAddressId: d.id, companyBranchId: null })}
               className={`w-full text-left p-2.5 rounded-lg border text-xs transition-colors cursor-pointer ${
                 destino.customerAddressId === d.id
-                  ? 'border-[#004F9F] bg-blue-50/70 ring-1 ring-[#004F9F]'
+                  ? 'border-marca bg-blue-50/70 ring-1 ring-marca'
                   : 'border-slate-200 hover:bg-slate-50'
               }`}
             >
@@ -133,7 +133,7 @@ export const DestinoEnvioSelector: React.FC = () => {
                   </p>
                 </div>
                 {destino.customerAddressId === d.id && (
-                  <Check className="w-4 h-4 text-[#004F9F] shrink-0 mt-0.5" />
+                  <Check className="w-4 h-4 text-marca shrink-0 mt-0.5" />
                 )}
               </div>
             </button>
@@ -163,14 +163,14 @@ export const DestinoEnvioSelector: React.FC = () => {
                 onClick={() => setDestino({ ...destino, companyBranchId: sd.id, customerAddressId: null })}
                 className={`w-full text-left p-2.5 rounded-lg border text-xs transition-colors cursor-pointer ${
                   elegida
-                    ? 'border-[#004F9F] bg-blue-50/70 ring-1 ring-[#004F9F]'
+                    ? 'border-marca bg-blue-50/70 ring-1 ring-marca'
                     : 'border-slate-200 hover:bg-slate-50'
                 }`}
               >
                 <div className="flex items-start justify-between gap-2">
                   <div className="space-y-0.5">
                     <p className="font-bold text-slate-800 flex items-center gap-1.5">
-                      <Building2 className="w-3.5 h-3.5 text-[#004F9F]" />
+                      <Building2 className="w-3.5 h-3.5 text-marca" />
                       {sd.name}
                       {sd.isDefault && (
                         <span className="text-[9px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 py-0.5 rounded">
@@ -201,7 +201,7 @@ export const DestinoEnvioSelector: React.FC = () => {
                       <p className="text-[11px] text-slate-400 italic">{sd.notes}</p>
                     )}
                   </div>
-                  {elegida && <Check className="w-4 h-4 text-[#004F9F] shrink-0 mt-0.5" />}
+                  {elegida && <Check className="w-4 h-4 text-marca shrink-0 mt-0.5" />}
                 </div>
               </button>
             );
@@ -311,7 +311,7 @@ export const QuienRecibeFormulario: React.FC = () => {
           <button
             type="button"
             onClick={yoRecibo}
-            className="text-[11px] font-bold text-[#004F9F] hover:underline cursor-pointer"
+            className="text-[11px] font-bold text-marca hover:underline cursor-pointer"
           >
             Yo recibo
           </button>

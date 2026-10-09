@@ -81,8 +81,8 @@ export const CambiarFoto: React.FC<Props> = ({
           {url ? (
             <img src={url} alt={nombre} className="w-full h-full object-cover" />
           ) : (
-            <span className="text-xl font-extrabold text-[#004F9F] flex flex-col items-center gap-0.5">
-              <Marcador className="w-5 h-5 text-[#004F9F]/60" />
+            <span className="text-xl font-extrabold text-marca flex flex-col items-center gap-0.5">
+              <Marcador className="w-5 h-5 text-marca/60" />
               {iniciales}
             </span>
           )}
@@ -93,8 +93,8 @@ export const CambiarFoto: React.FC<Props> = ({
             type="button"
             onClick={() => entrada.current?.click()}
             disabled={subiendo}
-            className="absolute -bottom-1 -right-1 w-8 h-8 rounded-full bg-[#004F9F] text-white
-                       flex items-center justify-center shadow-md hover:bg-[#003B77]
+            className="absolute -bottom-1 -right-1 w-8 h-8 rounded-full bg-marca text-white
+                       flex items-center justify-center shadow-md hover:bg-marca-hover
                        disabled:opacity-60 transition-colors cursor-pointer"
             aria-label={tipo === 'empresa' ? 'Cambiar logo' : 'Cambiar foto'}
           >

@@ -68,7 +68,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
       </main>
 
       {/* Corporate Pintuco Footer */}
-      <footer className="bg-[#002244] text-white border-t border-blue-900/60 mt-16">
+      <footer className="bg-marca-oscuro text-white border-t border-blue-900/60 mt-16">
         {/* Main Footer Links */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
@@ -88,14 +88,14 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
 
             {/* Quick Actions */}
             <div className="space-y-3">
-              <h4 className="text-xs font-bold uppercase tracking-wider text-yellow-400">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-acento">
                 Acciones Principales
               </h4>
               <ul className="space-y-2 text-xs text-blue-100">
                 <li>
                   <button
                     onClick={() => onNavigate('store')}
-                    className="hover:text-yellow-400 transition-colors text-left cursor-pointer"
+                    className="hover:text-acento transition-colors text-left cursor-pointer"
                   >
                     • Comprar Pinturas y Esmaltes
                   </button>
@@ -103,7 +103,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
                 <li>
                   <button
                     onClick={() => onNavigate('colors')}
-                    className="hover:text-yellow-400 transition-colors text-left cursor-pointer"
+                    className="hover:text-acento transition-colors text-left cursor-pointer"
                   >
                     • Carta de Colores & Visualizador 2025
                   </button>
@@ -111,7 +111,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
                 <li>
                   <button
                     onClick={() => onNavigate('calculator')}
-                    className="hover:text-yellow-400 transition-colors text-left cursor-pointer"
+                    className="hover:text-acento transition-colors text-left cursor-pointer"
                   >
                     • Calculadora de Galones y Metraje
                   </button>
@@ -119,7 +119,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
                 <li>
                   <button
                     onClick={() => onNavigate('solutions')}
-                    className="hover:text-yellow-400 transition-colors text-left cursor-pointer"
+                    className="hover:text-acento transition-colors text-left cursor-pointer"
                   >
                     • Kits de Solución por Patología
                   </button>
@@ -127,7 +127,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
                 <li>
                   <button
                     onClick={() => onNavigate('projects')}
-                    className="hover:text-yellow-400 transition-colors text-left cursor-pointer"
+                    className="hover:text-acento transition-colors text-left cursor-pointer"
                   >
                     • Gestión de Obras y Proyectos B2B
                   </button>
@@ -137,14 +137,14 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
 
             {/* Lines of Product */}
             <div className="space-y-3">
-              <h4 className="text-xs font-bold uppercase tracking-wider text-yellow-400">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-acento">
                 Líneas Especializadas
               </h4>
               <ul className="space-y-2 text-xs text-blue-100">
                 <li>
                   <button
                     onClick={() => onNavigate('store', 'Fachadas & Exteriores')}
-                    className="hover:text-yellow-400 transition-colors text-left cursor-pointer"
+                    className="hover:text-acento transition-colors text-left cursor-pointer"
                   >
                     • Fachadas y Protección Exterior (Koraza)
                   </button>
@@ -152,7 +152,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
                 <li>
                   <button
                     onClick={() => onNavigate('store', 'Vinilos & Interiores')}
-                    className="hover:text-yellow-400 transition-colors text-left cursor-pointer"
+                    className="hover:text-acento transition-colors text-left cursor-pointer"
                   >
                     • Vinilos Lavables de Interior (Viniltex)
                   </button>
@@ -160,7 +160,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
                 <li>
                   <button
                     onClick={() => onNavigate('store', 'Impermeabilizantes')}
-                    className="hover:text-yellow-400 transition-colors text-left cursor-pointer"
+                    className="hover:text-acento transition-colors text-left cursor-pointer"
                   >
                     • Impermeabilizantes de Techos (Aquablock)
                   </button>
@@ -168,7 +168,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
                 <li>
                   <button
                     onClick={() => onNavigate('store', 'Esmaltes & Metales')}
-                    className="hover:text-yellow-400 transition-colors text-left cursor-pointer"
+                    className="hover:text-acento transition-colors text-left cursor-pointer"
                   >
                     • Anticorrosivos y Esmaltes (Pintulux)
                   </button>
@@ -176,7 +176,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
                 <li>
                   <button
                     onClick={() => onNavigate('store', 'Maderas & Barnices')}
-                    className="hover:text-yellow-400 transition-colors text-left cursor-pointer"
+                    className="hover:text-acento transition-colors text-left cursor-pointer"
                   >
                     • Maderas y Barnices UV (Madetec)
                   </button>
@@ -186,7 +186,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
 
             {/* Support & Stores */}
             <div className="space-y-3">
-              <h4 className="text-xs font-bold uppercase tracking-wider text-yellow-400">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-acento">
                 Atención y Retiro en Tienda
               </h4>
               <div className="space-y-2 text-xs text-blue-100">
@@ -202,7 +202,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
                 </p>
                 <button
                   onClick={() => onNavigate('stores')}
-                  className="mt-2 inline-flex items-center gap-1.5 text-xs font-bold bg-yellow-400 text-slate-950 px-3 py-1.5 rounded-md hover:bg-yellow-300 transition-colors cursor-pointer"
+                  className="mt-2 inline-flex items-center gap-1.5 text-xs font-bold bg-acento text-slate-950 px-3 py-1.5 rounded-md hover:bg-acento-claro transition-colors cursor-pointer"
                 >
                   Buscar Tienda Pintuco Cercana
                 </button>
@@ -212,7 +212,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
         </div>
 
         {/* Bottom Bar */}
-        <div className="border-t border-blue-900/80 bg-[#00172e] py-4 px-4 sm:px-6 lg:px-8 text-xs text-blue-300 flex flex-col sm:flex-row items-center justify-between gap-2 max-w-7xl mx-auto">
+        <div className="border-t border-blue-900/80 bg-marca-profundo py-4 px-4 sm:px-6 lg:px-8 text-xs text-blue-300 flex flex-col sm:flex-row items-center justify-between gap-2 max-w-7xl mx-auto">
           <p>© {new Date().getFullYear()} Pintuco Colombia S.A.S. • ColorLink Ecosistema Digital.</p>
           <div className="flex items-center gap-4 text-[11px]">
             <span>Garantía de Calidad Certificada</span>

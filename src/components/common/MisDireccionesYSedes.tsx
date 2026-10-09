@@ -17,7 +17,7 @@ import { Button } from './Button';
 
 const claseInput =
   'w-full px-3 py-2.5 rounded-lg border border-slate-300 bg-white text-sm text-slate-800 ' +
-  'focus:outline-none focus:ring-2 focus:ring-[#004F9F]/30 focus:border-[#004F9F]';
+  'focus:outline-none focus:ring-2 focus:ring-marca/30 focus:border-marca';
 
 type Modo = 'direccion' | 'sede';
 
@@ -198,7 +198,7 @@ export const MisDireccionesYSedes: React.FC = () => {
         <header className="flex items-center justify-between gap-2">
           <div>
             <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-              <MapPin className="w-4 h-4 text-[#004F9F]" /> Mis direcciones
+              <MapPin className="w-4 h-4 text-marca" /> Mis direcciones
             </h3>
             <p className="text-xs text-slate-500 mt-0.5">
               La marcada como principal es la que el carrito propone al pedir un envío.
@@ -241,7 +241,7 @@ export const MisDireccionesYSedes: React.FC = () => {
                 <div className="flex items-center gap-1 shrink-0">
                   <button
                     onClick={() => abrirDireccion(d)}
-                    className="p-1.5 rounded text-slate-400 hover:text-[#004F9F] hover:bg-blue-50 transition-colors cursor-pointer"
+                    className="p-1.5 rounded text-slate-400 hover:text-marca hover:bg-blue-50 transition-colors cursor-pointer"
                     aria-label={`Editar ${d.label}`}
                   >
                     <Pencil className="w-3.5 h-3.5" />
@@ -266,7 +266,7 @@ export const MisDireccionesYSedes: React.FC = () => {
           <header className="flex items-center justify-between gap-2">
             <div>
               <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                <Building2 className="w-4 h-4 text-[#004F9F]" /> Sedes de mi empresa
+                <Building2 className="w-4 h-4 text-marca" /> Sedes de mi empresa
               </h3>
               <p className="text-xs text-slate-500 mt-0.5">
                 Con más de una sede, el carrito te preguntará a cuál va cada pedido.
@@ -319,7 +319,7 @@ export const MisDireccionesYSedes: React.FC = () => {
                     <div className="flex items-center gap-1 shrink-0">
                       <button
                         onClick={() => abrirSede(sd)}
-                        className="p-1.5 rounded text-slate-400 hover:text-[#004F9F] hover:bg-blue-50 transition-colors cursor-pointer"
+                        className="p-1.5 rounded text-slate-400 hover:text-marca hover:bg-blue-50 transition-colors cursor-pointer"
                         aria-label={`Editar ${sd.name}`}
                       >
                         <Pencil className="w-3.5 h-3.5" />
@@ -446,7 +446,7 @@ export const MisDireccionesYSedes: React.FC = () => {
                   type="checkbox"
                   checked={borrador.principal}
                   onChange={(e) => setBorrador({ ...borrador, principal: e.target.checked })}
-                  className="rounded border-slate-300 text-[#004F9F] focus:ring-[#004F9F]"
+                  className="rounded border-slate-300 text-marca focus:ring-marca"
                 />
                 Marcar como principal
                 <span className="text-slate-400">
@@ -463,7 +463,7 @@ export const MisDireccionesYSedes: React.FC = () => {
                 variant="primary" size="sm"
                 onClick={() => void guardar()}
                 isLoading={guardando}
-                className="bg-[#004F9F] text-white text-xs font-bold"
+                className="bg-marca text-white text-xs font-bold"
               >
                 Guardar
               </Button>

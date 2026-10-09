@@ -72,7 +72,7 @@ export const AsistentePanel: React.FC = () => {
   return (
     <form onSubmit={guardar} className="bg-white rounded-xl border border-slate-200 shadow-2xs p-6 space-y-5">
       <div className="flex items-center gap-2 pb-3 border-b border-slate-100 flex-wrap">
-        <Bot className="w-4 h-4 text-[#004F9F]" />
+        <Bot className="w-4 h-4 text-marca" />
         <h2 className="text-base font-extrabold text-slate-900">Asistente de la tienda</h2>
         {estado?.activa
           ? <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 inline-flex items-center gap-1">
@@ -128,7 +128,7 @@ export const AsistentePanel: React.FC = () => {
           type="checkbox"
           checked={activa}
           onChange={(e) => setActiva(e.target.checked)}
-          className="mt-0.5 w-4 h-4 accent-[#004F9F] cursor-pointer"
+          className="mt-0.5 w-4 h-4 accent-marca cursor-pointer"
         />
         <span>
           <span className="block text-xs font-bold text-slate-800">Redactar con IA</span>
@@ -145,7 +145,7 @@ export const AsistentePanel: React.FC = () => {
           <h3 className="text-sm font-bold text-slate-800">Llave del proveedor</h3>
           <a
             href={AYUDA_LLAVE} target="_blank" rel="noopener noreferrer"
-            className="text-[11px] font-semibold text-[#004F9F] hover:underline flex items-center gap-1"
+            className="text-[11px] font-semibold text-marca hover:underline flex items-center gap-1"
           >
             Crear una llave <ExternalLink className="w-3 h-3" />
           </a>
@@ -172,7 +172,7 @@ export const AsistentePanel: React.FC = () => {
             value={modelo}
             onChange={(e) => setModelo(e.target.value)}
             className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-normal
-                       focus:outline-none focus:border-[#004F9F] focus:ring-2 focus:ring-[#004F9F]/20"
+                       focus:outline-none focus:border-marca focus:ring-2 focus:ring-marca/20"
           >
             {MODELOS.map((m) => <option key={m.id} value={m.id}>{m.id}</option>)}
           </select>

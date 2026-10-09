@@ -109,7 +109,7 @@ export const ComprarProductoModal: React.FC<ComprarProductoModalProps> = ({
                   onClick={() => elegirProducto(p)}
                   className={`w-full p-2.5 rounded-lg border text-left text-xs transition-all cursor-pointer ${
                     p.id === producto.id
-                      ? 'border-[#004F9F] bg-blue-50/80 font-bold text-[#004F9F] ring-1 ring-blue-600'
+                      ? 'border-marca bg-blue-50/80 font-bold text-marca ring-1 ring-blue-600'
                       : 'border-slate-200 hover:bg-slate-50 text-slate-700'
                   }`}
                 >
@@ -131,7 +131,7 @@ export const ComprarProductoModal: React.FC<ComprarProductoModalProps> = ({
                 onClick={() => setPresentacion(pres.label)}
                 className={`w-full p-2.5 rounded-lg border text-left flex items-center justify-between text-xs transition-all cursor-pointer ${
                   presentacion === pres.label
-                    ? 'border-[#004F9F] bg-blue-50/80 font-bold text-[#004F9F] ring-1 ring-blue-600'
+                    ? 'border-marca bg-blue-50/80 font-bold text-marca ring-1 ring-blue-600'
                     : 'border-slate-200 hover:bg-slate-50 text-slate-700'
                 }`}
               >
@@ -180,7 +180,7 @@ export const ComprarProductoModal: React.FC<ComprarProductoModalProps> = ({
             onClick={agregar}
             disabled={agregando}
             variant="primary"
-            className="flex-1 bg-[#004F9F] hover:bg-[#003B77] text-white text-xs font-bold py-2.5 shadow-md flex items-center justify-center gap-2 cursor-pointer"
+            className="flex-1 bg-marca hover:bg-marca-hover text-white text-xs font-bold py-2.5 shadow-md flex items-center justify-center gap-2 cursor-pointer"
           >
             <ShoppingCart className="w-4 h-4" />
             <span>{agregando ? 'Agregando…' : 'Agregar al carrito'}</span>

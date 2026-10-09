@@ -174,7 +174,7 @@ export const PaintCalculatorPage: React.FC<PaintCalculatorPageProps> = ({ onNavi
             </button>
             <button
               onClick={() => onNavigate('store')}
-              className="bg-[#004F9F] hover:bg-[#003B77] text-white text-xs font-bold px-3.5 py-2 rounded-lg transition-colors cursor-pointer"
+              className="bg-marca hover:bg-marca-hover text-white text-xs font-bold px-3.5 py-2 rounded-lg transition-colors cursor-pointer"
             >
               Ir a Tienda
             </button>
@@ -192,7 +192,7 @@ export const PaintCalculatorPage: React.FC<PaintCalculatorPageProps> = ({ onNavi
               onClick={() => setCalcMode('quick')}
               className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
                 calcMode === 'quick'
-                  ? 'bg-[#004F9F] text-white shadow-xs'
+                  ? 'bg-marca text-white shadow-xs'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
@@ -202,7 +202,7 @@ export const PaintCalculatorPage: React.FC<PaintCalculatorPageProps> = ({ onNavi
               onClick={() => setCalcMode('detailed')}
               className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
                 calcMode === 'detailed'
-                  ? 'bg-[#004F9F] text-white shadow-xs'
+                  ? 'bg-marca text-white shadow-xs'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
@@ -216,7 +216,7 @@ export const PaintCalculatorPage: React.FC<PaintCalculatorPageProps> = ({ onNavi
               <div className="space-y-3">
                 <div className="flex justify-between items-center text-xs font-bold text-slate-800">
                   <span>Área Total a Pintar:</span>
-                  <span className="text-base font-extrabold text-[#004F9F]">{areaM2} m²</span>
+                  <span className="text-base font-extrabold text-marca">{areaM2} m²</span>
                 </div>
                 <input
                   type="range"
@@ -225,7 +225,7 @@ export const PaintCalculatorPage: React.FC<PaintCalculatorPageProps> = ({ onNavi
                   step="5"
                   value={areaM2}
                   onChange={(e) => setAreaM2(Number(e.target.value))}
-                  className="w-full accent-[#004F9F] cursor-pointer"
+                  className="w-full accent-marca cursor-pointer"
                 />
                 <div className="flex items-center gap-2">
                   <span className="text-xs text-slate-500 font-medium">O escribe el metraje:</span>
@@ -299,7 +299,7 @@ export const PaintCalculatorPage: React.FC<PaintCalculatorPageProps> = ({ onNavi
                 </div>
                 <div className="flex flex-col justify-end">
                   <span className="text-[10px] text-slate-400 font-bold uppercase">Área Neta:</span>
-                  <span className="text-base font-extrabold text-[#004F9F]">{calculatedArea} m²</span>
+                  <span className="text-base font-extrabold text-marca">{calculatedArea} m²</span>
                 </div>
               </div>
             )}
@@ -316,7 +316,7 @@ export const PaintCalculatorPage: React.FC<PaintCalculatorPageProps> = ({ onNavi
                     onClick={() => { setSelectedProductId(p.id); setFaltaColor(false); }}
                     className={`p-2.5 rounded-xl border text-left flex items-center justify-between text-xs transition-all cursor-pointer ${
                       selectedProductId === p.id
-                        ? 'border-[#004F9F] bg-blue-50/80 font-bold text-[#004F9F] ring-1 ring-blue-600'
+                        ? 'border-marca bg-blue-50/80 font-bold text-marca ring-1 ring-blue-600'
                         : 'border-slate-200 hover:bg-slate-50 text-slate-700'
                     }`}
                   >
@@ -343,7 +343,7 @@ export const PaintCalculatorPage: React.FC<PaintCalculatorPageProps> = ({ onNavi
                   onClick={() => setSurfaceType('sellada')}
                   className={`p-2.5 rounded-xl border text-center text-xs font-bold transition-all cursor-pointer ${
                     surfaceType === 'sellada'
-                      ? 'border-[#004F9F] bg-blue-50 text-[#004F9F] ring-1 ring-blue-600'
+                      ? 'border-marca bg-blue-50 text-marca ring-1 ring-blue-600'
                       : 'border-slate-200 text-slate-600 hover:bg-slate-50'
                   }`}
                 >
@@ -354,7 +354,7 @@ export const PaintCalculatorPage: React.FC<PaintCalculatorPageProps> = ({ onNavi
                   onClick={() => setSurfaceType('nueva')}
                   className={`p-2.5 rounded-xl border text-center text-xs font-bold transition-all cursor-pointer ${
                     surfaceType === 'nueva'
-                      ? 'border-[#004F9F] bg-blue-50 text-[#004F9F] ring-1 ring-blue-600'
+                      ? 'border-marca bg-blue-50 text-marca ring-1 ring-blue-600'
                       : 'border-slate-200 text-slate-600 hover:bg-slate-50'
                   }`}
                 >
@@ -365,7 +365,7 @@ export const PaintCalculatorPage: React.FC<PaintCalculatorPageProps> = ({ onNavi
                   onClick={() => setSurfaceType('porosa')}
                   className={`p-2.5 rounded-xl border text-center text-xs font-bold transition-all cursor-pointer ${
                     surfaceType === 'porosa'
-                      ? 'border-[#004F9F] bg-blue-50 text-[#004F9F] ring-1 ring-blue-600'
+                      ? 'border-marca bg-blue-50 text-marca ring-1 ring-blue-600'
                       : 'border-slate-200 text-slate-600 hover:bg-slate-50'
                   }`}
                 >
@@ -387,7 +387,7 @@ export const PaintCalculatorPage: React.FC<PaintCalculatorPageProps> = ({ onNavi
                     onClick={() => setCoats(c)}
                     className={`w-8 h-8 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                       coats === c
-                        ? 'bg-[#004F9F] text-white shadow-2xs'
+                        ? 'bg-marca text-white shadow-2xs'
                         : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
                     }`}
                   >
@@ -403,7 +403,7 @@ export const PaintCalculatorPage: React.FC<PaintCalculatorPageProps> = ({ onNavi
         <div className="lg:col-span-5 space-y-4">
           <div className="bg-slate-900 text-white rounded-2xl p-6 shadow-lg border border-slate-800 space-y-6">
             <div className="space-y-1">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-yellow-400">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-acento">
                 Resultado Técnico de Rendimiento
               </span>
               <h3 className="text-xl font-extrabold">
@@ -424,13 +424,13 @@ export const PaintCalculatorPage: React.FC<PaintCalculatorPageProps> = ({ onNavi
                 {cuñetes5Gal > 0 && (
                   <div className="flex justify-between items-center p-2 bg-slate-700/50 rounded-lg">
                     <span className="font-semibold">{cuñetes5Gal} x Cuñete (5 Galones)</span>
-                    <strong className="text-yellow-300">{formatCOP(cuñetes5Gal * cuñetePrice)}</strong>
+                    <strong className="text-acento-claro">{formatCOP(cuñetes5Gal * cuñetePrice)}</strong>
                   </div>
                 )}
                 {remainingGals > 0 && (
                   <div className="flex justify-between items-center p-2 bg-slate-700/50 rounded-lg">
                     <span className="font-semibold">{remainingGals} x Galón (1 Galón)</span>
-                    <strong className="text-yellow-300">{formatCOP(remainingGals * galonPrice)}</strong>
+                    <strong className="text-acento-claro">{formatCOP(remainingGals * galonPrice)}</strong>
                   </div>
                 )}
               </div>
@@ -479,7 +479,7 @@ export const PaintCalculatorPage: React.FC<PaintCalculatorPageProps> = ({ onNavi
               <Button
                 onClick={handleAddToCart}
                 variant="primary"
-                className="w-full bg-yellow-400 hover:bg-yellow-300 text-slate-950 text-xs font-extrabold py-3 shadow-md flex items-center justify-center gap-2 cursor-pointer"
+                className="w-full bg-acento hover:bg-acento-claro text-slate-950 text-xs font-extrabold py-3 shadow-md flex items-center justify-center gap-2 cursor-pointer"
               >
                 <ShoppingCart className="w-4 h-4" />
                 <span>Agregar Materiales al Carrito</span>

@@ -218,7 +218,7 @@ export const Asistente: React.FC<{
             <span
               aria-hidden
               className="asistente-onda pointer-events-none absolute inset-0 rounded-full
-                         bg-[#004F9F]"
+                         bg-marca"
             />
 
             <button
@@ -226,7 +226,7 @@ export const Asistente: React.FC<{
               aria-label={`Abrir a ${NOMBRE}, el asistente`}
               className="relative w-14 h-14 rounded-full text-white overflow-hidden
                          flex items-center justify-center cursor-pointer
-                         bg-linear-to-br from-[#0A5FBF] via-[#004F9F] to-[#002D5C]
+                         bg-linear-to-br from-marca-claro via-marca to-marca-oscuro
                          ring-2 ring-white/25
                          hover:scale-110 active:scale-95
                          transition-[transform,box-shadow] duration-200"
@@ -250,8 +250,8 @@ export const Asistente: React.FC<{
               {/* Punto de marca. */}
               <span
                 aria-hidden
-                className="absolute top-1 right-1 w-2.5 h-2.5 rounded-full bg-yellow-400
-                           ring-2 ring-[#004F9F]"
+                className="absolute top-1 right-1 w-2.5 h-2.5 rounded-full bg-acento
+                           ring-2 ring-marca"
               />
             </button>
           </div>
@@ -262,7 +262,7 @@ export const Asistente: React.FC<{
         <div className="fixed bottom-6 right-6 z-[60] w-[min(24rem,calc(100vw-3rem))]
                         h-[min(32rem,calc(100vh-6rem))] bg-white rounded-2xl shadow-2xl
                         border border-slate-200 flex flex-col overflow-hidden">
-          <div className="px-4 py-3 bg-[#004F9F] text-white flex items-center justify-between gap-2">
+          <div className="px-4 py-3 bg-marca text-white flex items-center justify-between gap-2">
             <div className="flex items-center gap-2.5 min-w-0">
               {hilo ? (
                 <button
@@ -355,11 +355,11 @@ export const Asistente: React.FC<{
                   return (
                     <div key={m.id} className={mio ? 'flex justify-end' : ''}>
                       <div className={`max-w-[88%] rounded-2xl px-3.5 py-2.5 ${
-                        mio ? 'bg-[#004F9F] text-white rounded-br-sm'
+                        mio ? 'bg-marca text-white rounded-br-sm'
                             : 'bg-slate-100 text-slate-800 rounded-bl-sm'
                       }`}>
                         {!mio && (
-                          <p className="text-[10px] font-extrabold uppercase tracking-wider text-[#004F9F] mb-0.5">
+                          <p className="text-[10px] font-extrabold uppercase tracking-wider text-marca mb-0.5">
                             {m.autor ?? 'Pintuco'}
                           </p>
                         )}
@@ -383,7 +383,7 @@ export const Asistente: React.FC<{
               <div key={m.id} className={m.autor === 'CLIENTE' ? 'flex justify-end' : ''}>
                 <div className={`max-w-[88%] rounded-2xl px-3.5 py-2.5 ${
                   m.autor === 'CLIENTE'
-                    ? 'bg-[#004F9F] text-white rounded-br-sm'
+                    ? 'bg-marca text-white rounded-br-sm'
                     : 'bg-slate-100 text-slate-800 rounded-bl-sm'
                 }`}>
                   <p className="text-sm whitespace-pre-wrap leading-relaxed">{m.texto}</p>
@@ -416,7 +416,7 @@ export const Asistente: React.FC<{
                     key={a.etiqueta}
                     onClick={() => void hacer(a)}
                     disabled={a.escalarA !== undefined && escalado === a.escalarA}
-                    className="px-3 py-1.5 rounded-full border border-[#004F9F]/30 text-[#004F9F]
+                    className="px-3 py-1.5 rounded-full border border-marca/30 text-marca
                                text-xs font-bold hover:bg-blue-50 transition-colors cursor-pointer
                                disabled:opacity-40 disabled:cursor-not-allowed
                                inline-flex items-center gap-1.5"
@@ -448,7 +448,7 @@ export const Asistente: React.FC<{
               </p>
               <button
                 onClick={() => { setHilo(null); setDelHilo([]); }}
-                className="w-full py-2 rounded-xl border border-[#004F9F]/30 text-[#004F9F]
+                className="w-full py-2 rounded-xl border border-marca/30 text-marca
                            text-xs font-bold hover:bg-blue-50 transition-colors cursor-pointer"
               >
                 Volver a {NOMBRE}
@@ -464,14 +464,14 @@ export const Asistente: React.FC<{
                 onChange={(e) => setTexto(e.target.value)}
                 placeholder={hilo ? 'Escríbele al equipo…' : `Escríbele a ${NOMBRE}…`}
                 className="flex-1 rounded-xl border border-slate-200 px-3 py-2 text-sm
-                           focus:outline-none focus:border-[#004F9F] focus:ring-2 focus:ring-[#004F9F]/20"
+                           focus:outline-none focus:border-marca focus:ring-2 focus:ring-marca/20"
               />
               <button
                 type="submit"
                 disabled={!texto.trim() || pensando}
                 aria-label="Enviar"
-                className="shrink-0 w-9 h-9 rounded-xl bg-[#004F9F] text-white flex items-center
-                           justify-center hover:bg-[#003B77] transition-colors cursor-pointer
+                className="shrink-0 w-9 h-9 rounded-xl bg-marca text-white flex items-center
+                           justify-center hover:bg-marca-hover transition-colors cursor-pointer
                            disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 <Send className="w-4 h-4" />
@@ -521,7 +521,7 @@ const SelectorDePedidos: React.FC<{
             className={`flex-1 px-2 py-1.5 rounded-lg text-[11px] font-bold transition-colors
                         cursor-pointer disabled:opacity-35 disabled:cursor-not-allowed ${
               filtro === clave
-                ? 'bg-white text-[#004F9F] shadow-2xs border border-slate-200'
+                ? 'bg-white text-marca shadow-2xs border border-slate-200'
                 : 'text-slate-500 hover:text-slate-700'
             }`}
           >
@@ -541,7 +541,7 @@ const SelectorDePedidos: React.FC<{
           }}
           className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs
                      font-semibold text-slate-700 cursor-pointer
-                     focus:outline-none focus:border-[#004F9F] focus:ring-2 focus:ring-[#004F9F]/20"
+                     focus:outline-none focus:border-marca focus:ring-2 focus:ring-marca/20"
         >
           <option value="">Elige un pedido…</option>
           {visibles.map((o) => (

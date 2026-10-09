@@ -28,10 +28,10 @@ export const IconoModulo: React.FC<{ nombre: string; className?: string }> = ({
   return (
     <span
       aria-hidden
-      className={`shrink-0 w-9 h-9 rounded-xl bg-[#004F9F]/10 border border-[#004F9F]/15
+      className={`shrink-0 w-9 h-9 rounded-xl bg-marca/10 border border-marca/15
                   flex items-center justify-center ${className}`}
     >
-      <Icono className="w-[1.15rem] h-[1.15rem] text-[#004F9F]" />
+      <Icono className="w-[1.15rem] h-[1.15rem] text-marca" />
     </span>
   );
 };
